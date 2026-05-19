@@ -1,0 +1,128 @@
+"""Portfolio Risk view - combined risk summary from IBKR + EDGAR data."""
+
+from textual.app import ComposeResult
+from textual.widgets import Static
+from textual.containers import VerticalScroll
+
+
+class PortfolioRiskView(VerticalScroll):
+    DEFAULT_CSS = """
+    PortfolioRiskView {
+        padding: 1 2;
+    }
+    """
+
+    def compose(self) -> ComposeResult:
+        yield Static("Portfolio Risk — Connect IBKR to view", id="prisk-content")
+
+    def load_data(self) -> None:
+        self.run_worker(self._load(), exclusive=True)
+
+    async def _load(self) -> None:
+        from etf_terminal.data.ibkr_service import get_ibkr_service
+        from etf_terminal.data.edgar_service import get_holdings_df
+        from etf_terminal.domain.portfolio_analytics import calculate_lookthrough, calculate_portfolio_exposure
+        from etf_terminal.db.database import load_settings
+
+        svc = get_ibkr_service()
+        content = self.query_one("#prisk-content", Static)
+
+        if not svc.is_connected or not svc.account_summary:
+            content.update("Portfolio Risk — IBKR not connected")
+            return
+
+        s = svc.account_summary
+        settings = load_settings()
+        leverage = s.gross_position_value / s.net_liquidation if s.net_liquidation else 0
+        cushion_pct = s.cushion * 100 if s.cushion < 1 else s.cushion
+
+        # Leverage risk
+        if leverage > 2.0:
+            leverage_risk = "High"
+        elif leverage > 1.5:
+            leverage_risk = "Medium"
+        else:
+            leverage_risk = "Low"
+
+        # Margin risk
+        if cushion_pct < 10:
+            margin_risk = "High"
+        elif cushion_pct < 20:
+            margin_risk = "Medium"
+        else:
+            margin_risk = "Low"
+
+        # Lookthrough-based risks
+        equity_pct = 0.0
+        top10_pct = 0.0
+        overlap_risk = "Unknown"
+        data_freshness = "Unknown"
+
+        if svc.positions:
+            total_value = sum(abs(p.market_value) for p in svc.positions)
+            if total_value > 0:
+                positions = [
+                    {"symbol": p.symbol, "weight": abs(p.market_value) / total_value * 100}
+                    for p in svc.positions
+                ]
+
+                holdings_cache = {}
+                resolved_count = 0
+                for pos in positions:
+                    df = get_holdings_df(pos["symbol"])
+                    holdings_cache[pos["symbol"]] = df
+                    if df is not None and not df.empty:
+                        resolved_count += 1
+
+                lookthrough, unresolved = calculate_lookthrough(positions, holdings_cache)
+
+                # Equity exposure
+                for cat, wt in calculate_portfolio_exposure(lookthrough, "asset_type"):
+                    if "EC" in cat or "Equity" in cat:
+                        equity_pct += wt
+
+                # Concentration
+                top10_pct = sum(h.total_weight for h in lookthrough[:10])
+
+                # Data freshness
+                total_pos = len(positions)
+                if resolved_count == total_pos:
+                    data_freshness = "Fresh"
+                elif resolved_count > total_pos * 0.5:
+                    data_freshness = "Mixed"
+                else:
+                    data_freshness = "Stale"
+
+        # Concentration risk
+        if top10_pct > 30:
+            conc_risk = "High"
+        elif top10_pct > 15:
+            conc_risk = "Medium"
+        else:
+            conc_risk = "Low"
+
+        lines = [
+            "[bold]Portfolio Risk Summary[/bold]",
+            "",
+            f"  Leverage Risk:         {leverage_risk} ({leverage:.2f}x)",
+            f"  Margin Risk:           {margin_risk} (cushion: {cushion_pct:.1f}%)",
+            f"  Equity Exposure:       {equity_pct:.1f}%",
+            f"  Concentration Risk:    {conc_risk} (top 10: {top10_pct:.2f}%)",
+            f"  Data Freshness:        {data_freshness}",
+            "",
+            "── Risk Drivers ──",
+        ]
+
+        if leverage_risk != "Low":
+            lines.append(f"  • Leverage at {leverage:.2f}x increases margin call risk")
+        if margin_risk != "Low":
+            lines.append(f"  • Cushion at {cushion_pct:.1f}% — limited buffer")
+        if equity_pct > 80:
+            lines.append(f"  • High equity concentration ({equity_pct:.0f}%)")
+        if data_freshness == "Stale":
+            lines.append("  • Holdings data may be outdated")
+        if not any(r != "Low" for r in [leverage_risk, margin_risk]):
+            lines.append("  • No significant risk drivers detected")
+
+        lines.append(f"\n  Source: IBKR account + EDGAR holdings data")
+        content.update("\n".join(lines))

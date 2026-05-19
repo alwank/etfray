@@ -1,0 +1,24 @@
+[project]
+name = "etf-terminal"
+version = "0.1.0"
+description = "ETF Portfolio Terminal - Research and portfolio analytics TUI"
+requires-python = ">=3.11"
+dependencies = [
+    "textual==1.0.0",
+    "edgartools>=5.31.0",
+    "ib_async>=2.0.0",
+    "pandas>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+]
+
+[project.scripts]
+etf-terminal = "etf_terminal.app:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

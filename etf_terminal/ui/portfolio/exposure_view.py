@@ -1,0 +1,72 @@
+"""Portfolio Exposure view - aggregated exposure across all positions."""
+
+from textual.app import ComposeResult
+from textual.containers import Horizontal
+from textual.widgets import Static, DataTable
+from textual.containers import VerticalScroll
+
+
+class PortfolioExposureView(VerticalScroll):
+    DEFAULT_CSS = """
+    PortfolioExposureView {
+        padding: 1 2;
+    }
+    PortfolioExposureView .exp-table {
+        height: 1fr;
+        width: 1fr;
+    }
+    """
+
+    def compose(self) -> ComposeResult:
+        yield Static("Portfolio Exposure — Connect IBKR to view", id="pexp-title")
+        with Horizontal():
+            yield DataTable(id="pexp-asset", classes="exp-table")
+            yield DataTable(id="pexp-country", classes="exp-table")
+
+    def on_mount(self) -> None:
+        self.query_one("#pexp-asset", DataTable).add_columns("Asset Type", "Weight %")
+        self.query_one("#pexp-country", DataTable).add_columns("Country", "Weight %")
+
+    def load_data(self) -> None:
+        self.run_worker(self._load(), exclusive=True)
+
+    async def _load(self) -> None:
+        from etf_terminal.data.ibkr_service import get_ibkr_service
+        from etf_terminal.data.edgar_service import get_holdings_df
+        from etf_terminal.domain.portfolio_analytics import calculate_lookthrough, calculate_portfolio_exposure
+
+        svc = get_ibkr_service()
+        title = self.query_one("#pexp-title", Static)
+
+        if not svc.is_connected or not svc.positions:
+            title.update("Portfolio Exposure — IBKR not connected")
+            return
+
+        total_value = sum(abs(p.market_value) for p in svc.positions)
+        if total_value == 0:
+            return
+
+        positions = [
+            {"symbol": p.symbol, "weight": abs(p.market_value) / total_value * 100}
+            for p in svc.positions
+        ]
+
+        holdings_cache = {}
+        for pos in positions:
+            holdings_cache[pos["symbol"]] = get_holdings_df(pos["symbol"])
+
+        lookthrough, _ = calculate_lookthrough(positions, holdings_cache)
+
+        title.update("Portfolio Exposure")
+
+        # Asset type
+        asset_table = self.query_one("#pexp-asset", DataTable)
+        asset_table.clear()
+        for cat, wt in calculate_portfolio_exposure(lookthrough, "asset_type"):
+            asset_table.add_row(cat or "Unclassified", f"{wt:.2f}%")
+
+        # Country
+        country_table = self.query_one("#pexp-country", DataTable)
+        country_table.clear()
+        for cat, wt in calculate_portfolio_exposure(lookthrough, "country"):
+            country_table.add_row(cat or "Unclassified", f"{wt:.2f}%")
