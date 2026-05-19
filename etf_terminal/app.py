@@ -15,8 +15,7 @@ from etf_terminal.ui.research.risk_view import RiskView
 from etf_terminal.ui.research.documents_view import DocumentsView
 from etf_terminal.ui.research.compare_view import CompareView
 from etf_terminal.ui.workspace.settings_view import SettingsView
-from etf_terminal.ui.workspace.watchlists_view import WatchlistsView
-from etf_terminal.ui.workspace.notes_view import NotesView
+
 from etf_terminal.ui.workspace.exports_view import ExportsView
 from etf_terminal.ui.portfolio.overview_view import PortfolioOverviewView
 from etf_terminal.ui.portfolio.positions_view import PositionsView
@@ -62,8 +61,7 @@ class Sidebar(Widget):
         portfolio.add_leaf("Risk", data="portfolio-risk")
 
         workspace = tree.root.add("Workspace", expand=True)
-        workspace.add_leaf("Watchlists", data="workspace-watchlists")
-        workspace.add_leaf("Notes", data="workspace-notes")
+
         workspace.add_leaf("Exports", data="workspace-exports")
         workspace.add_leaf("Settings", data="workspace-settings")
 
@@ -182,8 +180,7 @@ class ETFTerminalApp(App):
                 yield PortfolioConcentrationView(id="portfolio-concentration")
                 yield MarginView(id="portfolio-margin")
                 yield PortfolioRiskView(id="portfolio-risk")
-                yield WatchlistsView(id="workspace-watchlists")
-                yield NotesView(id="workspace-notes")
+
                 yield ExportsView(id="workspace-exports")
                 yield SettingsView(id="workspace-settings")
         yield StatusBar()

@@ -29,8 +29,7 @@ class ETFCommands(Provider):
             ("Portfolio Concentration", "portfolio-concentration"),
             ("Margin Dashboard", "portfolio-margin"),
             ("Portfolio Risk", "portfolio-risk"),
-            ("Watchlists", "workspace-watchlists"),
-            ("Notes", "workspace-notes"),
+
             ("Exports", "workspace-exports"),
             ("Settings", "workspace-settings"),
         ]
