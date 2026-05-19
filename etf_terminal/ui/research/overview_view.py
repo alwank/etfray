@@ -29,11 +29,12 @@ class OverviewView(VerticalScroll):
 
     async def _load(self, ticker: str) -> None:
         from etf_terminal.data.edgar_service import get_etf_report, get_holdings_df
+        from etf_terminal.data.source_resolver import get_freshness_comparison
 
         content = self.query_one("#overview-content", Static)
         content.update(f"Loading {ticker}...")
 
-        # Trigger holdings fetch (this will download issuer data if available)
+        # Pre-fetch holdings into cache
         get_holdings_df(ticker)
 
         report = get_etf_report(ticker)
@@ -62,38 +63,31 @@ class OverviewView(VerticalScroll):
             "── Source Provenance ──",
         ]
 
-        # Check if we have issuer daily data
         from etf_terminal.db.database import get_cached_holdings
-        from etf_terminal.data.issuer_holdings import is_issuer_supported
         cached = get_cached_holdings(ticker)
-        if cached and cached.get("source") == "issuer":
-            lines.append(f"  Source:          Issuer daily holdings")
-            lines.append(f"  As of:           {cached.get('as_of_date', 'unknown')}")
-            lines.append(f"  Freshness:       🟢 Fresh (daily)")
-        else:
-            lines.append(f"  Source:          N-PORT filing")
-            lines.append(f"  Period ended:    {report.reporting_period}")
-            lines.append(f"  Filed:           {report.filed_date}")
-
-        if is_issuer_supported(ticker) and not (cached and cached.get("source") == "issuer"):
-            lines.append(f"  Daily available: Yes (fetching...)")
+        lines.append(f"  Source:          N-PORT filing")
+        lines.append(f"  Period ended:    {report.reporting_period}")
+        lines.append(f"  Filed:           {report.filed_date}")
         lines.append(f"  CIK:            {report.cik}")
         lines.append(f"  Series ID:      {report.series_id}")
 
-        # Freshness indicator for N-PORT source
-        if not (cached and cached.get("source") == "issuer"):
-            from datetime import datetime, date
-            try:
-                as_of = datetime.fromisoformat(str(report.reporting_period)).date()
-                days = (date.today() - as_of).days
-                if days < 60:
-                    freshness = "🟢 Fresh"
-                elif days < 150:
-                    freshness = "🟡 Acceptable"
-                else:
-                    freshness = "🔴 Stale"
-                lines.insert(3, f"  Data Freshness:  {freshness} ({days} days old)")
-            except (ValueError, TypeError):
-                pass
+        # Freshness indicator
+        from datetime import datetime, date
+        try:
+            as_of = datetime.fromisoformat(str(report.reporting_period)).date()
+            days = (date.today() - as_of).days
+            if days < 60:
+                freshness = "🟢 Fresh"
+            elif days < 150:
+                freshness = "🟡 Acceptable"
+            else:
+                freshness = "🔴 Stale"
+            lines.insert(3, f"  Data Freshness:  {freshness} ({days} days old)")
+        except (ValueError, TypeError):
+            pass
+
+        badge = get_freshness_comparison(ticker)
+        if badge:
+            lines.append(f"\n  {badge}")
 
         content.update("\n".join(lines))

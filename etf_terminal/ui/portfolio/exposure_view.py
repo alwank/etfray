@@ -28,6 +28,9 @@ class PortfolioExposureView(VerticalScroll):
         self.query_one("#pexp-country", DataTable).add_columns("Country", "Weight %")
 
     def load_data(self) -> None:
+        self.query_one("#pexp-title", Static).update("Portfolio Exposure — Loading...")
+        self.query_one("#pexp-asset", DataTable).clear()
+        self.query_one("#pexp-country", DataTable).clear()
         self.run_worker(self._load(), exclusive=True)
 
     async def _load(self) -> None:

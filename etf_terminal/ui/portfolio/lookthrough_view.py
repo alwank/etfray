@@ -21,15 +21,17 @@ class LookthroughView(VerticalScroll):
 
     def on_mount(self) -> None:
         table = self.query_one("#lt-table", DataTable)
-        table.add_columns("Ticker", "Name", "Effective Wt %", "Source ETFs", "Country")
+        table.add_columns("Ticker", "Name", "Effective Wt %", "Country", "Source ETF")
         table.cursor_type = "row"
 
     def load_data(self) -> None:
+        self.query_one("#lt-title", Static).update("ETF Lookthrough — Loading...")
+        self.query_one("#lt-table", DataTable).clear()
         self.run_worker(self._load(), exclusive=True)
 
     async def _load(self) -> None:
         from etf_terminal.data.ibkr_service import get_ibkr_service
-        from etf_terminal.data.edgar_service import get_holdings_df
+        from etf_terminal.data.source_resolver import resolve_holdings
         from etf_terminal.domain.portfolio_analytics import calculate_lookthrough
 
         svc = get_ibkr_service()
@@ -52,10 +54,11 @@ class LookthroughView(VerticalScroll):
             for p in svc.positions
         ]
 
-        # Get holdings for each ETF
+        # Get holdings for each ETF using source resolver
+        preference = getattr(self.app, "_data_source", "auto")
         holdings_cache = {}
         for pos in positions:
-            df = get_holdings_df(pos["symbol"])
+            df, _ = resolve_holdings(pos["symbol"], preference)
             holdings_cache[pos["symbol"]] = df
 
         lookthrough, unresolved = calculate_lookthrough(positions, holdings_cache)
@@ -72,8 +75,8 @@ class LookthroughView(VerticalScroll):
                 h.ticker,
                 h.name,
                 f"{h.total_weight:.3f}%",
-                ", ".join(h.source_etfs),
                 h.country,
+                ", ".join(h.source_etfs),
             )
 
         # Show unresolved

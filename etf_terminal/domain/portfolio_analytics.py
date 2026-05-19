@@ -52,7 +52,7 @@ def calculate_lookthrough(
             continue
 
         for _, row in df.iterrows():
-            hticker = str(row.get("ticker", "") or "").upper()
+            hticker = str(row.get("ticker", "") or "").strip().upper()
             hname = str(row.get("name", "") or "")
             h_weight = (float(row[value_col]) / total * 100) if value_col == "value_usd" else float(row[value_col])
             effective = port_weight * h_weight / 100

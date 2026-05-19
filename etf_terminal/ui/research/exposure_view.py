@@ -37,10 +37,13 @@ class ExposureView(VerticalScroll):
 
     async def _load(self, ticker: str) -> None:
         from etf_terminal.data.edgar_service import get_holdings_df
+        from etf_terminal.data.source_resolver import get_freshness_comparison
         from etf_terminal.domain.etf_analytics import calculate_exposure
 
         title = self.query_one("#exposure-title", Static)
-        title.update(f"Exposure — {ticker}")
+        badge = get_freshness_comparison(ticker)
+        badge_str = f" │ {badge}" if badge else ""
+        title.update(f"Exposure — {ticker}{badge_str}")
 
         df = get_holdings_df(ticker)
         if df is None or df.empty:

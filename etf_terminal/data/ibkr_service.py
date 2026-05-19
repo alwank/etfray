@@ -37,7 +37,11 @@ class Position:
 
 
 class IBKRService:
-    """Service for connecting to IBKR TWS/Gateway via ib_async."""
+    """Service for connecting to IBKR TWS/Gateway via ib_async.
+
+    READ-ONLY: This service only fetches account data and positions.
+    No order placement or account modifications are permitted.
+    """
 
     def __init__(self):
         self._ib = None
@@ -58,16 +62,18 @@ class IBKRService:
         return self._positions
 
     def connect(self, host: str = "127.0.0.1", port: int = 7497, client_id: int = 1) -> bool:
-        """Connect to TWS/Gateway. Returns True on success."""
+        """Connect to TWS/Gateway (read-only). Returns True on success."""
+        self.disconnect()  # Clean up any stale connection
         try:
             from ib_async import IB
             self._ib = IB()
-            self._ib.connect(host, port, clientId=client_id)
+            self._ib.connect(host, port, clientId=client_id, readonly=True)
             self._connected = True
             self._refresh_data()
             return True
-        except Exception:
+        except Exception as e:
             self._connected = False
+            self._last_error = f"{type(e).__name__}: {e}"
             self._ib = None
             return False
 
@@ -89,59 +95,62 @@ class IBKRService:
         if not self._ib:
             return
 
-        # Account summary
-        try:
-            accounts = self._ib.managedAccounts()
-            account = accounts[0] if accounts else ""
-            summary_items = self._ib.accountSummary(account)
+        self._ib.sleep(2)
 
+        # Account summary from accountValues
+        try:
             s = AccountSummary(timestamp=datetime.now().isoformat())
-            for item in summary_items:
-                tag = item.tag
-                val = float(item.value) if item.value else 0.0
+            for av in self._ib.accountValues():
+                if av.currency not in ("USD", ""):
+                    continue
+                tag, val = av.tag, av.value
+                try:
+                    v = float(val)
+                except (ValueError, TypeError):
+                    continue
                 if tag == "NetLiquidation":
-                    s.net_liquidation = val
+                    s.net_liquidation = v
                 elif tag == "GrossPositionValue":
-                    s.gross_position_value = val
+                    s.gross_position_value = v
                 elif tag == "TotalCashValue":
-                    s.total_cash_value = val
+                    s.total_cash_value = v
                 elif tag == "BuyingPower":
-                    s.buying_power = val
+                    s.buying_power = v
                 elif tag == "InitMarginReq":
-                    s.init_margin_req = val
+                    s.init_margin_req = v
                 elif tag == "MaintMarginReq":
-                    s.maint_margin_req = val
+                    s.maint_margin_req = v
                 elif tag == "ExcessLiquidity":
-                    s.excess_liquidity = val
+                    s.excess_liquidity = v
                 elif tag == "Cushion":
-                    s.cushion = val
+                    s.cushion = v
                 elif tag == "SMA":
-                    s.sma = val
-                elif tag == "Leverage":
-                    s.leverage = val
+                    s.sma = v
+                elif tag == "Leverage-S":
+                    s.leverage = v
                 elif tag == "AvailableFunds":
-                    s.available_funds = val
+                    s.available_funds = v
             self._account_summary = s
         except Exception:
             pass
 
-        # Positions
+        # Positions from portfolio() - includes market price and PnL
         try:
-            raw_positions = self._ib.positions()
             self._positions = []
-            for p in raw_positions:
+            for p in self._ib.portfolio():
                 contract = p.contract
-                pos = Position(
+                self._positions.append(Position(
                     symbol=contract.symbol,
                     name=getattr(contract, "localSymbol", contract.symbol),
                     asset_type=contract.secType,
                     quantity=p.position,
-                    avg_cost=p.avgCost,
-                    market_value=p.position * p.avgCost,  # approximate
+                    avg_cost=p.averageCost,
+                    market_price=p.marketPrice,
+                    market_value=p.marketValue,
+                    unrealized_pnl=p.unrealizedPNL,
                     currency=contract.currency,
                     account=p.account,
-                )
-                self._positions.append(pos)
+                ))
         except Exception:
             pass
 

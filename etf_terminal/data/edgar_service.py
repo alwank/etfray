@@ -56,18 +56,35 @@ def search_etf(query: str) -> list[ETFSearchResult]:
     try:
         company = Company(query.upper())
         if company:
+            fund_name = company.name
+            issuer = company.name.split(" ")[0] if company.name else ""
+
+            # Resolve actual fund name for multi-fund trusts
+            try:
+                filings = company.get_filings(form="NPORT-P")
+                if filings and len(filings) > 0:
+                    head = filings.head(150)
+                    for f in head:
+                        r = f.obj()
+                        if hasattr(r, "matches_ticker") and r.matches_ticker(query.upper()):
+                            gi = r.general_info
+                            fund_name = gi.series_name or fund_name
+                            issuer = getattr(gi, "name", issuer) or issuer
+                            break
+            except Exception:
+                pass
+
             results.append(ETFSearchResult(
                 ticker=query.upper(),
-                fund_name=company.name,
-                issuer=company.name.split(" ")[0] if company.name else "",
+                fund_name=fund_name,
+                issuer=issuer.split(" ")[0] if issuer else "",
                 cik=str(company.cik),
             ))
-            # Cache it
             cache_etf(CachedETF(
                 ticker=query.upper(),
                 cik=str(company.cik),
-                fund_name=company.name,
-                issuer=company.name.split(" ")[0] if company.name else "",
+                fund_name=fund_name,
+                issuer=issuer.split(" ")[0] if issuer else "",
                 last_updated=datetime.now().isoformat(),
             ))
             return results
@@ -94,6 +111,37 @@ def search_etf(query: str) -> list[ETFSearchResult]:
     return results
 
 
+def _find_nport_for_ticker(ticker: str):
+    """Find the correct N-PORT filing for a ticker in a fund family trust."""
+    from edgar import Company
+
+    company = Company(ticker)
+    filings = company.get_filings(form="NPORT-P")
+    if not filings or len(filings) == 0:
+        return None, None
+
+    first_filing = filings[0]
+    report = first_filing.obj()
+
+    # Check if first filing matches this ticker
+    if hasattr(report, "matches_ticker") and report.matches_ticker(ticker):
+        return first_filing, report
+
+    # Single-fund trust (no ticker matching available) — use first filing
+    if not hasattr(report, "matches_ticker"):
+        return first_filing, report
+
+    # Fund family: iterate recent filings to find the matching ticker
+    head = filings.head(150)
+    for f in head:
+        r = f.obj()
+        if r.matches_ticker(ticker):
+            return f, r
+
+    # Fallback: return first filing
+    return first_filing, report
+
+
 def get_etf_report(ticker: str) -> ETFReport | None:
     """Get N-PORT report data for an ETF."""
     _ensure_identity()
@@ -101,12 +149,9 @@ def get_etf_report(ticker: str) -> ETFReport | None:
 
     try:
         company = Company(ticker.upper())
-        filings = company.get_filings(form="NPORT-P")
-        if not filings or len(filings) == 0:
+        filing, report = _find_nport_for_ticker(ticker.upper())
+        if not filing or not report:
             return None
-
-        filing = filings[0]
-        report = filing.obj()
 
         fund_name = ""
         issuer = ""
@@ -161,53 +206,32 @@ def get_etf_report(ticker: str) -> ETFReport | None:
 
 
 def get_holdings_df(ticker: str) -> pd.DataFrame | None:
-    """Get holdings DataFrame — prefers issuer daily data, falls back to N-PORT."""
+    """Get holdings DataFrame from cache or N-PORT filing."""
     _ensure_identity()
-    from datetime import date as date_cls
-
     ticker = ticker.upper()
-    today = date_cls.today().isoformat()
 
-    # 1. Check cache — if cached today from issuer, use it
-    cached = get_cached_holdings(ticker)
-    if cached and cached.get("source") == "issuer" and cached.get("as_of_date") == today:
-        try:
-            return pd.read_json(io.StringIO(cached["holdings_json"]))
-        except Exception:
-            pass
-
-    # 2. Try issuer daily download
-    from etf_terminal.data.issuer_holdings import get_issuer_holdings, is_issuer_supported
-
-    if is_issuer_supported(ticker):
-        df = get_issuer_holdings(ticker)
-        if df is not None and not df.empty:
-            cache_holdings(ticker, df.to_json(), today, today, source="issuer")
-            return df
-
-    # 3. Check cache — any cached data (even stale) before hitting EDGAR
+    # 1. Check cache
+    cached = get_cached_holdings(ticker, source="nport")
     if cached and cached.get("holdings_json"):
         try:
             return pd.read_json(io.StringIO(cached["holdings_json"]))
         except Exception:
             pass
 
-    # 4. Fall back to N-PORT via EDGAR
+    # 2. Fetch from N-PORT via EDGAR
     from edgar import Company
 
     try:
-        company = Company(ticker)
-        filings = company.get_filings(form="NPORT-P")
-        if not filings or len(filings) == 0:
+        filing, report = _find_nport_for_ticker(ticker)
+        if not filing or not report:
             return None
 
-        report = filings[0].obj()
         df = report.investment_data()
         if df is None or df.empty:
             return None
 
         as_of = str(getattr(report, "reporting_period", ""))
-        filed = str(getattr(filings[0], "filing_date", ""))
+        filed = str(getattr(filing, "filing_date", ""))
         cache_holdings(ticker, df.to_json(), as_of, filed, source="nport")
         return df
     except Exception:

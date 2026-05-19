@@ -22,6 +22,7 @@ class Settings:
     margin_warning_cushion: float = 0.15
     leverage_warning: float = 2.0
     export_dir: str = str(Path.home() / ".etf_terminal" / "exports")
+    data_source: str = "auto"  # "auto", "edgar", "zacks"
 
 
 @dataclass
@@ -68,12 +69,13 @@ def _init_tables(conn: sqlite3.Connection) -> None:
             last_updated TEXT
         );
         CREATE TABLE IF NOT EXISTS holdings_cache (
-            ticker TEXT PRIMARY KEY,
+            ticker TEXT NOT NULL,
             holdings_json TEXT,
             as_of_date TEXT,
             filed_date TEXT,
             source TEXT DEFAULT 'nport',
-            cached_at TEXT
+            cached_at TEXT,
+            PRIMARY KEY (ticker, source)
         );
         CREATE TABLE IF NOT EXISTS watchlists (
             name TEXT NOT NULL,
@@ -95,6 +97,27 @@ def _init_tables(conn: sqlite3.Connection) -> None:
         conn.execute("SELECT source FROM holdings_cache LIMIT 1")
     except sqlite3.OperationalError:
         conn.execute("ALTER TABLE holdings_cache ADD COLUMN source TEXT DEFAULT 'nport'")
+    # Migration: convert old single-key holdings_cache to composite key
+    try:
+        cur = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='holdings_cache'")
+        row = cur.fetchone()
+        if row and "PRIMARY KEY (ticker, source)" not in row[0]:
+            conn.executescript("""
+                ALTER TABLE holdings_cache RENAME TO holdings_cache_old;
+                CREATE TABLE holdings_cache (
+                    ticker TEXT NOT NULL,
+                    holdings_json TEXT,
+                    as_of_date TEXT,
+                    filed_date TEXT,
+                    source TEXT DEFAULT 'nport',
+                    cached_at TEXT,
+                    PRIMARY KEY (ticker, source)
+                );
+                INSERT OR IGNORE INTO holdings_cache SELECT ticker, holdings_json, as_of_date, filed_date, COALESCE(source,'nport'), cached_at FROM holdings_cache_old;
+                DROP TABLE holdings_cache_old;
+            """)
+    except Exception:
+        pass
 
 
 def load_settings() -> Settings:
@@ -149,9 +172,12 @@ def cache_holdings(ticker: str, holdings_json: str, as_of_date: str, filed_date:
     conn.close()
 
 
-def get_cached_holdings(ticker: str) -> dict | None:
+def get_cached_holdings(ticker: str, source: str | None = None) -> dict | None:
     conn = get_db()
-    row = conn.execute("SELECT * FROM holdings_cache WHERE ticker = ?", (ticker,)).fetchone()
+    if source:
+        row = conn.execute("SELECT * FROM holdings_cache WHERE ticker = ? AND source = ?", (ticker, source)).fetchone()
+    else:
+        row = conn.execute("SELECT * FROM holdings_cache WHERE ticker = ? ORDER BY cached_at DESC", (ticker,)).fetchone()
     conn.close()
     if row:
         return dict(row)

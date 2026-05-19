@@ -72,7 +72,7 @@ class CompareView(VerticalScroll):
             for t in tickers:
                 df = get_holdings_df(t)
                 if df is not None and "ticker" in df.columns:
-                    holdings_sets[t] = set(df["ticker"].dropna().str.upper())
+                    holdings_sets[t] = set(df["ticker"].dropna().astype(str).str.upper())
 
             if len(holdings_sets) >= 2:
                 first = tickers[0]
@@ -88,3 +88,18 @@ class CompareView(VerticalScroll):
                     else:
                         overlaps.append("N/A")
                 table.add_row(*([f"Overlap vs {first}"] + overlaps))
+
+        # Zacks 52wk weighted average return
+        from etf_terminal.data.zacks_service import get_holdings_from_zacks
+
+        def _avg_52wk(t: str) -> str:
+            zdf = get_holdings_from_zacks(t)
+            if zdf is None or zdf.empty or "week52_return" not in zdf.columns:
+                return "N/A"
+            total_w = zdf["pct_value"].sum()
+            if total_w == 0:
+                return "N/A"
+            avg = (zdf["pct_value"] * zdf["week52_return"]).sum() / total_w
+            return f"{avg:+.2f}%"
+
+        table.add_row(*row("Avg 52wk Ret", _avg_52wk))

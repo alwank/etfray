@@ -8,6 +8,7 @@ dependencies = [
     "edgartools>=5.31.0",
     "ib_async>=2.0.0",
     "pandas>=2.0.0",
+    "httpx>=0.27.0",
 ]
 
 [project.optional-dependencies]

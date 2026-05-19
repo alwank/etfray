@@ -20,6 +20,7 @@ class RiskView(VerticalScroll):
 
     async def _load(self, ticker: str) -> None:
         from etf_terminal.data.edgar_service import get_holdings_df
+        from etf_terminal.data.source_resolver import get_freshness_comparison
         from etf_terminal.domain.etf_analytics import calculate_concentration
 
         content = self.query_one("#risk-content", Static)
@@ -59,6 +60,9 @@ class RiskView(VerticalScroll):
         else:
             currency_risk = "Unknown"
 
+        badge = get_freshness_comparison(ticker)
+        badge_str = f"\n  {badge}" if badge else ""
+
         lines = [
             f"[bold]Risk Summary — {ticker}[/bold]",
             "",
@@ -73,4 +77,6 @@ class RiskView(VerticalScroll):
             "  Derived from N-PORT holdings data.",
             "  For full risk disclosures, see prospectus.",
         ]
+        if badge_str:
+            lines.append(badge_str)
         content.update("\n".join(lines))

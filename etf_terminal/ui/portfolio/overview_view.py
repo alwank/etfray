@@ -11,12 +11,19 @@ class PortfolioOverviewView(VerticalScroll):
     PortfolioOverviewView {
         padding: 1 2;
     }
+    PortfolioOverviewView #port-toolbar {
+        height: 3;
+        width: 100%;
+    }
+    PortfolioOverviewView Button {
+        min-width: 16;
+        margin: 0 1;
+    }
     """
 
     def compose(self) -> ComposeResult:
-        with Horizontal():
-            yield Static("[bold]Portfolio Overview[/bold]", id="port-title")
-            yield Button("Connect IBKR", id="btn-connect")
+        with Horizontal(id="port-toolbar"):
+            yield Button("Connect IBKR", id="btn-connect", variant="primary")
             yield Button("Refresh", id="btn-refresh")
         yield Static("IBKR not connected. Configure in Settings and connect.", id="port-content")
 
@@ -25,24 +32,35 @@ class PortfolioOverviewView(VerticalScroll):
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "btn-connect":
-            self.run_worker(self._connect(), exclusive=True)
+            self._do_connect_thread()
         elif event.button.id == "btn-refresh":
             self.run_worker(self._do_refresh(), exclusive=True)
 
-    async def _connect(self) -> None:
+    def _do_connect_thread(self) -> None:
+        import threading
         from etf_terminal.data.ibkr_service import get_ibkr_service
         from etf_terminal.db.database import load_settings
 
         s = load_settings()
         svc = get_ibkr_service()
-        ok = svc.connect(s.ibkr_host, s.ibkr_port, s.ibkr_client_id)
+
+        def _connect():
+            ok = svc.connect(s.ibkr_host, s.ibkr_port, s.ibkr_client_id)
+            self.app.call_from_thread(self._on_connected, ok, svc)
+
+        self.query_one("#port-content", Static).update("Connecting to IBKR...")
+        threading.Thread(target=_connect, daemon=True).start()
+
+    def _on_connected(self, ok: bool, svc) -> None:
         if ok:
             self.app._ibkr_connected = True
             self.app.query_one("StatusBar").refresh()
             self._refresh()
         else:
+            err = getattr(svc, '_last_error', 'Unknown error')
             self.query_one("#port-content", Static).update(
-                "Failed to connect to IBKR.\nEnsure TWS/Gateway is running and API is enabled."
+                f"Failed to connect to IBKR.\n{err}\n\n"
+                "Ensure TWS/Gateway is running and API is enabled."
             )
 
     async def _do_refresh(self) -> None:

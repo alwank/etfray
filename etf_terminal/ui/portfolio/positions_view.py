@@ -25,6 +25,9 @@ class PositionsView(VerticalScroll):
         table.cursor_type = "row"
         self._refresh()
 
+    def load_data(self) -> None:
+        self._refresh()
+
     def _refresh(self) -> None:
         from etf_terminal.data.ibkr_service import get_ibkr_service
 

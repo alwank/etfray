@@ -87,6 +87,7 @@ class StatusBar(Static):
         etf_str = f"ETF: {etf}" if etf else "No ETF selected"
         ibkr = getattr(app, "_ibkr_connected", False)
         ibkr_str = "IBKR: Connected" if ibkr else "IBKR: Disconnected"
+        source = getattr(app, "_data_source", "auto").capitalize()
 
         freshness = ""
         if etf:
@@ -95,21 +96,18 @@ class StatusBar(Static):
             if cached and cached.get("as_of_date"):
                 from datetime import datetime, date
                 try:
-                    source = cached.get("source", "nport")
                     as_of = datetime.fromisoformat(cached["as_of_date"]).date()
                     days = (date.today() - as_of).days
-                    if source == "issuer":
-                        freshness = f" | Holdings: Fresh (issuer, {cached['as_of_date'][:10]})"
-                    elif days < 60:
-                        freshness = f" | Holdings: Fresh ({cached['as_of_date'][:10]})"
+                    if days < 60:
+                        freshness = f" | Data: Fresh ({cached['as_of_date'][:10]})"
                     elif days < 150:
-                        freshness = f" | Holdings: Acceptable ({cached['as_of_date'][:10]})"
+                        freshness = f" | Data: Acceptable ({cached['as_of_date'][:10]})"
                     else:
-                        freshness = f" | Holdings: Stale ({cached['as_of_date'][:10]})"
+                        freshness = f" | Data: Stale ({cached['as_of_date'][:10]})"
                 except (ValueError, TypeError):
                     pass
 
-        return f"{ibkr_str} | EDGAR: Ready | {etf_str}{freshness}"
+        return f"{ibkr_str} | Source: {source} [s] | {etf_str}{freshness}"
 
 
 class ETFTerminalApp(App):
@@ -138,12 +136,18 @@ class ETFTerminalApp(App):
         Binding("r", "nav('research-risk')", "Risk"),
         Binding("d", "nav('research-documents')", "Documents"),
         Binding("escape", "nav('welcome')", "Back"),
+        Binding("ctrl+i", "connect_ibkr", "Connect IBKR"),
+        Binding("s", "cycle_source", "Source"),
     ]
 
     _current_etf: str | None = None
     _ibkr_connected: bool = False
+    _data_source: str = "auto"
 
     def compose(self) -> ComposeResult:
+        from etf_terminal.db.database import load_settings
+        self._data_source = load_settings().data_source or "auto"
+
         yield Header()
         with Horizontal(id="app-body"):
             yield Sidebar()
@@ -186,14 +190,28 @@ class ETFTerminalApp(App):
         if event.node.data:
             self.navigate_to(event.node.data)
 
+    def action_cycle_source(self) -> None:
+        cycle = {"auto": "edgar", "edgar": "zacks", "zacks": "auto"}
+        self._data_source = cycle[self._data_source]
+        from etf_terminal.db.database import load_settings, save_settings
+        s = load_settings()
+        s.data_source = self._data_source
+        save_settings(s)
+        self.query_one(StatusBar).refresh()
+        self.notify(f"Source: {self._data_source.capitalize()}")
+        # Reload current research view
+        switcher = self.query_one("#content", ContentSwitcher)
+        if self._current_etf and switcher.current and switcher.current.startswith("research-") and switcher.current != "research-search":
+            self._load_view(switcher.current)
+
     def navigate_to(self, view_id: str) -> None:
         switcher = self.query_one("#content", ContentSwitcher)
         if switcher.query(f"#{view_id}"):
             switcher.current = view_id
             if self._current_etf and view_id.startswith("research-") and view_id != "research-search":
-                self._load_view(view_id)
+                self.set_timer(0.1, lambda: self._load_view(view_id))
             if view_id.startswith("portfolio-") and view_id != "portfolio-overview":
-                self._load_portfolio_view(view_id)
+                self.set_timer(0.1, lambda: self._load_portfolio_view(view_id))
         else:
             self.notify(f"View '{view_id}' not yet implemented", severity="warning")
 
@@ -217,6 +235,7 @@ class ETFTerminalApp(App):
 
     def _load_portfolio_view(self, view_id: str) -> None:
         view_map = {
+            "portfolio-positions": PositionsView,
             "portfolio-lookthrough": LookthroughView,
             "portfolio-exposure": PortfolioExposureView,
             "portfolio-concentration": PortfolioConcentrationView,
@@ -235,6 +254,38 @@ class ETFTerminalApp(App):
 
     def action_nav(self, view_id: str) -> None:
         self.navigate_to(view_id)
+
+    def action_connect_ibkr(self) -> None:
+        from concurrent.futures import ThreadPoolExecutor
+        from etf_terminal.data.ibkr_service import get_ibkr_service
+        from etf_terminal.db.database import load_settings
+
+        s = load_settings()
+        svc = get_ibkr_service()
+
+        def _do_connect():
+            return svc.connect(s.ibkr_host, s.ibkr_port, s.ibkr_client_id)
+
+        import threading
+        def _connect_thread():
+            ok = _do_connect()
+            self.call_from_thread(self._on_ibkr_connected, ok, svc)
+
+        threading.Thread(target=_connect_thread, daemon=True).start()
+        self.notify("Connecting to IBKR...")
+
+    def _on_ibkr_connected(self, ok: bool, svc) -> None:
+        if ok:
+            self._ibkr_connected = True
+            self.query_one(StatusBar).refresh()
+            self.notify("IBKR connected successfully")
+            # Refresh portfolio view if visible
+            switcher = self.query_one("#content", ContentSwitcher)
+            if switcher.current == "portfolio-overview":
+                self.query_one("#portfolio-overview", PortfolioOverviewView)._refresh()
+        else:
+            err = getattr(svc, '_last_error', 'Unknown error')
+            self.notify(f"IBKR connection failed: {err}", severity="error")
 
 
 def main():
