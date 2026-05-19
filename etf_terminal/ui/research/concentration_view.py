@@ -1,7 +1,8 @@
-"""ETF Concentration view - top N weights, HHI, effective holdings."""
+"""ETF Concentration view - top N weights, HHI, effective holdings, group concentration."""
 
 from textual.app import ComposeResult
-from textual.widgets import Static
+from textual.containers import Horizontal
+from textual.widgets import Static, Button
 from textual.containers import VerticalScroll
 
 
@@ -10,12 +11,29 @@ class ConcentrationView(VerticalScroll):
     ConcentrationView {
         padding: 1 2;
     }
+    ConcentrationView Horizontal {
+        height: auto;
+    }
+    ConcentrationView #conc-content {
+        height: auto;
+    }
     """
 
+    _ticker: str = ""
+    _lines: list[str] = []
+
     def compose(self) -> ComposeResult:
-        yield Static("Concentration — Select an ETF first", id="conc-content")
+        with Horizontal():
+            yield Static("Concentration — Select an ETF first", id="conc-title")
+            yield Button("Export", id="export-conc", variant="success")
+        yield Static("", id="conc-content")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "export-conc":
+            self._export()
 
     def load_etf(self, ticker: str) -> None:
+        self._ticker = ticker
         content = self.query_one("#conc-content", Static)
         content.update("")
         content.loading = True
@@ -24,8 +42,11 @@ class ConcentrationView(VerticalScroll):
     async def _load(self, ticker: str) -> None:
         from asyncio import to_thread
         from etf_terminal.data.source_resolver import resolve_holdings
-        from etf_terminal.domain.etf_analytics import calculate_concentration
+        from etf_terminal.domain.etf_analytics import (
+            calculate_concentration, calculate_group_concentration, ASSET_CATEGORY_MAP,
+        )
 
+        title = self.query_one("#conc-title", Static)
         content = self.query_one("#conc-content", Static)
 
         preference = getattr(self.app, "_data_source", "auto")
@@ -33,36 +54,60 @@ class ConcentrationView(VerticalScroll):
 
         if df is None or df.empty:
             content.loading = False
-            content.update(f"Concentration — {ticker} (holdings unavailable)")
+            content.update("Holdings unavailable")
+            title.update(f"Concentration — {ticker}")
             return
 
         m = calculate_concentration(df)
-        hhi_label = "Low" if m.hhi < 0.01 else "Medium" if m.hhi < 0.05 else "High"
+        title.update(f"Concentration — {ticker} │ {source.upper()}")
 
         lines = [
-            f"[bold]Concentration — {ticker} │ {source.upper()}[/bold]",
-            "",
-            f"  Number of holdings:    {m.num_holdings:,}",
-            f"  Largest holding:       {m.largest_holding} ({m.top1_weight:.2f}%)",
-            f"  Top 5 holdings:        {m.top5_weight:.1f}%",
-            f"  Top 10 holdings:       {m.top10_weight:.1f}%",
-            f"  Top 25 holdings:       {m.top25_weight:.1f}%",
-            f"  Top 50 holdings:       {m.top50_weight:.1f}%",
-            "",
-            f"  Effective holdings:    {m.effective_n:.0f}",
-            f"  HHI:                   {m.hhi:.6f} ({hhi_label})",
-            f"  Verdict:               {m.verdict}",
+            f"[bold]Holdings Concentration[/bold]",
+            f"  Holdings:          {m.num_holdings:,}",
+            f"  Largest:           {m.largest_holding} ({m.top1_weight:.2f}%)",
+            f"  Top 5:             {m.top5_weight:.1f}%",
+            f"  Top 10:            {m.top10_weight:.1f}%",
+            f"  Top 25:            {m.top25_weight:.1f}%",
+            f"  Effective N:       {m.effective_n:.0f}",
+            f"  HHI:               {m.hhi:.6f}",
+            f"  Verdict:           {m.verdict}",
         ]
 
-        # Show top-5 with 52wk return when Zacks data available
-        if source == "zacks" and "week52_return" in df.columns:
-            top5 = df.sort_values("pct_value", ascending=False).head(5)
-            lines += ["", "── Top 5 — 52wk Returns ──"]
-            for _, row in top5.iterrows():
-                t = str(row.get("ticker", "") or "???")
-                w = float(row.get("pct_value", 0) or 0)
-                r = float(row.get("week52_return", 0) or 0)
-                lines.append(f"  {t:<8} {w:5.2f}%  │  52wk: {r:+.2f}%")
+        # Country concentration
+        gc = calculate_group_concentration(df, "investment_country")
+        if gc:
+            lines += [
+                "",
+                f"[bold]Country Concentration[/bold]  ({gc.num_groups} countries)",
+            ]
+            for name, wt in gc.entries:
+                lines.append(f"  {name:<20} {wt:.1f}%")
+            lines.append(f"  Top 1:  {gc.top1_weight:.1f}%  │  Top 3:  {gc.top3_weight:.1f}%  │  HHI: {gc.hhi:.4f}")
 
+        # Asset type concentration
+        ga = calculate_group_concentration(df, "asset_category")
+        if ga:
+            lines += [
+                "",
+                f"[bold]Asset Type Concentration[/bold]  ({ga.num_groups} types)",
+            ]
+            for name, wt in ga.entries:
+                label = ASSET_CATEGORY_MAP.get(name, name) if name else "Unclassified"
+                lines.append(f"  {label:<25} {wt:.1f}%")
+            lines.append(f"  Top 1:  {ga.top1_weight:.1f}%  │  HHI: {ga.hhi:.4f}")
+
+        self._lines = lines
         content.loading = False
         content.update("\n".join(lines))
+
+    def _export(self) -> None:
+        if not self._lines:
+            self.app.notify("No data to export", severity="warning")
+            return
+        import pandas as pd
+        from etf_terminal.data.export_service import export_dataframe_csv
+        from etf_terminal.db.database import load_settings
+        # Export as plain text rows
+        df = pd.DataFrame({"line": [l.strip() for l in self._lines if l.strip()]})
+        path = export_dataframe_csv(df, f"{self._ticker}_concentration", load_settings().export_dir)
+        self.app.notify(f"Exported to {path}")

@@ -47,68 +47,149 @@ def _ensure_identity() -> None:
 
 def search_etf(query: str) -> list[ETFSearchResult]:
     """Search for ETFs by ticker, name, or issuer."""
+    from etf_terminal.db.database import search_cached_etfs
+
     _ensure_identity()
-    from edgar import Company, find
+    from edgar import Company
 
     results: list[ETFSearchResult] = []
+    seen_tickers: set[str] = set()
 
-    # Try direct ticker lookup first
-    try:
-        company = Company(query.upper())
-        if company:
-            fund_name = company.name
-            issuer = company.name.split(" ")[0] if company.name else ""
+    # Try direct ticker lookup first (only if query looks like a ticker)
+    if len(query.split()) == 1 and query.upper().isalpha() and len(query) <= 5:
+        try:
+            company = Company(query.upper())
+            if company:
+                fund_name = company.name
+                issuer = company.name.split(" ")[0] if company.name else ""
 
-            # Resolve actual fund name for multi-fund trusts
-            try:
-                filings = company.get_filings(form="NPORT-P")
-                if filings and len(filings) > 0:
-                    head = filings.head(150)
-                    for f in head:
-                        r = f.obj()
-                        if hasattr(r, "matches_ticker") and r.matches_ticker(query.upper()):
-                            gi = r.general_info
-                            fund_name = gi.series_name or fund_name
-                            issuer = getattr(gi, "name", issuer) or issuer
-                            break
-            except Exception:
-                pass
+                try:
+                    filings = company.get_filings(form="NPORT-P")
+                    if filings and len(filings) > 0:
+                        head = filings.head(150)
+                        for f in head:
+                            r = f.obj()
+                            if hasattr(r, "matches_ticker") and r.matches_ticker(query.upper()):
+                                gi = r.general_info
+                                fund_name = gi.series_name or fund_name
+                                issuer = getattr(gi, "name", issuer) or issuer
+                                break
+                except Exception:
+                    pass
 
-            results.append(ETFSearchResult(
-                ticker=query.upper(),
-                fund_name=fund_name,
-                issuer=issuer.split(" ")[0] if issuer else "",
-                cik=str(company.cik),
-            ))
-            cache_etf(CachedETF(
-                ticker=query.upper(),
-                cik=str(company.cik),
-                fund_name=fund_name,
-                issuer=issuer.split(" ")[0] if issuer else "",
-                last_updated=datetime.now().isoformat(),
-            ))
-            return results
-    except Exception:
-        pass
-
-    # Fallback to text search
-    try:
-        matches = find(query)
-        if matches is not None:
-            for match in matches[:10]:
-                name = getattr(match, "name", "") or getattr(match, "company", "") or str(match)
-                cik = str(getattr(match, "cik", ""))
-                ticker_val = getattr(match, "ticker", "") or getattr(match, "tickers", [""])[0] if hasattr(match, "tickers") else ""
                 results.append(ETFSearchResult(
-                    ticker=ticker_val or query.upper(),
-                    fund_name=name,
-                    issuer=name.split(" ")[0] if name else "",
-                    cik=cik,
+                    ticker=query.upper(),
+                    fund_name=fund_name,
+                    issuer=issuer.split(" ")[0] if issuer else "",
+                    cik=str(company.cik),
                 ))
-    except Exception:
-        pass
+                seen_tickers.add(query.upper())
+                cache_etf(CachedETF(
+                    ticker=query.upper(),
+                    cik=str(company.cik),
+                    fund_name=fund_name,
+                    issuer=issuer.split(" ")[0] if issuer else "",
+                    last_updated=datetime.now().isoformat(),
+                ))
+                return results
+        except Exception:
+            pass
+
+    # Search local cache (fast, works for name/issuer)
+    cached = search_cached_etfs(query)
+    for c in cached:
+        if c.ticker not in seen_tickers:
+            results.append(ETFSearchResult(
+                ticker=c.ticker, fund_name=c.fund_name,
+                issuer=c.issuer, cik=c.cik,
+            ))
+            seen_tickers.add(c.ticker)
+
+    # Search SEC company_tickers.json for name/issuer matches
+    if len(results) < 10:
+        try:
+            matches = _search_sec_tickers(query)
+            for ticker, name, cik in matches:
+                if ticker not in seen_tickers:
+                    results.append(ETFSearchResult(
+                        ticker=ticker, fund_name=name,
+                        issuer=name.split(" ")[0] if name else "", cik=cik,
+                    ))
+                    seen_tickers.add(ticker)
+                    if len(results) >= 20:
+                        break
+        except Exception:
+            pass
 
     return results
+
+
+def _search_sec_tickers(query: str) -> list[tuple[str, str, str]]:
+    """Search SEC for fund tickers matching a name/issuer query.
+
+    Uses EDGAR company search to find trust CIKs, then cross-references
+    with company_tickers_mf.json to get individual fund tickers.
+    """
+    import httpx
+    import json
+    import re
+    import time
+    from pathlib import Path
+
+    cache_dir = Path.home() / ".etf_terminal" / "cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    headers = {"User-Agent": "etf.terminal@research.local"}
+
+    # Load mutual fund tickers (cached)
+    mf_path = cache_dir / "company_tickers_mf.json"
+    mf_data = None
+    if mf_path.exists() and (time.time() - mf_path.stat().st_mtime) < 7 * 86400:
+        mf_data = json.loads(mf_path.read_text())
+    else:
+        try:
+            r = httpx.get("https://www.sec.gov/files/company_tickers_mf.json", headers=headers, timeout=15)
+            if r.status_code == 200:
+                mf_data = r.json()
+                mf_path.write_text(r.text)
+        except Exception:
+            pass
+
+    if not mf_data or not mf_data.get("data"):
+        return []
+
+    # Search EDGAR company search for trust CIKs matching query
+    try:
+        r = httpx.get(
+            "https://www.sec.gov/cgi-bin/browse-edgar",
+            params={
+                "company": query, "CIK": "", "type": "NPORT-P",
+                "owner": "include", "count": "20", "action": "getcompany", "output": "atom",
+            },
+            headers=headers, timeout=10, follow_redirects=True,
+        )
+        if r.status_code != 200:
+            return []
+    except Exception:
+        return []
+
+    # Extract CIKs from response
+    ciks = {int(c) for c in re.findall(r"<cik>0*(\d+)</cik>", r.text)}
+    if not ciks:
+        return []
+
+    # Get fund tickers for these CIKs from MF data
+    matches: list[tuple[str, str, str]] = []
+    seen: set[str] = set()
+    for row in mf_data["data"]:
+        cik_val, series_id, class_id, ticker = row[0], row[1], row[2], row[3]
+        if cik_val in ciks and ticker and ticker not in seen:
+            # Use series_id as a proxy for fund name (best we have)
+            matches.append((ticker, f"{query.title()} Fund ({series_id})", str(cik_val)))
+            seen.add(ticker)
+            if len(matches) >= 20:
+                break
+
+    return matches
 
 
 def _find_nport_for_ticker(ticker: str):
@@ -255,5 +336,111 @@ def get_filings_list(ticker: str, form: str = "") -> list[dict]:
                 "description": getattr(f, "description", "") or "",
             })
         return results
+    except Exception:
+        return []
+
+
+@dataclass
+class RiskDisclosure:
+    title: str
+    summary: str
+    source_form: str
+    filed_date: str
+
+
+def get_risk_disclosures(ticker: str) -> list[RiskDisclosure]:
+    """Extract risk factor disclosures from the latest N-1A or 497 filing."""
+    _ensure_identity()
+    from edgar import Company
+    import re
+
+    try:
+        company = Company(ticker.upper())
+
+        # Try 497K first (summary prospectus), then 497, then N-1A
+        filing = None
+        for form in ("497K", "497", "N-1A"):
+            filings = company.get_filings(form=form)
+            if filings and len(filings) > 0:
+                filing = filings[0]
+                break
+
+        if not filing:
+            return []
+
+        filed_date = str(getattr(filing, "filing_date", ""))
+        form_type = getattr(filing, "form", "")
+
+        # Get filing text
+        text = ""
+        try:
+            text = filing.text()
+        except Exception:
+            try:
+                text = str(filing.obj()) if hasattr(filing, "obj") else ""
+            except Exception:
+                return []
+
+        if not text:
+            return []
+
+        # Extract risk sections - look for "Principal Risks" or "Risk" headers
+        risks: list[RiskDisclosure] = []
+        # Pattern: lines that look like risk factor titles
+        # Common patterns: "Market Risk", "Concentration Risk.", "• Market Risk"
+        lines = text.split("\n")
+        in_risk_section = False
+        current_title = ""
+        current_body: list[str] = []
+
+        for line in lines:
+            stripped = line.strip()
+            lower = stripped.lower()
+
+            # Detect start of risk section
+            if not in_risk_section:
+                if re.match(r"^(principal\s+risks?|risk\s+factors?|fund\s+risks?)", lower):
+                    in_risk_section = True
+                continue
+
+            # Detect end of risk section (next major heading)
+            if in_risk_section and re.match(r"^(performance|fees|expense|investment\s+objective|portfolio\s+manager)", lower):
+                if current_title:
+                    risks.append(RiskDisclosure(
+                        title=current_title,
+                        summary=" ".join(current_body)[:200],
+                        source_form=form_type,
+                        filed_date=filed_date,
+                    ))
+                break
+
+            # Detect risk sub-headings (short lines ending with Risk/Risk.)
+            if stripped and len(stripped) < 80 and re.search(r"risk\.?$", lower):
+                # Save previous
+                if current_title:
+                    risks.append(RiskDisclosure(
+                        title=current_title,
+                        summary=" ".join(current_body)[:200],
+                        source_form=form_type,
+                        filed_date=filed_date,
+                    ))
+                current_title = stripped.rstrip(".")
+                current_body = []
+            elif stripped and current_title:
+                current_body.append(stripped)
+
+            if len(risks) >= 15:
+                break
+
+        # Save last one
+        if current_title and len(risks) < 15:
+            risks.append(RiskDisclosure(
+                title=current_title,
+                summary=" ".join(current_body)[:200],
+                source_form=form_type,
+                filed_date=filed_date,
+            ))
+
+        return risks
     except Exception:
         return []

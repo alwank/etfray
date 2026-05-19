@@ -1,8 +1,8 @@
 """ETF Documents view - list SEC filings with user-friendly labels."""
 
 from textual.app import ComposeResult
-from textual.widgets import Static, DataTable
-from textual.containers import VerticalScroll
+from textual.widgets import Static, DataTable, Button
+from textual.containers import Horizontal, VerticalScroll
 
 FORM_LABELS = {
     "NPORT-P": "Holdings Report",
@@ -24,13 +24,21 @@ class DocumentsView(VerticalScroll):
     DocumentsView {
         padding: 1 2;
     }
+    DocumentsView Horizontal {
+        height: auto;
+    }
     DocumentsView DataTable {
-        height: 1fr;
+        height: auto;
     }
     """
 
+    _ticker: str = ""
+    _filings: list[dict] = []
+
     def compose(self) -> ComposeResult:
-        yield Static("Documents — Select an ETF first", id="docs-title")
+        with Horizontal():
+            yield Static("Documents — Select an ETF first", id="docs-title")
+            yield Button("Export", id="export-docs", variant="success")
         yield DataTable(id="docs-table")
 
     def on_mount(self) -> None:
@@ -39,8 +47,13 @@ class DocumentsView(VerticalScroll):
         table.cursor_type = "row"
 
     def load_etf(self, ticker: str) -> None:
+        self._ticker = ticker
         self.query_one("#docs-table", DataTable).loading = True
         self.run_worker(self._load(ticker), exclusive=True)
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "export-docs":
+            self._export()
 
     async def _load(self, ticker: str) -> None:
         from asyncio import to_thread
@@ -52,6 +65,7 @@ class DocumentsView(VerticalScroll):
         title.update(f"Documents — {ticker}")
 
         filings = await to_thread(get_filings_list, ticker)
+        self._filings = filings
         if not filings:
             title.update(f"Documents — {ticker} (no filings found)")
             table.loading = False
@@ -63,3 +77,14 @@ class DocumentsView(VerticalScroll):
             table.add_row(label, form, f["filing_date"], f["description"][:40])
 
         table.loading = False
+
+    def _export(self) -> None:
+        if not self._filings:
+            self.app.notify("No data to export", severity="warning")
+            return
+        import pandas as pd
+        from etf_terminal.data.export_service import export_dataframe_csv
+        from etf_terminal.db.database import load_settings
+        df = pd.DataFrame(self._filings)
+        path = export_dataframe_csv(df, f"{self._ticker}_documents", load_settings().export_dir)
+        self.app.notify(f"Exported to {path}")

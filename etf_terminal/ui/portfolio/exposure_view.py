@@ -11,8 +11,11 @@ class PortfolioExposureView(VerticalScroll):
     PortfolioExposureView {
         padding: 1 2;
     }
+    PortfolioExposureView Horizontal {
+        height: auto;
+    }
     PortfolioExposureView .exp-table {
-        height: 1fr;
+        height: auto;
         width: 1fr;
     }
     """

@@ -3,7 +3,6 @@
 from textual.app import ComposeResult
 from textual.widgets import Static, Input, DataTable
 from textual.containers import VerticalScroll
-from textual.worker import Worker, WorkerState
 
 
 class SearchView(VerticalScroll):
@@ -20,13 +19,13 @@ class SearchView(VerticalScroll):
     """
 
     def compose(self) -> ComposeResult:
-        yield Static("Search ETF / Fund / Issuer / CIK")
+        yield Static("Search ETF / Fund / Issuer")
         yield Input(placeholder="Enter ticker, fund name, or issuer...", id="search-input")
         yield DataTable(id="search-results")
 
     def on_mount(self) -> None:
         table = self.query_one("#search-results", DataTable)
-        table.add_columns("Ticker", "Fund Name", "Issuer", "CIK")
+        table.add_columns("Ticker", "Fund Name", "Issuer")
         table.cursor_type = "row"
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
@@ -47,10 +46,10 @@ class SearchView(VerticalScroll):
 
         results = await to_thread(search_etf, query)
         for r in results:
-            table.add_row(r.ticker, r.fund_name, r.issuer, r.cik, key=r.ticker)
+            table.add_row(r.ticker, r.fund_name[:40], r.issuer, key=r.ticker)
 
         if not results:
-            table.add_row("—", "No results found", "", "")
+            table.add_row("—", "No results found", "")
 
         table.loading = False
 

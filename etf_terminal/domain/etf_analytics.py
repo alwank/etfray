@@ -119,3 +119,95 @@ def calculate_concentration(df: pd.DataFrame) -> ConcentrationMetrics:
         effective_n=round(effective_n, 1),
         verdict=verdict,
     )
+
+
+@dataclass
+class GroupConcentration:
+    group_col: str
+    num_groups: int
+    top1_name: str
+    top1_weight: float
+    top3_weight: float
+    top5_weight: float
+    hhi: float
+    entries: list[tuple[str, float]]  # (name, weight%) top entries
+
+
+def calculate_group_concentration(df: pd.DataFrame, group_col: str) -> GroupConcentration | None:
+    """Calculate concentration metrics grouped by a column (country, asset_category)."""
+    if df.empty or group_col not in df.columns:
+        return None
+
+    value_col = "pct_value" if "pct_value" in df.columns else "value_usd"
+    total = float(df[value_col].sum())
+    if total == 0:
+        return None
+
+    grouped = df.groupby(group_col)[value_col].sum().sort_values(ascending=False)
+    if value_col == "value_usd":
+        grouped = grouped / total * 100
+
+    names = [str(n) if n else "Unclassified" for n in grouped.index]
+    weights = grouped.values.astype(float)
+    n = len(weights)
+
+    top1_w = float(weights[0]) if n >= 1 else 0
+    top3_w = float(weights[:3].sum()) if n >= 3 else float(weights.sum())
+    top5_w = float(weights[:5].sum()) if n >= 5 else float(weights.sum())
+
+    w_frac = weights / 100
+    hhi = float((w_frac ** 2).sum())
+
+    entries = [(names[i], round(float(weights[i]), 2)) for i in range(min(5, n))]
+
+    return GroupConcentration(
+        group_col=group_col,
+        num_groups=n,
+        top1_name=names[0] if names else "",
+        top1_weight=round(top1_w, 2),
+        top3_weight=round(top3_w, 2),
+        top5_weight=round(top5_w, 2),
+        hhi=round(hhi, 6),
+        entries=entries,
+    )
+
+
+def calculate_weight_overlap(df_a: pd.DataFrame, df_b: pd.DataFrame) -> float:
+    """Calculate weight-adjusted overlap: sum(min(w_a, w_b)) for shared tickers.
+
+    Returns overlap as a percentage (0-100).
+    """
+    if df_a.empty or df_b.empty:
+        return 0.0
+
+    if "ticker" not in df_a.columns or "ticker" not in df_b.columns:
+        return 0.0
+
+    value_col = "pct_value"
+
+    # Normalize weights to sum to 100
+    a = df_a[["ticker", value_col]].copy()
+    b = df_b[["ticker", value_col]].copy()
+    a["ticker"] = a["ticker"].astype(str).str.upper().str.strip()
+    b["ticker"] = b["ticker"].astype(str).str.upper().str.strip()
+    a = a[a["ticker"] != ""]
+    b = b[b["ticker"] != ""]
+
+    total_a = a[value_col].sum()
+    total_b = b[value_col].sum()
+    if total_a == 0 or total_b == 0:
+        return 0.0
+
+    a["w"] = a[value_col] / total_a * 100
+    b["w"] = b[value_col] / total_b * 100
+
+    # Group by ticker (sum duplicates)
+    a = a.groupby("ticker")["w"].sum()
+    b = b.groupby("ticker")["w"].sum()
+
+    shared = a.index.intersection(b.index)
+    if shared.empty:
+        return 0.0
+
+    overlap = sum(min(a[t], b[t]) for t in shared)
+    return round(float(overlap), 2)

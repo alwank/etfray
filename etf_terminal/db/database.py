@@ -260,3 +260,15 @@ def delete_note(note_id: int) -> None:
     conn.execute("DELETE FROM notes WHERE id = ?", (note_id,))
     conn.commit()
     conn.close()
+
+
+def search_cached_etfs(query: str) -> list[CachedETF]:
+    """Search local ETF cache by fund_name or issuer (case-insensitive LIKE)."""
+    conn = get_db()
+    q = f"%{query}%"
+    rows = conn.execute(
+        "SELECT * FROM etf_cache WHERE fund_name LIKE ? OR issuer LIKE ? OR ticker LIKE ? LIMIT 20",
+        (q, q, q),
+    ).fetchall()
+    conn.close()
+    return [CachedETF(**dict(r)) for r in rows]
