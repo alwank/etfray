@@ -24,7 +24,7 @@ class PortfolioRiskView(VerticalScroll):
     async def _load(self) -> None:
         from asyncio import to_thread
         from etf_terminal.data.ibkr_service import get_ibkr_service
-        from etf_terminal.data.edgar_service import get_holdings_df
+        from etf_terminal.data.source_resolver import resolve_holdings
         from etf_terminal.domain.portfolio_analytics import calculate_lookthrough, calculate_portfolio_exposure
         from etf_terminal.db.database import load_settings
 
@@ -74,9 +74,10 @@ class PortfolioRiskView(VerticalScroll):
                 holdings_cache = {}
                 resolved_count = 0
                 total = len(positions)
+                preference = getattr(self.app, "_data_source", "auto")
                 for i, pos in enumerate(positions):
                     content.update(f"Portfolio Risk — Loading {i + 1}/{total} ETFs...")
-                    df = await to_thread(get_holdings_df, pos["symbol"])
+                    df, _ = await to_thread(resolve_holdings, pos["symbol"], preference)
                     holdings_cache[pos["symbol"]] = df
                     if df is not None and not df.empty:
                         resolved_count += 1

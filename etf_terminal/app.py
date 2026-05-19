@@ -34,10 +34,16 @@ class Sidebar(Widget):
         border-right: solid $primary-background;
         padding: 1;
     }
+    Sidebar .sidebar-title {
+        text-style: bold;
+        padding-bottom: 1;
+    }
     """
 
     def compose(self) -> ComposeResult:
-        tree: Tree[str] = Tree("ETF Terminal", id="nav-tree")
+        yield Static("ETF Terminal", classes="sidebar-title")
+        tree: Tree[str] = Tree("", id="nav-tree")
+        tree.show_root = False
         tree.root.expand()
 
         research = tree.root.add("Research", expand=True)

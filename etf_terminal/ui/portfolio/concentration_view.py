@@ -24,7 +24,7 @@ class PortfolioConcentrationView(VerticalScroll):
     async def _load(self) -> None:
         from asyncio import to_thread
         from etf_terminal.data.ibkr_service import get_ibkr_service
-        from etf_terminal.data.edgar_service import get_holdings_df
+        from etf_terminal.data.source_resolver import resolve_holdings
         from etf_terminal.domain.portfolio_analytics import calculate_lookthrough
 
         svc = get_ibkr_service()
@@ -52,9 +52,11 @@ class PortfolioConcentrationView(VerticalScroll):
         # Lookthrough concentration
         holdings_cache = {}
         total = len(positions)
+        preference = getattr(self.app, "_data_source", "auto")
         for i, pos in enumerate(positions):
             content.update(f"Portfolio Concentration — Loading {i + 1}/{total} ETFs...")
-            holdings_cache[pos["symbol"]] = await to_thread(get_holdings_df, pos["symbol"])
+            df, _ = await to_thread(resolve_holdings, pos["symbol"], preference)
+            holdings_cache[pos["symbol"]] = df
 
         lookthrough, unresolved = calculate_lookthrough(positions, holdings_cache)
 

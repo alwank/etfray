@@ -61,7 +61,7 @@ def search_etf(query: str) -> list[ETFSearchResult]:
             company = Company(query.upper())
             if company:
                 fund_name = company.name
-                issuer = company.name.split(" ")[0] if company.name else ""
+                issuer = company.name or ""
 
                 try:
                     filings = company.get_filings(form="NPORT-P")
@@ -80,7 +80,7 @@ def search_etf(query: str) -> list[ETFSearchResult]:
                 results.append(ETFSearchResult(
                     ticker=query.upper(),
                     fund_name=fund_name,
-                    issuer=issuer.split(" ")[0] if issuer else "",
+                    issuer=issuer,
                     cik=str(company.cik),
                 ))
                 seen_tickers.add(query.upper())
@@ -88,7 +88,7 @@ def search_etf(query: str) -> list[ETFSearchResult]:
                     ticker=query.upper(),
                     cik=str(company.cik),
                     fund_name=fund_name,
-                    issuer=issuer.split(" ")[0] if issuer else "",
+                    issuer=issuer,
                     last_updated=datetime.now().isoformat(),
                 ))
                 return results
@@ -105,17 +105,21 @@ def search_etf(query: str) -> list[ETFSearchResult]:
             ))
             seen_tickers.add(c.ticker)
 
-    # Search SEC company_tickers.json for name/issuer matches
+    # Search SEC Series & Class CSV for name/issuer matches
     if len(results) < 10:
         try:
             matches = _search_sec_tickers(query)
-            for ticker, name, cik in matches:
+            for ticker, name, cik, issuer in matches:
                 if ticker not in seen_tickers:
                     results.append(ETFSearchResult(
                         ticker=ticker, fund_name=name,
-                        issuer=name.split(" ")[0] if name else "", cik=cik,
+                        issuer=issuer, cik=cik,
                     ))
                     seen_tickers.add(ticker)
+                    cache_etf(CachedETF(
+                        ticker=ticker, cik=cik, fund_name=name,
+                        issuer=issuer, last_updated=datetime.now().isoformat(),
+                    ))
                     if len(results) >= 20:
                         break
         except Exception:
@@ -124,67 +128,78 @@ def search_etf(query: str) -> list[ETFSearchResult]:
     return results
 
 
-def _search_sec_tickers(query: str) -> list[tuple[str, str, str]]:
-    """Search SEC for fund tickers matching a name/issuer query.
-
-    Uses EDGAR company search to find trust CIKs, then cross-references
-    with company_tickers_mf.json to get individual fund tickers.
-    """
+def _load_series_class_csv() -> list[dict] | None:
+    """Download and cache the SEC Investment Company Series & Class CSV."""
     import httpx
-    import json
-    import re
+    import csv
     import time
     from pathlib import Path
 
     cache_dir = Path.home() / ".etf_terminal" / "cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
+    csv_path = cache_dir / "sec_series_class.csv"
     headers = {"User-Agent": "etf.terminal@research.local"}
 
-    # Load mutual fund tickers (cached)
-    mf_path = cache_dir / "company_tickers_mf.json"
-    mf_data = None
-    if mf_path.exists() and (time.time() - mf_path.stat().st_mtime) < 7 * 86400:
-        mf_data = json.loads(mf_path.read_text())
-    else:
+    if not csv_path.exists() or (time.time() - csv_path.stat().st_mtime) > 7 * 86400:
         try:
-            r = httpx.get("https://www.sec.gov/files/company_tickers_mf.json", headers=headers, timeout=15)
+            r = httpx.get(
+                "https://www.sec.gov/files/investment/data/other/investment-company-series-class-information/investment-company-series-class-2025.csv",
+                headers=headers, timeout=30, follow_redirects=True,
+            )
             if r.status_code == 200:
-                mf_data = r.json()
-                mf_path.write_text(r.text)
+                csv_path.write_bytes(r.content)
+            else:
+                if not csv_path.exists():
+                    return None
         except Exception:
-            pass
+            if not csv_path.exists():
+                return None
 
-    if not mf_data or not mf_data.get("data"):
-        return []
-
-    # Search EDGAR company search for trust CIKs matching query
     try:
-        r = httpx.get(
-            "https://www.sec.gov/cgi-bin/browse-edgar",
-            params={
-                "company": query, "CIK": "", "type": "NPORT-P",
-                "owner": "include", "count": "20", "action": "getcompany", "output": "atom",
-            },
-            headers=headers, timeout=10, follow_redirects=True,
-        )
-        if r.status_code != 200:
-            return []
+        rows = []
+        with open(csv_path, "r", encoding="utf-8", errors="replace") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                ticker = (row.get("TICKER") or row.get("ticker") or "").strip()
+                if ticker:
+                    rows.append({
+                        "cik": (row.get("CIK") or row.get("cik") or "").strip(),
+                        "series_id": (row.get("SERIES_ID") or row.get("series_id") or "").strip(),
+                        "series_name": (row.get("SERIES_NAME") or row.get("series_name") or "").strip(),
+                        "class_name": (row.get("CLASS_NAME") or row.get("class_name") or "").strip(),
+                        "ticker": ticker,
+                        "registrant": (row.get("REGISTRANT_NAME") or row.get("registrant_name") or row.get("COMPANY_NAME") or row.get("company_name") or "").strip(),
+                    })
+        return rows
     except Exception:
+        return None
+
+
+def _search_sec_tickers(query: str) -> list[tuple[str, str, str, str]]:
+    """Search SEC Series & Class CSV for funds matching a name/issuer query.
+
+    Returns list of (ticker, fund_name, cik, issuer).
+    """
+    data = _load_series_class_csv()
+    if not data:
         return []
 
-    # Extract CIKs from response
-    ciks = {int(c) for c in re.findall(r"<cik>0*(\d+)</cik>", r.text)}
-    if not ciks:
-        return []
-
-    # Get fund tickers for these CIKs from MF data
-    matches: list[tuple[str, str, str]] = []
+    q = query.lower()
+    matches: list[tuple[str, str, str, str]] = []
     seen: set[str] = set()
-    for row in mf_data["data"]:
-        cik_val, series_id, class_id, ticker = row[0], row[1], row[2], row[3]
-        if cik_val in ciks and ticker and ticker not in seen:
-            # Use series_id as a proxy for fund name (best we have)
-            matches.append((ticker, f"{query.title()} Fund ({series_id})", str(cik_val)))
+
+    for row in data:
+        series_name = row["series_name"]
+        registrant = row["registrant"]
+        ticker = row["ticker"]
+
+        if ticker in seen:
+            continue
+
+        if q in series_name.lower() or q in registrant.lower():
+            fund_name = series_name or f"Fund ({row['series_id']})"
+            issuer = registrant
+            matches.append((ticker, fund_name, row["cik"], issuer))
             seen.add(ticker)
             if len(matches) >= 20:
                 break
