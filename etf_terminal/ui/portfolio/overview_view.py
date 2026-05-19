@@ -48,10 +48,14 @@ class PortfolioOverviewView(VerticalScroll):
             ok = svc.connect(s.ibkr_host, s.ibkr_port, s.ibkr_client_id)
             self.app.call_from_thread(self._on_connected, ok, svc)
 
-        self.query_one("#port-content", Static).update("Connecting to IBKR...")
+        content = self.query_one("#port-content", Static)
+        content.update("")
+        content.loading = True
         threading.Thread(target=_connect, daemon=True).start()
 
     def _on_connected(self, ok: bool, svc) -> None:
+        content = self.query_one("#port-content", Static)
+        content.loading = False
         if ok:
             self.app._ibkr_connected = True
             self.app.query_one("StatusBar").refresh()

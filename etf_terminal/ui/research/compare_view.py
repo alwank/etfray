@@ -31,9 +31,11 @@ class CompareView(VerticalScroll):
     def on_input_submitted(self, event: Input.Submitted) -> None:
         if event.input.id == "compare-input" and event.value.strip():
             tickers = event.value.strip().upper().split()[:5]
+            self.query_one("#compare-table", DataTable).loading = True
             self.run_worker(self._load(tickers), exclusive=True)
 
     async def _load(self, tickers: list[str]) -> None:
+        from asyncio import to_thread
         from etf_terminal.data.edgar_service import get_holdings_df, get_etf_report
         from etf_terminal.domain.etf_analytics import calculate_concentration
 
@@ -48,8 +50,8 @@ class CompareView(VerticalScroll):
         reports = {}
         concentrations = {}
         for t in tickers:
-            reports[t] = get_etf_report(t)
-            df = get_holdings_df(t)
+            reports[t] = await to_thread(get_etf_report, t)
+            df = await to_thread(get_holdings_df, t)
             if df is not None and not df.empty:
                 concentrations[t] = calculate_concentration(df)
 
@@ -70,7 +72,7 @@ class CompareView(VerticalScroll):
         if len(tickers) >= 2:
             holdings_sets = {}
             for t in tickers:
-                df = get_holdings_df(t)
+                df = await to_thread(get_holdings_df, t)
                 if df is not None and "ticker" in df.columns:
                     holdings_sets[t] = set(df["ticker"].dropna().astype(str).str.upper())
 
@@ -92,8 +94,8 @@ class CompareView(VerticalScroll):
         # Zacks 52wk weighted average return
         from etf_terminal.data.zacks_service import get_holdings_from_zacks
 
-        def _avg_52wk(t: str) -> str:
-            zdf = get_holdings_from_zacks(t)
+        async def _avg_52wk(t: str) -> str:
+            zdf = await to_thread(get_holdings_from_zacks, t)
             if zdf is None or zdf.empty or "week52_return" not in zdf.columns:
                 return "N/A"
             total_w = zdf["pct_value"].sum()
@@ -102,4 +104,7 @@ class CompareView(VerticalScroll):
             avg = (zdf["pct_value"] * zdf["week52_return"]).sum() / total_w
             return f"{avg:+.2f}%"
 
-        table.add_row(*row("Avg 52wk Ret", _avg_52wk))
+        avg_row = ["Avg 52wk Ret"] + [await _avg_52wk(t) for t in tickers]
+        table.add_row(*avg_row)
+
+        table.loading = False

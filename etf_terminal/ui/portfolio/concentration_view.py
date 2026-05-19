@@ -16,9 +16,13 @@ class PortfolioConcentrationView(VerticalScroll):
         yield Static("Portfolio Concentration — Connect IBKR to view", id="pconc-content")
 
     def load_data(self) -> None:
+        content = self.query_one("#pconc-content", Static)
+        content.update("")
+        content.loading = True
         self.run_worker(self._load(), exclusive=True)
 
     async def _load(self) -> None:
+        from asyncio import to_thread
         from etf_terminal.data.ibkr_service import get_ibkr_service
         from etf_terminal.data.edgar_service import get_holdings_df
         from etf_terminal.domain.portfolio_analytics import calculate_lookthrough
@@ -27,11 +31,13 @@ class PortfolioConcentrationView(VerticalScroll):
         content = self.query_one("#pconc-content", Static)
 
         if not svc.is_connected or not svc.positions:
+            content.loading = False
             content.update("Portfolio Concentration — IBKR not connected")
             return
 
         total_value = sum(abs(p.market_value) for p in svc.positions)
         if total_value == 0:
+            content.loading = False
             return
 
         positions = [
@@ -45,8 +51,10 @@ class PortfolioConcentrationView(VerticalScroll):
 
         # Lookthrough concentration
         holdings_cache = {}
-        for pos in positions:
-            holdings_cache[pos["symbol"]] = get_holdings_df(pos["symbol"])
+        total = len(positions)
+        for i, pos in enumerate(positions):
+            content.update(f"Portfolio Concentration — Loading {i + 1}/{total} ETFs...")
+            holdings_cache[pos["symbol"]] = await to_thread(get_holdings_df, pos["symbol"])
 
         lookthrough, unresolved = calculate_lookthrough(positions, holdings_cache)
 
@@ -94,4 +102,5 @@ class PortfolioConcentrationView(VerticalScroll):
             "",
             f"  Unresolved exposure:   {sum(u.portfolio_weight for u in unresolved):.1f}%",
         ]
+        content.loading = False
         content.update("\n".join(lines))

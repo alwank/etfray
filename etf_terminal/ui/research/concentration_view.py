@@ -16,19 +16,23 @@ class ConcentrationView(VerticalScroll):
         yield Static("Concentration — Select an ETF first", id="conc-content")
 
     def load_etf(self, ticker: str) -> None:
+        content = self.query_one("#conc-content", Static)
+        content.update("")
+        content.loading = True
         self.run_worker(self._load(ticker), exclusive=True)
 
     async def _load(self, ticker: str) -> None:
+        from asyncio import to_thread
         from etf_terminal.data.source_resolver import resolve_holdings
         from etf_terminal.domain.etf_analytics import calculate_concentration
 
         content = self.query_one("#conc-content", Static)
-        content.update(f"Loading concentration for {ticker}...")
 
         preference = getattr(self.app, "_data_source", "auto")
-        df, source = resolve_holdings(ticker, preference)
+        df, source = await to_thread(resolve_holdings, ticker, preference)
 
         if df is None or df.empty:
+            content.loading = False
             content.update(f"Concentration — {ticker} (holdings unavailable)")
             return
 
@@ -60,4 +64,5 @@ class ConcentrationView(VerticalScroll):
                 r = float(row.get("week52_return", 0) or 0)
                 lines.append(f"  {t:<8} {w:5.2f}%  │  52wk: {r:+.2f}%")
 
+        content.loading = False
         content.update("\n".join(lines))

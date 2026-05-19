@@ -16,19 +16,23 @@ class FeesView(VerticalScroll):
         yield Static("Fees — Select an ETF first", id="fees-content")
 
     def load_etf(self, ticker: str) -> None:
+        content = self.query_one("#fees-content", Static)
+        content.update("")
+        content.loading = True
         self.run_worker(self._load(ticker), exclusive=True)
 
     async def _load(self, ticker: str) -> None:
+        from asyncio import to_thread
         content = self.query_one("#fees-content", Static)
-        content.update(f"Loading fees for {ticker}...")
 
         # Fee data typically comes from prospectus (N-1A/497)
         # edgartools doesn't directly parse expense ratios from N-1A yet,
         # so we show what's available from N-PORT fund_info
         from etf_terminal.data.edgar_service import get_etf_report
 
-        report = get_etf_report(ticker)
+        report = await to_thread(get_etf_report, ticker)
         if not report:
+            content.loading = False
             content.update(f"Fees — {ticker} (data unavailable)")
             return
 
@@ -47,4 +51,5 @@ class FeesView(VerticalScroll):
             f"  Source: N-PORT filing, period {report.reporting_period}",
             "  For expense ratio, see latest N-1A or 497 filing.",
         ]
+        content.loading = False
         content.update("\n".join(lines))

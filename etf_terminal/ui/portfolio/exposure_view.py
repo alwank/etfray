@@ -29,11 +29,16 @@ class PortfolioExposureView(VerticalScroll):
 
     def load_data(self) -> None:
         self.query_one("#pexp-title", Static).update("Portfolio Exposure — Loading...")
-        self.query_one("#pexp-asset", DataTable).clear()
-        self.query_one("#pexp-country", DataTable).clear()
+        asset_table = self.query_one("#pexp-asset", DataTable)
+        country_table = self.query_one("#pexp-country", DataTable)
+        asset_table.clear()
+        country_table.clear()
+        asset_table.loading = True
+        country_table.loading = True
         self.run_worker(self._load(), exclusive=True)
 
     async def _load(self) -> None:
+        from asyncio import to_thread
         from etf_terminal.data.ibkr_service import get_ibkr_service
         from etf_terminal.data.edgar_service import get_holdings_df
         from etf_terminal.domain.portfolio_analytics import calculate_lookthrough, calculate_portfolio_exposure
@@ -43,10 +48,14 @@ class PortfolioExposureView(VerticalScroll):
 
         if not svc.is_connected or not svc.positions:
             title.update("Portfolio Exposure — IBKR not connected")
+            self.query_one("#pexp-asset", DataTable).loading = False
+            self.query_one("#pexp-country", DataTable).loading = False
             return
 
         total_value = sum(abs(p.market_value) for p in svc.positions)
         if total_value == 0:
+            self.query_one("#pexp-asset", DataTable).loading = False
+            self.query_one("#pexp-country", DataTable).loading = False
             return
 
         positions = [
@@ -55,8 +64,10 @@ class PortfolioExposureView(VerticalScroll):
         ]
 
         holdings_cache = {}
-        for pos in positions:
-            holdings_cache[pos["symbol"]] = get_holdings_df(pos["symbol"])
+        total = len(positions)
+        for i, pos in enumerate(positions):
+            title.update(f"Portfolio Exposure — Loading {i + 1}/{total} ETFs...")
+            holdings_cache[pos["symbol"]] = await to_thread(get_holdings_df, pos["symbol"])
 
         lookthrough, _ = calculate_lookthrough(positions, holdings_cache)
 
@@ -67,9 +78,11 @@ class PortfolioExposureView(VerticalScroll):
         asset_table.clear()
         for cat, wt in calculate_portfolio_exposure(lookthrough, "asset_type"):
             asset_table.add_row(cat or "Unclassified", f"{wt:.2f}%")
+        asset_table.loading = False
 
         # Country
         country_table = self.query_one("#pexp-country", DataTable)
         country_table.clear()
         for cat, wt in calculate_portfolio_exposure(lookthrough, "country"):
             country_table.add_row(cat or "Unclassified", f"{wt:.2f}%")
+        country_table.loading = False

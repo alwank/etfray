@@ -34,20 +34,25 @@ class SearchView(VerticalScroll):
             self._do_search(event.value.strip())
 
     def _do_search(self, query: str) -> None:
+        table = self.query_one("#search-results", DataTable)
+        table.loading = True
         self.run_worker(self._search_worker(query), name="search", exclusive=True)
 
     async def _search_worker(self, query: str) -> None:
+        from asyncio import to_thread
         from etf_terminal.data.edgar_service import search_etf
 
         table = self.query_one("#search-results", DataTable)
         table.clear()
 
-        results = search_etf(query)
+        results = await to_thread(search_etf, query)
         for r in results:
             table.add_row(r.ticker, r.fund_name, r.issuer, r.cik, key=r.ticker)
 
         if not results:
             table.add_row("—", "No results found", "", "")
+
+        table.loading = False
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         if event.row_key and str(event.row_key.value) != "—":

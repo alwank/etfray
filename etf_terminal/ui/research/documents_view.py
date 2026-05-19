@@ -39,9 +39,11 @@ class DocumentsView(VerticalScroll):
         table.cursor_type = "row"
 
     def load_etf(self, ticker: str) -> None:
+        self.query_one("#docs-table", DataTable).loading = True
         self.run_worker(self._load(ticker), exclusive=True)
 
     async def _load(self, ticker: str) -> None:
+        from asyncio import to_thread
         from etf_terminal.data.edgar_service import get_filings_list
 
         title = self.query_one("#docs-title", Static)
@@ -49,12 +51,15 @@ class DocumentsView(VerticalScroll):
         table.clear()
         title.update(f"Documents — {ticker}")
 
-        filings = get_filings_list(ticker)
+        filings = await to_thread(get_filings_list, ticker)
         if not filings:
             title.update(f"Documents — {ticker} (no filings found)")
+            table.loading = False
             return
 
         for f in filings:
             form = f["form"]
             label = FORM_LABELS.get(form, form)
             table.add_row(label, form, f["filing_date"], f["description"][:40])
+
+        table.loading = False

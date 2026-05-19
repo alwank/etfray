@@ -16,18 +16,22 @@ class RiskView(VerticalScroll):
         yield Static("Risk — Select an ETF first", id="risk-content")
 
     def load_etf(self, ticker: str) -> None:
+        content = self.query_one("#risk-content", Static)
+        content.update("")
+        content.loading = True
         self.run_worker(self._load(ticker), exclusive=True)
 
     async def _load(self, ticker: str) -> None:
+        from asyncio import to_thread
         from etf_terminal.data.edgar_service import get_holdings_df
         from etf_terminal.data.source_resolver import get_freshness_comparison
         from etf_terminal.domain.etf_analytics import calculate_concentration
 
         content = self.query_one("#risk-content", Static)
-        content.update(f"Loading risk for {ticker}...")
 
-        df = get_holdings_df(ticker)
+        df = await to_thread(get_holdings_df, ticker)
         if df is None or df.empty:
+            content.loading = False
             content.update(f"Risk — {ticker} (holdings unavailable)")
             return
 
@@ -79,4 +83,5 @@ class RiskView(VerticalScroll):
         ]
         if badge_str:
             lines.append(badge_str)
+        content.loading = False
         content.update("\n".join(lines))

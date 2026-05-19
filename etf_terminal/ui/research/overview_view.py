@@ -25,20 +25,24 @@ class OverviewView(VerticalScroll):
         yield Static("Select an ETF from Search to view overview.", id="overview-content")
 
     def load_etf(self, ticker: str) -> None:
+        content = self.query_one("#overview-content", Static)
+        content.update("")
+        content.loading = True
         self.run_worker(self._load(ticker), exclusive=True)
 
     async def _load(self, ticker: str) -> None:
+        from asyncio import to_thread
         from etf_terminal.data.edgar_service import get_etf_report, get_holdings_df
         from etf_terminal.data.source_resolver import get_freshness_comparison
 
         content = self.query_one("#overview-content", Static)
-        content.update(f"Loading {ticker}...")
 
         # Pre-fetch holdings into cache
-        get_holdings_df(ticker)
+        await to_thread(get_holdings_df, ticker)
 
-        report = get_etf_report(ticker)
+        report = await to_thread(get_etf_report, ticker)
         if not report:
+            content.loading = False
             content.update(f"No data available for {ticker}.\nTry searching for a different ETF.")
             return
 
@@ -90,4 +94,5 @@ class OverviewView(VerticalScroll):
         if badge:
             lines.append(f"\n  {badge}")
 
+        content.loading = False
         content.update("\n".join(lines))

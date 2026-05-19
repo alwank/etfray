@@ -41,23 +41,28 @@ class HoldingsView(VerticalScroll):
             return
         ticker = getattr(self.app, "_current_etf", None)
         if ticker:
+            self.query_one("#holdings-table", DataTable).loading = True
             self.run_worker(self._load(ticker), exclusive=True)
 
     def load_etf(self, ticker: str) -> None:
+        table = self.query_one("#holdings-table", DataTable)
+        table.loading = True
         self.run_worker(self._load(ticker), exclusive=True)
 
     async def _load(self, ticker: str) -> None:
+        from asyncio import to_thread
         from etf_terminal.data.source_resolver import resolve_holdings
 
         title = self.query_one("#holdings-title", Static)
         table = self.query_one("#holdings-table", DataTable)
-        title.update(f"Holdings — {ticker} (loading...)")
+        title.update(f"Holdings — {ticker}")
 
         preference = getattr(self.app, "_data_source", "auto")
-        df, source = resolve_holdings(ticker, preference)
+        df, source = await to_thread(resolve_holdings, ticker, preference)
 
         if df is None or df.empty:
             title.update(f"Holdings — {ticker} (unavailable)")
+            table.loading = False
             return
 
         df = df.sort_values("pct_value", ascending=False)
@@ -102,3 +107,5 @@ class HoldingsView(VerticalScroll):
                     str(row.get("asset_category", "") or ""),
                     str(row.get("investment_country", "") or ""),
                 )
+
+        table.loading = False

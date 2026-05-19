@@ -16,9 +16,13 @@ class PortfolioRiskView(VerticalScroll):
         yield Static("Portfolio Risk — Connect IBKR to view", id="prisk-content")
 
     def load_data(self) -> None:
+        content = self.query_one("#prisk-content", Static)
+        content.update("")
+        content.loading = True
         self.run_worker(self._load(), exclusive=True)
 
     async def _load(self) -> None:
+        from asyncio import to_thread
         from etf_terminal.data.ibkr_service import get_ibkr_service
         from etf_terminal.data.edgar_service import get_holdings_df
         from etf_terminal.domain.portfolio_analytics import calculate_lookthrough, calculate_portfolio_exposure
@@ -28,6 +32,7 @@ class PortfolioRiskView(VerticalScroll):
         content = self.query_one("#prisk-content", Static)
 
         if not svc.is_connected or not svc.account_summary:
+            content.loading = False
             content.update("Portfolio Risk — IBKR not connected")
             return
 
@@ -68,8 +73,10 @@ class PortfolioRiskView(VerticalScroll):
 
                 holdings_cache = {}
                 resolved_count = 0
-                for pos in positions:
-                    df = get_holdings_df(pos["symbol"])
+                total = len(positions)
+                for i, pos in enumerate(positions):
+                    content.update(f"Portfolio Risk — Loading {i + 1}/{total} ETFs...")
+                    df = await to_thread(get_holdings_df, pos["symbol"])
                     holdings_cache[pos["symbol"]] = df
                     if df is not None and not df.empty:
                         resolved_count += 1
@@ -125,4 +132,5 @@ class PortfolioRiskView(VerticalScroll):
             lines.append("  • No significant risk drivers detected")
 
         lines.append(f"\n  Source: IBKR account + EDGAR holdings data")
+        content.loading = False
         content.update("\n".join(lines))

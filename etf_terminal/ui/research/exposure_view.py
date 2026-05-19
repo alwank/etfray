@@ -33,9 +33,12 @@ class ExposureView(VerticalScroll):
         ct.cursor_type = "row"
 
     def load_etf(self, ticker: str) -> None:
+        self.query_one("#sector-table", DataTable).loading = True
+        self.query_one("#country-table", DataTable).loading = True
         self.run_worker(self._load(ticker), exclusive=True)
 
     async def _load(self, ticker: str) -> None:
+        from asyncio import to_thread
         from etf_terminal.data.edgar_service import get_holdings_df
         from etf_terminal.data.source_resolver import get_freshness_comparison
         from etf_terminal.domain.etf_analytics import calculate_exposure
@@ -45,9 +48,11 @@ class ExposureView(VerticalScroll):
         badge_str = f" │ {badge}" if badge else ""
         title.update(f"Exposure — {ticker}{badge_str}")
 
-        df = get_holdings_df(ticker)
+        df = await to_thread(get_holdings_df, ticker)
         if df is None or df.empty:
             title.update(f"Exposure — {ticker} (unavailable)")
+            self.query_one("#sector-table", DataTable).loading = False
+            self.query_one("#country-table", DataTable).loading = False
             return
 
         # Asset type exposure
@@ -55,9 +60,11 @@ class ExposureView(VerticalScroll):
         st.clear()
         for e in calculate_exposure(df, "asset_category"):
             st.add_row(e.category, f"{e.weight:.1f}%", str(e.count))
+        st.loading = False
 
         # Country exposure
         ct = self.query_one("#country-table", DataTable)
         ct.clear()
         for e in calculate_exposure(df, "investment_country"):
             ct.add_row(e.category, f"{e.weight:.1f}%", str(e.count))
+        ct.loading = False

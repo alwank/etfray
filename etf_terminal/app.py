@@ -199,7 +199,7 @@ class ETFTerminalApp(App):
         save_settings(s)
         self.query_one(StatusBar).refresh()
         self.notify(f"Source: {self._data_source.capitalize()}")
-        # Reload current research view
+        # Reload current research view with loading state
         switcher = self.query_one("#content", ContentSwitcher)
         if self._current_etf and switcher.current and switcher.current.startswith("research-") and switcher.current != "research-search":
             self._load_view(switcher.current)
@@ -272,7 +272,7 @@ class ETFTerminalApp(App):
             self.call_from_thread(self._on_ibkr_connected, ok, svc)
 
         threading.Thread(target=_connect_thread, daemon=True).start()
-        self.notify("Connecting to IBKR...")
+        self.notify("Connecting to IBKR...", timeout=10)
 
     def _on_ibkr_connected(self, ok: bool, svc) -> None:
         if ok:
