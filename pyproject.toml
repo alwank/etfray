@@ -1,6 +1,6 @@
 [project]
 name = "etfray"
-version = "0.1.1"
+version = "0.1.2"
 description = "ETF research and portfolio analytics terminal"
 requires-python = ">=3.11"
 license = "MIT"
