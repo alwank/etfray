@@ -1,6 +1,6 @@
 # Configuration
 
-All settings are stored in a local SQLite database at `~/.etfray/data.db` and can be changed via the Settings view (`ctrl+,`).
+All settings are stored in a local SQLite database at `~/.etfray/data.db` and can be changed via **Workspace → Settings** in the sidebar (or use `ctrl+p` and type "Settings").
 
 ## First-Time Setup Checklist
 
@@ -93,7 +93,7 @@ The `data_source` setting controls where etfray gets ETF holdings:
 
 etfray stores all data locally:
 
-- **Database**: `~/.etfray/data.db` — settings, ETF cache, holdings cache, watchlists, notes
+- **Database**: `~/.etfray/data.db` — settings, ETF cache, holdings cache
 - **Cache**: `~/.etfray/cache/` — temporary data files
 - **Exports**: `~/.etfray/exports/` — CSV/JSON exports
 

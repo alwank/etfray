@@ -9,9 +9,23 @@ etfray is designed for keyboard-first navigation. Everything can be done without
 | Key | Action |
 |-----|--------|
 | `ctrl+p` | Open command palette |
-| `ctrl+,` | Open settings |
-| `ctrl+q` | Quit |
-| `ctrl+s` | Save/export current view |
+| `q` | Quit |
+| `/` | Jump to ETF Search |
+| `s` | Cycle data source (auto → edgar → web) |
+| `ctrl+i` | Connect to IBKR |
+| `escape` | Go back |
+
+### View Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `p` | Portfolio overview |
+| `h` | Holdings |
+| `x` | Exposure |
+| `c` | Concentration |
+| `m` | Margin |
+| `r` | Risk |
+| `d` | Documents |
 
 ### Navigation
 
@@ -41,8 +55,8 @@ etfray is designed for keyboard-first navigation. Everything can be done without
 ### Research an ETF
 
 1. `ctrl+p` → type ticker (e.g., `VTI`) → `enter`
-2. `tab` to move between Holdings, Exposure, Concentration views
-3. `ctrl+s` to export the current view
+2. Use `h`, `x`, `c`, `r` to jump between Holdings, Exposure, Concentration, Risk
+3. Click the **Export** button in any view to save to CSV
 
 ### Compare two ETFs
 
@@ -52,24 +66,24 @@ etfray is designed for keyboard-first navigation. Everything can be done without
 
 ### Check your portfolio
 
-1. Navigate sidebar: **Portfolio → Positions** (`down` / `enter`)
-2. `tab` to switch between Positions, Lookthrough, Exposure, Margin views
-3. `ctrl+s` to export any view
+1. Press `p` to jump to Portfolio overview (or use sidebar)
+2. Use `m` for Margin, `x` for Exposure, `c` for Concentration
+3. Click **Export** in any view to save data
 
 ### Export data
 
 1. Navigate to the view you want to export
-2. `ctrl+s` → choose format (CSV or JSON)
+2. Click the **Export** button in the view
 3. File is saved to `~/.etfray/exports/`
 
 ### Change settings
 
-1. `ctrl+,` to open Settings
-2. Navigate to the setting you want to change
+1. Navigate to **Workspace → Settings** in the sidebar, or use `ctrl+p` and type "Settings"
+2. Edit the setting you want to change
 3. `escape` to return to your previous view
 
 ## Tips
 
 - **`ctrl+p` is your best friend** — It's the fastest way to do anything. Search ETFs, switch views, run commands — all from the palette.
-- **`tab` cycles panels** — Use it to move between the sidebar, main content, and detail panels without reaching for the mouse.
+- **Single-key shortcuts are fast** — Press `h` for holdings, `x` for exposure, `c` for concentration without any modifier keys.
 - **`escape` always goes back** — Dismiss dialogs, close the palette, or return to the previous view.

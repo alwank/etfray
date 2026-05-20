@@ -12,7 +12,7 @@ This tutorial shows how to connect etfray to your IBKR account for portfolio ana
 
 ### 1. Configure connection
 
-Open Settings (`ctrl+,`) and verify:
+Open Settings (Workspace → Settings in the sidebar) and verify:
 
 - Host: `127.0.0.1`
 - Port: `7497` (TWS) or `4001` (Gateway)

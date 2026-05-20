@@ -6,7 +6,7 @@
 etfray/
 ├── app.py              # Main Textual app, sidebar, view routing
 ├── db/
-│   └── database.py     # SQLite layer: settings, cache, watchlists, notes
+│   └── database.py     # SQLite layer: settings, cache, ETF data
 ├── data/
 │   ├── edgar_service.py    # EDGAR/EdgarTools integration
 │   ├── ibkr_service.py     # IBKR TWS API connection

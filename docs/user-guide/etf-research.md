@@ -89,7 +89,7 @@ etfray supports two data sources for holdings:
 
 **How `auto` mode works:** etfray checks which cached source is more recent and uses that. If neither is cached, it tries EDGAR first, then falls back to web.
 
-Configure the preferred source in Settings (`ctrl+,`) or let `auto` mode pick the best available.
+Configure the preferred source in Settings (Workspace → Settings in the sidebar) or let `auto` mode pick the best available.
 
 !!! info "Data freshness indicators"
     etfray tracks when each data point was fetched and from which source. Data younger than 30 days is considered **fresh**, 30–90 days is **acceptable**, and older than 90 days is **stale** (will trigger a re-fetch on next access). These thresholds are configurable in Settings.

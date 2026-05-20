@@ -31,7 +31,7 @@ Install one of:
 
 ## Configure etfray
 
-Open Settings in etfray (`ctrl+,`) and set:
+Open Settings in etfray (Workspace → Settings in the sidebar) and set:
 
 - **Host**: `127.0.0.1` (default — only change if TWS/Gateway runs on another machine)
 - **Port**: `7497` (TWS paper), `7496` (TWS live), `4002` (Gateway paper), `4001` (Gateway live)

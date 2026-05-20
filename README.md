@@ -45,7 +45,7 @@ etfray converts SEC fund filings and IBKR portfolio data into holdings, exposure
 1. Launch `etfray` and navigate to **Research → Search** in the sidebar
 2. Press `ctrl+p` to open the command palette, type a ticker (e.g., `VTI`)
 3. Browse tabs: **Holdings** → **Exposure** → **Concentration** → **Risk**
-4. Press `ctrl+s` to export the current view to CSV
+4. Click the **Export** button to save the current view to CSV
 
 ### Monitor your portfolio
 
@@ -76,7 +76,7 @@ Design principles:
 
 ## Configuration
 
-All settings are managed via the Settings view (`ctrl+,`) and stored in `~/.etfray/data.db`.
+All settings are managed via **Workspace → Settings** in the sidebar and stored in `~/.etfray/data.db`.
 
 | Setting | Default | Description |
 |---|---|---|
@@ -108,7 +108,7 @@ Use the sidebar tree to navigate between Research and Portfolio workspaces. Pres
 
 To use portfolio analytics, you need [IBKR TWS](https://www.interactivebrokers.com/en/trading/tws.php) or [IB Gateway](https://www.interactivebrokers.com/en/trading/ibgateway-stable.php) running with API connections enabled (default port 7497).
 
-Configure the connection in Settings (`ctrl+,`).
+Configure the connection in **Workspace → Settings** in the sidebar.
 
 ## Documentation
 

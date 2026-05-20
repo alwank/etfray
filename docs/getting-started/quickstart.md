@@ -12,7 +12,7 @@ The app opens with a splash screen showing available keybindings. Press any key 
 
 - **Sidebar tree** — Use the left panel to navigate between Research and Portfolio workspaces
 - **Command palette** — Press `ctrl+p` to search and run any command
-- **Settings** — Press `ctrl+,` to configure IBKR connection and data sources
+- **Settings** — Navigate to **Workspace → Settings** in the sidebar to configure IBKR connection and data sources
 
 ## First steps
 

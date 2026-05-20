@@ -35,7 +35,7 @@ Before diving in, here's what the margin metrics mean:
 
 ### 1. Configure warning thresholds
 
-Open Settings (`ctrl+,`) and set your preferred thresholds:
+Open Settings (Workspace → Settings in the sidebar) and set your preferred thresholds:
 
 **Margin cushion warning** (`margin_warning_cushion`):
 
@@ -122,5 +122,5 @@ A ~50% market drop would be needed to trigger the cushion warning. That's a comf
 ## Next Steps
 
 - Combine margin monitoring with [concentration analysis](three-fund-analysis.md) — concentrated positions on margin are the highest-risk scenario
-- Export margin data (`ctrl+s`) to track your leverage over time
+- Export margin data (click **Export** in the Margin view) to track your leverage over time
 - See [Configuration](../user-guide/configuration.md#example-configurations) for more threshold examples

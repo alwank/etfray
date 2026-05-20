@@ -34,5 +34,4 @@ Use the Compare view to put VTI side-by-side with QQQM or AVUV to see difference
 
 ## Next steps
 
-- Add VTI to a watchlist for tracking
 - Connect IBKR to see how VTI fits with your existing positions (see [Portfolio Setup](portfolio-setup.md))
