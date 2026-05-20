@@ -21,7 +21,7 @@ class LookthroughView(VerticalScroll):
 
     def on_mount(self) -> None:
         table = self.query_one("#lt-table", DataTable)
-        table.add_columns("Ticker", "Name", "Effective Wt %", "Country", "Source ETF")
+        table.add_columns("Ticker", "Name", "Effective Wt %", "Source ETF")
         table.cursor_type = "row"
 
     def load_data(self) -> None:
@@ -82,14 +82,13 @@ class LookthroughView(VerticalScroll):
                 h.ticker,
                 h.name,
                 f"{h.total_weight:.3f}%",
-                h.country,
                 ", ".join(h.source_etfs),
             )
 
         # Show unresolved
         if unresolved:
-            table.add_row("", "── Unresolved ETFs ──", "", "", "")
+            table.add_row("", "── Unresolved ETFs ──", "", "")
             for u in unresolved:
-                table.add_row(u.ticker, u.reason, f"{u.portfolio_weight:.1f}%", "", "")
+                table.add_row(u.ticker, u.reason, f"{u.portfolio_weight:.1f}%", "")
 
         table.loading = False

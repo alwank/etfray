@@ -41,7 +41,7 @@ class Sidebar(Widget):
     """
 
     def compose(self) -> ComposeResult:
-        yield Static("ETF Terminal", classes="sidebar-title")
+        yield Static("ETFray", classes="sidebar-title")
         tree: Tree[str] = Tree("", id="nav-tree")
         tree.show_root = False
         tree.root.expand()
@@ -115,7 +115,7 @@ class StatusBar(Static):
 
 
 class ETFTerminalApp(App):
-    TITLE = "ETF Portfolio Terminal"
+    TITLE = "ETFray"
     COMMANDS = {ETFCommands}
     CSS = """
     Screen {
