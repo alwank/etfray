@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from etf_terminal.domain.portfolio_analytics import calculate_lookthrough
+from etfray.domain.portfolio_analytics import calculate_lookthrough
 
 
 def _make_edgar_df(rows: list[dict]) -> pd.DataFrame:

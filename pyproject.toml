@@ -1,8 +1,19 @@
 [project]
-name = "etf-terminal"
+name = "etfray"
 version = "0.1.0"
-description = "ETF Portfolio Terminal - Research and portfolio analytics TUI"
+description = "ETF research and portfolio analytics terminal"
 requires-python = ">=3.11"
+license = "MIT"
+readme = "README.md"
+keywords = ["etf", "portfolio", "terminal", "tui", "finance", "ibkr"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Financial :: Investment",
+]
 dependencies = [
     "textual==1.0.0",
     "edgartools>=5.31.0",
@@ -15,11 +26,32 @@ dependencies = [
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
+    "ruff>=0.4.0",
+]
+docs = [
+    "mkdocs-material>=9.5.0",
+    "mkdocs>=1.6.0",
 ]
 
 [project.scripts]
-etf-terminal = "etf_terminal.app:main"
+etfray = "etfray.app:main"
+
+[project.urls]
+Documentation = "https://etfray.readthedocs.io"
+Repository = "https://github.com/alwank/etfray"
+Issues = "https://github.com/alwank/etfray/issues"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
