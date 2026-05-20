@@ -5,6 +5,10 @@
 [![PyPI](https://img.shields.io/pypi/v/etfray)](https://pypi.org/project/etfray/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+<p align="center">
+  <img src="assets/ETFRAY_Splash.gif" alt="etfray splash screen" width="600">
+</p>
+
 A terminal-based ETF research and portfolio analytics application built with [Textual](https://textual.textualize.io/).
 
 etfray converts SEC fund filings and IBKR portfolio data into holdings, exposure, concentration, margin, and risk workflows — all from your terminal.
