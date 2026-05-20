@@ -225,7 +225,9 @@ class ETFTerminalApp(App):
             switcher.current = view_id
             if self._current_etf and view_id.startswith("research-") and view_id != "research-search":
                 self.set_timer(0.1, lambda: self._load_view(view_id))
-            if view_id.startswith("portfolio-") and view_id != "portfolio-overview":
+            if view_id == "portfolio-overview":
+                self.set_timer(0.1, lambda: self.query_one("#portfolio-overview", PortfolioOverviewView)._refresh())
+            elif view_id.startswith("portfolio-"):
                 self.set_timer(0.1, lambda: self._load_portfolio_view(view_id))
         else:
             self.notify(f"View '{view_id}' not yet implemented", severity="warning")
@@ -297,10 +299,7 @@ class ETFTerminalApp(App):
             self._ibkr_connected = True
             self.query_one(StatusBar).refresh()
             self.notify("IBKR connected successfully")
-            # Refresh portfolio view if visible
-            switcher = self.query_one("#content", ContentSwitcher)
-            if switcher.current == "portfolio-overview":
-                self.query_one("#portfolio-overview", PortfolioOverviewView)._refresh()
+            self.query_one("#portfolio-overview", PortfolioOverviewView)._refresh()
         else:
             err = getattr(svc, '_last_error', 'Unknown error')
             self.notify(f"IBKR connection failed: {err}", severity="error")

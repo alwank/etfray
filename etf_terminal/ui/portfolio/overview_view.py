@@ -34,7 +34,7 @@ class PortfolioOverviewView(VerticalScroll):
         if event.button.id == "btn-connect":
             self._do_connect_thread()
         elif event.button.id == "btn-refresh":
-            self.run_worker(self._do_refresh(), exclusive=True)
+            self._do_refresh_thread()
 
     def _do_connect_thread(self) -> None:
         import threading
@@ -67,18 +67,36 @@ class PortfolioOverviewView(VerticalScroll):
                 "Ensure TWS/Gateway is running and API is enabled."
             )
 
-    async def _do_refresh(self) -> None:
+    def _do_refresh_thread(self) -> None:
+        import threading
         from etf_terminal.data.ibkr_service import get_ibkr_service
+
         svc = get_ibkr_service()
-        svc.refresh()
+        content = self.query_one("#port-content", Static)
+        content.loading = True
+
+        def _work():
+            svc.refresh()
+            self.app.call_from_thread(self._on_refresh_done)
+
+        threading.Thread(target=_work, daemon=True).start()
+
+    def _on_refresh_done(self) -> None:
+        self.query_one("#port-content", Static).loading = False
         self._refresh()
 
     def _refresh(self) -> None:
         from etf_terminal.data.ibkr_service import get_ibkr_service
 
         svc = get_ibkr_service()
+        btn_connect = self.query_one("#btn-connect", Button)
+        btn_refresh = self.query_one("#btn-refresh", Button)
         if not svc.is_connected:
+            btn_connect.display = True
+            btn_refresh.display = False
             return
+        btn_connect.display = False
+        btn_refresh.display = True
 
         s = svc.account_summary
         if not s:
