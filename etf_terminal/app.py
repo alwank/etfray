@@ -5,6 +5,7 @@ from textual.widgets import Footer, Header, Static, Tree, ContentSwitcher
 from textual.widget import Widget
 
 from etf_terminal.ui.commands import ETFCommands
+from etf_terminal.ui.splash_screen import SplashScreen
 from etf_terminal.ui.research.search_view import SearchView
 from etf_terminal.ui.research.overview_view import OverviewView
 from etf_terminal.ui.research.holdings_view import HoldingsView
@@ -196,7 +197,12 @@ class ETFTerminalApp(App):
         if event.node.data:
             self.navigate_to(event.node.data)
 
+    def on_mount(self) -> None:
+        self.push_screen(SplashScreen())
+
     def action_cycle_source(self) -> None:
+        if not self.query("#content"):
+            return
         cycle = {"auto": "edgar", "edgar": "zacks", "zacks": "auto"}
         self._data_source = cycle[self._data_source]
         from etf_terminal.db.database import load_settings, save_settings
@@ -211,7 +217,10 @@ class ETFTerminalApp(App):
             self._load_view(switcher.current)
 
     def navigate_to(self, view_id: str) -> None:
-        switcher = self.query_one("#content", ContentSwitcher)
+        try:
+            switcher = self.query_one("#content", ContentSwitcher)
+        except Exception:
+            return
         if switcher.query(f"#{view_id}"):
             switcher.current = view_id
             if self._current_etf and view_id.startswith("research-") and view_id != "research-search":
@@ -262,6 +271,9 @@ class ETFTerminalApp(App):
         self.navigate_to(view_id)
 
     def action_connect_ibkr(self) -> None:
+        if self._ibkr_connected:
+            self.notify("IBKR already connected")
+            return
         from concurrent.futures import ThreadPoolExecutor
         from etf_terminal.data.ibkr_service import get_ibkr_service
         from etf_terminal.db.database import load_settings

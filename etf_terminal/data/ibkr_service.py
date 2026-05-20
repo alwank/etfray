@@ -67,7 +67,7 @@ class IBKRService:
         try:
             from ib_async import IB
             self._ib = IB()
-            self._ib.connect(host, port, clientId=client_id, readonly=True)
+            self._ib.connect(host, port, clientId=client_id, readonly=True, timeout=4)
             self._connected = True
             self._refresh_data()
             return True
