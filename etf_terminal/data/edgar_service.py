@@ -106,24 +106,21 @@ def search_etf(query: str) -> list[ETFSearchResult]:
             seen_tickers.add(c.ticker)
 
     # Search SEC Series & Class CSV for name/issuer matches
-    if len(results) < 10:
-        try:
-            matches = _search_sec_tickers(query)
-            for ticker, name, cik, issuer in matches:
-                if ticker not in seen_tickers:
-                    results.append(ETFSearchResult(
-                        ticker=ticker, fund_name=name,
-                        issuer=issuer, cik=cik,
-                    ))
-                    seen_tickers.add(ticker)
-                    cache_etf(CachedETF(
-                        ticker=ticker, cik=cik, fund_name=name,
-                        issuer=issuer, last_updated=datetime.now().isoformat(),
-                    ))
-                    if len(results) >= 20:
-                        break
-        except Exception:
-            pass
+    try:
+        matches = _search_sec_tickers(query)
+        for ticker, name, cik, issuer in matches:
+            if ticker not in seen_tickers:
+                results.append(ETFSearchResult(
+                    ticker=ticker, fund_name=name,
+                    issuer=issuer, cik=cik,
+                ))
+                seen_tickers.add(ticker)
+                cache_etf(CachedETF(
+                    ticker=ticker, cik=cik, fund_name=name,
+                    issuer=issuer, last_updated=datetime.now().isoformat(),
+                ))
+    except Exception:
+        pass
 
     return results
 
@@ -157,18 +154,18 @@ def _load_series_class_csv() -> list[dict] | None:
 
     try:
         rows = []
-        with open(csv_path, "r", encoding="utf-8", errors="replace") as f:
+        with open(csv_path, "r", encoding="utf-8-sig", errors="replace") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                ticker = (row.get("TICKER") or row.get("ticker") or "").strip()
+                ticker = (row.get("Class Ticker") or row.get("TICKER") or row.get("ticker") or "").strip()
                 if ticker:
                     rows.append({
-                        "cik": (row.get("CIK") or row.get("cik") or "").strip(),
-                        "series_id": (row.get("SERIES_ID") or row.get("series_id") or "").strip(),
-                        "series_name": (row.get("SERIES_NAME") or row.get("series_name") or "").strip(),
-                        "class_name": (row.get("CLASS_NAME") or row.get("class_name") or "").strip(),
+                        "cik": (row.get("CIK Number") or row.get("CIK") or row.get("cik") or "").strip(),
+                        "series_id": (row.get("Series ID") or row.get("SERIES_ID") or "").strip(),
+                        "series_name": (row.get("Series Name") or row.get("SERIES_NAME") or "").strip(),
+                        "class_name": (row.get("Class Name") or row.get("CLASS_NAME") or "").strip(),
                         "ticker": ticker,
-                        "registrant": (row.get("REGISTRANT_NAME") or row.get("registrant_name") or row.get("COMPANY_NAME") or row.get("company_name") or "").strip(),
+                        "registrant": (row.get("Entity Name") or row.get("REGISTRANT_NAME") or row.get("COMPANY_NAME") or "").strip(),
                     })
         return rows
     except Exception:
@@ -201,8 +198,6 @@ def _search_sec_tickers(query: str) -> list[tuple[str, str, str, str]]:
             issuer = registrant
             matches.append((ticker, fund_name, row["cik"], issuer))
             seen.add(ticker)
-            if len(matches) >= 20:
-                break
 
     return matches
 

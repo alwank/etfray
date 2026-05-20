@@ -21,6 +21,7 @@ class SearchView(VerticalScroll):
     def compose(self) -> ComposeResult:
         yield Static("Search ETF / Fund / Issuer")
         yield Input(placeholder="Enter ticker, fund name, or issuer...", id="search-input")
+        yield Static("", id="search-status")
         yield DataTable(id="search-results")
 
     def on_mount(self) -> None:
@@ -42,14 +43,19 @@ class SearchView(VerticalScroll):
         from etf_terminal.data.edgar_service import search_etf
 
         table = self.query_one("#search-results", DataTable)
+        status = self.query_one("#search-status", Static)
         table.clear()
+        status.update("")
 
         results = await to_thread(search_etf, query)
         for r in results:
             table.add_row(r.ticker, r.fund_name[:40], r.issuer, key=r.ticker)
 
-        if not results:
+        if results:
+            status.update(f"Found {len(results)} result{'s' if len(results) != 1 else ''}")
+        else:
             table.add_row("—", "No results found", "")
+            status.update("")
 
         table.loading = False
 

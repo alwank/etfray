@@ -267,7 +267,7 @@ def search_cached_etfs(query: str) -> list[CachedETF]:
     conn = get_db()
     q = f"%{query}%"
     rows = conn.execute(
-        "SELECT * FROM etf_cache WHERE fund_name LIKE ? OR issuer LIKE ? OR ticker LIKE ? LIMIT 20",
+        "SELECT * FROM etf_cache WHERE fund_name LIKE ? OR issuer LIKE ? OR ticker LIKE ?",
         (q, q, q),
     ).fetchall()
     conn.close()
