@@ -20,6 +20,8 @@ The app opens with a splash screen showing available keybindings. Press any key 
 2. Type an ETF ticker (e.g., `VTI`) and press Enter
 3. Browse holdings, exposure, concentration, fees, and risk views
 
+![ETF Search](../assets/search-etf.png){ width="700" }
+
 ## Portfolio analytics
 
 To use portfolio features, you need IBKR TWS or IB Gateway running. See [IBKR Setup](../user-guide/ibkr-setup.md) for details.

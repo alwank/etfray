@@ -50,6 +50,8 @@ This reveals that even a "diversified" two-fund portfolio can have significant s
 !!! note "Unresolved ETFs"
     If etfray can't find holdings data for one of your positions (e.g., a non-ETF stock, or an ETF without available filings), it appears in the "unresolved" list. The lookthrough still works for your other ETFs — unresolved positions are simply excluded from the decomposition.
 
+![Portfolio Lookthrough](../assets/portfolio-lookthrough.png){ width="700" }
+
 ### Exposure
 
 Aggregated sector and geographic exposure across all portfolio ETFs, weighted by position size. Unlike the Research exposure view (which shows a single ETF), this combines all your holdings into one picture.
@@ -97,3 +99,5 @@ Portfolio risk metrics including concentration risk, single-name exposure, and l
 - Single-name exposure above 5% (hidden concentration via multiple ETFs)
 - Leverage ratio trending upward (market moves can increase leverage even without new trades)
 - Low cushion combined with concentrated positions (worst-case scenario for margin calls)
+
+![Portfolio Report](../assets/report.png){ width="700" }

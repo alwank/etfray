@@ -95,16 +95,17 @@ class StatusBar(Static):
 
         freshness = ""
         if etf:
-            from etfray.db.database import get_cached_holdings
+            from etfray.db.database import get_cached_holdings, load_settings
             cached = get_cached_holdings(etf)
             if cached and cached.get("as_of_date"):
                 from datetime import date, datetime
                 try:
+                    s = load_settings()
                     as_of = datetime.fromisoformat(cached["as_of_date"]).date()
                     days = (date.today() - as_of).days
-                    if days < 60:
+                    if days < s.freshness_days_fresh:
                         freshness = f" | Data: Fresh ({cached['as_of_date'][:10]})"
-                    elif days < 150:
+                    elif days < s.freshness_days_acceptable:
                         freshness = f" | Data: Acceptable ({cached['as_of_date'][:10]})"
                     else:
                         freshness = f" | Data: Stale ({cached['as_of_date'][:10]})"

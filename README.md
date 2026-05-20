@@ -5,6 +5,10 @@
 [![PyPI](https://img.shields.io/pypi/v/etfray)](https://pypi.org/project/etfray/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+<p align="center">
+  <img src="assets/Hero.jpeg" alt="etfray" width="800">
+</p>
+
 A terminal-based ETF research and portfolio analytics application built with [Textual](https://textual.textualize.io/).
 
 etfray converts SEC fund filings and IBKR portfolio data into holdings, exposure, concentration, margin, and risk workflows — all from your terminal.
@@ -23,6 +27,10 @@ etfray converts SEC fund filings and IBKR portfolio data into holdings, exposure
 - **Export** — Save any view to CSV or JSON for further analysis
 - **Keyboard-first** — Full TUI with command palette, tree navigation, and keybindings
 - **Local & private** — All data cached locally in SQLite; no cloud accounts required
+
+<p align="center">
+  <img src="assets/holdings.png" alt="Holdings view" width="800">
+</p>
 
 ## Key Capabilities
 
@@ -82,7 +90,7 @@ All settings are managed via **Workspace → Settings** in the sidebar and store
 | `ibkr_port` | `7497` | IBKR TWS/Gateway API port |
 | `edgar_identity` | *(empty)* | Your email — required by SEC fair use policy |
 | `data_source` | `auto` | Holdings source: `auto`, `edgar`, or `web` |
-| `freshness_days_fresh` | `30` | Days before cached data is considered stale |
+| `freshness_days_fresh` | `30` | Days before cached data is no longer considered fresh |
 | `margin_warning_cushion` | `0.15` | Margin cushion threshold for warnings |
 
 See the [full configuration reference](https://etfray.readthedocs.io/en/latest/user-guide/configuration/) for all options.

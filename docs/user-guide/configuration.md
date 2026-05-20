@@ -19,8 +19,8 @@ When you first install etfray, configure these settings before doing anything el
 | `ibkr_client_id` | `1` | Client ID for IBKR connection |
 | `edgar_identity` | *(empty)* | Email for SEC EDGAR API (required by SEC fair use policy) |
 | `data_source` | `auto` | Holdings source: `auto`, `edgar`, or `web` |
-| `freshness_days_fresh` | `30` | Days before cached data is considered stale *(stored but not yet enforced)* |
-| `freshness_days_acceptable` | `90` | Days before cached data is rejected and re-fetched *(stored but not yet enforced)* |
+| `freshness_days_fresh` | `30` | Days before cached data is no longer considered fresh |
+| `freshness_days_acceptable` | `90` | Days before cached data is considered stale and re-fetched |
 | `margin_warning_cushion` | `0.15` | Margin cushion warning threshold (15%) |
 | `leverage_warning` | `2.0` | Leverage ratio warning threshold |
 

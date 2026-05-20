@@ -26,6 +26,8 @@ Full holdings table from the most recent N-PORT filing. Shows ticker, name, weig
 !!! note
     Holdings reflect the most recent quarterly N-PORT filing, not today's actual holdings. There can be a lag of up to 60 days between the reporting period and when the filing appears on EDGAR.
 
+![Holdings view](../assets/holdings.png){ width="700" }
+
 ### Exposure
 
 Sector and geographic exposure breakdown computed from underlying holdings. Shows what percentage of the fund is allocated to each sector (Technology, Healthcare, Financials, etc.) and country.
@@ -54,6 +56,8 @@ Top-N holdings concentration analysis. Shows how much of the fund is concentrate
 - **VTI** — ~3,700 holdings, effective N ~120, verdict "Broadly diversified." Despite having thousands of holdings, the cap-weighting means it behaves like ~120 equal stocks.
 - **QQQ** — ~100 holdings, effective N ~30, verdict "Moderately concentrated." The Nasdaq-100 is more top-heavy than it appears.
 - **XLE** — ~25 holdings, effective N ~10, verdict "Highly concentrated." Energy sector ETFs tend to be dominated by a few mega-caps.
+
+![Concentration view](../assets/concentration.png){ width="700" }
 
 ### Fees
 
