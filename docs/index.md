@@ -13,7 +13,7 @@ etfray converts SEC fund filings and IBKR portfolio data into holdings, exposure
 
 ## What can etfray do?
 
-- **ETF Research** — Search 10,000+ ETFs, view holdings, sector/geographic exposure, concentration metrics, fees, risk, and SEC documents
+- **ETF Research** — Search thousands of ETFs, view holdings, sector/geographic exposure, concentration metrics, fees, risk, and SEC documents
 - **Portfolio Analytics** — Connect to IBKR for live positions, lookthrough exposure (what your ETFs actually own), concentration analysis, and margin monitoring
 - **Side-by-side Compare** — Compare multiple ETFs across holdings, exposure, overlap, and fees
 - **Export** — Save any view to CSV or JSON for further analysis

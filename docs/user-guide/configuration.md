@@ -8,7 +8,7 @@ When you first install etfray, configure these settings before doing anything el
 
 1. **Set your EDGAR identity** — Enter your email address. The SEC requires this for API access and will block requests without it.
 2. **Verify IBKR port** — If you use IBKR, confirm the port matches your TWS/Gateway configuration (7497 for TWS paper, 4001 for Gateway).
-3. **Choose data source** — Leave as `auto` unless you have a specific reason to prefer one source.
+3. **Choose data source** — The default `auto` mode works for most users. Press `s` in the app to cycle between auto → edgar → web.
 
 ## Settings Reference
 
@@ -19,12 +19,14 @@ When you first install etfray, configure these settings before doing anything el
 | `ibkr_client_id` | `1` | Client ID for IBKR connection |
 | `edgar_identity` | *(empty)* | Email for SEC EDGAR API (required by SEC fair use policy) |
 | `data_source` | `auto` | Holdings source: `auto`, `edgar`, or `web` |
-| `freshness_days_fresh` | `30` | Days before cached data is considered stale |
-| `freshness_days_acceptable` | `90` | Days before cached data is rejected and re-fetched |
+| `freshness_days_fresh` | `30` | Days before cached data is considered stale *(stored but not yet enforced)* |
+| `freshness_days_acceptable` | `90` | Days before cached data is rejected and re-fetched *(stored but not yet enforced)* |
 | `margin_warning_cushion` | `0.15` | Margin cushion warning threshold (15%) |
 | `leverage_warning` | `2.0` | Leverage ratio warning threshold |
 
 ## Example Configurations
+
+All settings below are configured via **Workspace → Settings** in the sidebar. There is no config file — everything is stored in the SQLite database.
 
 ### Paper trading (default)
 
@@ -75,7 +77,7 @@ If you want earlier warnings before approaching margin limits, raise the cushion
 
 ## Data Source Logic
 
-The `data_source` setting controls where etfray gets ETF holdings:
+The `data_source` setting controls where etfray gets ETF holdings. Change it by pressing `s` in the app to cycle between modes:
 
 | Value | Behavior |
 |-------|----------|
@@ -94,7 +96,7 @@ The `data_source` setting controls where etfray gets ETF holdings:
 etfray stores all data locally:
 
 - **Database**: `~/.etfray/data.db` — settings, ETF cache, holdings cache
-- **Cache**: `~/.etfray/cache/` — temporary data files
+- **Cache**: `~/.etfray/cache/` — SEC series/class lookup data
 - **Exports**: `~/.etfray/exports/` — CSV/JSON exports
 
 All data stays on your machine. Nothing is sent to external services (except EDGAR/web API requests to fetch holdings data).

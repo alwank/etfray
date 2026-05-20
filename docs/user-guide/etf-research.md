@@ -57,11 +57,11 @@ Top-N holdings concentration analysis. Shows how much of the fund is concentrate
 
 ### Fees
 
-Expense ratio and fee information extracted from fund filings. Lower is generally better for long-term holding, but compare within the same category (e.g., US total market funds against each other, not against sector funds).
+Fund asset information from N-PORT filings. Expense ratio data from prospectus parsing is limited — for detailed fee information, check the Documents view for the latest N-1A or 497 filing.
 
 ### Risk
 
-Risk metrics including standard deviation, beta, and drawdown characteristics where available. These are computed from historical data when available in the filings.
+Derived risk assessment based on concentration, country exposure, currency diversity, and derivatives presence. Also shows prospectus risk disclosures extracted from the fund's latest N-1A or 497 filing.
 
 ### Documents
 
@@ -78,7 +78,7 @@ Side-by-side comparison of multiple ETFs across key metrics. Use this to evaluat
 
 - Compare funds in the same category (e.g., VTI vs ITOT vs SCHB for US total market)
 - Look at concentration differences — two "similar" funds can have very different top-10 weights
-- Check overlap percentage — high overlap means the funds are largely redundant
+- Check overlap percentage (calculated relative to the first ETF in the comparison) — high overlap means the funds are largely redundant
 
 ## Data Sources
 

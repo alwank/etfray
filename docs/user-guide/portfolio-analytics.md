@@ -45,7 +45,7 @@ Then your effective Apple exposure is:
 
 This reveals that even a "diversified" two-fund portfolio can have significant single-stock concentration.
 
-**What "source ETFs" means:** Each lookthrough holding shows which of your ETFs contribute to that exposure. If Apple appears in both VTI and QQQM, you'll see `source_etfs: [VTI, QQQM]`.
+**What "Source ETF" means:** Each lookthrough holding shows which of your ETFs contribute to that exposure. If Apple appears in both VTI and QQQM, you'll see `Source ETF: VTI, QQQM`.
 
 !!! note "Unresolved ETFs"
     If etfray can't find holdings data for one of your positions (e.g., a non-ETF stock, or an ETF without available filings), it appears in the "unresolved" list. The lookthrough still works for your other ETFs — unresolved positions are simply excluded from the decomposition.

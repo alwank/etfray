@@ -29,7 +29,7 @@ etfray converts SEC fund filings and IBKR portfolio data into holdings, exposure
 
 | Capability | Details |
 |---|---|
-| ETF coverage | 10,000+ ETFs via SEC EDGAR N-PORT filings |
+| ETF coverage | Thousands of ETFs via SEC EDGAR N-PORT filings |
 | Data sources | EDGAR (official), alternative web scraper, IBKR TWS |
 | Holdings analysis | Full position-level breakdown with weight, value, shares |
 | Exposure | Sector and geographic exposure from underlying holdings |

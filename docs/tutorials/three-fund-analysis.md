@@ -104,4 +104,4 @@ Switch to **Portfolio → Concentration**. This shows your effective diversifica
 
 - Run the [Overlap Analysis](overlap-analysis.md) between VTI and VXUS to confirm they're complementary (~0% overlap expected)
 - Check the [Margin Monitoring](margin-monitoring.md) tutorial if you use leverage
-- Export your lookthrough data (click **Export** in the view) for further analysis in a spreadsheet
+- Export your holdings data from the Research workspace for further analysis in a spreadsheet

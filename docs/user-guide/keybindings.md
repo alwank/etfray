@@ -56,7 +56,7 @@ etfray is designed for keyboard-first navigation. Everything can be done without
 
 1. `ctrl+p` → type ticker (e.g., `VTI`) → `enter`
 2. Use `h`, `x`, `c`, `r` to jump between Holdings, Exposure, Concentration, Risk
-3. Click the **Export** button in any view to save to CSV
+3. Click the **Export** button (available in Holdings, Exposure, Concentration, Documents, and Compare views) to save to CSV
 
 ### Compare two ETFs
 
@@ -67,14 +67,15 @@ etfray is designed for keyboard-first navigation. Everything can be done without
 ### Check your portfolio
 
 1. Press `p` to jump to Portfolio overview (or use sidebar)
-2. Use `m` for Margin, `x` for Exposure, `c` for Concentration
-3. Click **Export** in any view to save data
+3. Use `m` for Margin, `x` for Exposure, `c` for Concentration
 
 ### Export data
 
-1. Navigate to the view you want to export
+1. Navigate to a view with export support (Holdings, Exposure, Concentration, Documents, or Compare)
 2. Click the **Export** button in the view
-3. File is saved to `~/.etfray/exports/`
+3. File is saved to `~/.etfray/exports/` (default location, configurable in Settings)
+
+Alternatively, use **Workspace → Exports** for centralized export of holdings, positions, or margin data.
 
 ### Change settings
 

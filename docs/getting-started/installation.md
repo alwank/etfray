@@ -22,5 +22,7 @@ pip install -e ".[dev]"
 ## Verify
 
 ```bash
-etfray --help
+etfray
 ```
+
+This launches the TUI. Press `q` to quit.
