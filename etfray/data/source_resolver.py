@@ -21,7 +21,7 @@ def _parse_date(d: str | None) -> date | None:
 def resolve_holdings(ticker: str, preference: str = "auto") -> tuple[pd.DataFrame | None, str]:
     """Return (df, source_name) based on preference.
 
-    preference: "auto" | "edgar" | "zacks"
+    preference: "auto" | "edgar" | "web"
     Returns the holdings DataFrame and which source was used.
     """
     ticker = ticker.upper()
@@ -31,65 +31,65 @@ def resolve_holdings(ticker: str, preference: str = "auto") -> tuple[pd.DataFram
         df = get_holdings_df(ticker)
         return df, "edgar"
 
-    if preference == "zacks":
-        from etfray.data.zacks_service import get_holdings_from_zacks
-        df = get_holdings_from_zacks(ticker)
-        return df, "zacks"
+    if preference == "web":
+        from etfray.data.web_service import get_holdings_from_web
+        df = get_holdings_from_web(ticker)
+        return df, "web"
 
     # Auto: prefer freshest
     edgar_date = _parse_date((get_cached_holdings(ticker, source="nport") or {}).get("as_of_date"))
-    zacks_date = _parse_date((get_cached_holdings(ticker, source="zacks") or {}).get("as_of_date"))
+    web_date = _parse_date((get_cached_holdings(ticker, source="web") or {}).get("as_of_date"))
 
     # If both cached, pick fresher
-    if edgar_date and zacks_date:
-        if zacks_date >= edgar_date:
-            from etfray.data.zacks_service import get_holdings_from_zacks
-            df = get_holdings_from_zacks(ticker)
+    if edgar_date and web_date:
+        if web_date >= edgar_date:
+            from etfray.data.web_service import get_holdings_from_web
+            df = get_holdings_from_web(ticker)
             if df is not None and not df.empty:
-                return df, "zacks"
+                return df, "web"
         from etfray.data.edgar_service import get_holdings_df
         df = get_holdings_df(ticker)
         return df, "edgar"
 
     # If only one cached, use it; fetch the other
-    if edgar_date and not zacks_date:
-        from etfray.data.zacks_service import get_holdings_from_zacks
-        zdf = get_holdings_from_zacks(ticker)
-        if zdf is not None and not zdf.empty:
-            zacks_date = _parse_date((get_cached_holdings(ticker, source="zacks") or {}).get("as_of_date"))
-            if zacks_date and zacks_date > edgar_date:
-                return zdf, "zacks"
+    if edgar_date and not web_date:
+        from etfray.data.web_service import get_holdings_from_web
+        wdf = get_holdings_from_web(ticker)
+        if wdf is not None and not wdf.empty:
+            web_date = _parse_date((get_cached_holdings(ticker, source="web") or {}).get("as_of_date"))
+            if web_date and web_date > edgar_date:
+                return wdf, "web"
         from etfray.data.edgar_service import get_holdings_df
         return get_holdings_df(ticker), "edgar"
 
-    if zacks_date and not edgar_date:
+    if web_date and not edgar_date:
         from etfray.data.edgar_service import get_holdings_df
         edf = get_holdings_df(ticker)
         if edf is not None and not edf.empty:
             edgar_date = _parse_date((get_cached_holdings(ticker, source="nport") or {}).get("as_of_date"))
-            if edgar_date and edgar_date > zacks_date:
+            if edgar_date and edgar_date > web_date:
                 return edf, "edgar"
-        from etfray.data.zacks_service import get_holdings_from_zacks
-        return get_holdings_from_zacks(ticker), "zacks"
+        from etfray.data.web_service import get_holdings_from_web
+        return get_holdings_from_web(ticker), "web"
 
-    # Neither cached — try edgar first, then zacks
+    # Neither cached — try edgar first, then web
     from etfray.data.edgar_service import get_holdings_df
     edf = get_holdings_df(ticker)
     if edf is not None and not edf.empty:
         return edf, "edgar"
-    from etfray.data.zacks_service import get_holdings_from_zacks
-    zdf = get_holdings_from_zacks(ticker)
-    if zdf is not None and not zdf.empty:
-        return zdf, "zacks"
+    from etfray.data.web_service import get_holdings_from_web
+    wdf = get_holdings_from_web(ticker)
+    if wdf is not None and not wdf.empty:
+        return wdf, "web"
     return None, "none"
 
 
 def get_freshness_comparison(ticker: str) -> str | None:
-    """Return a badge string if Zacks has newer data than EDGAR, else None."""
+    """Return a badge string if web source has newer data than EDGAR, else None."""
     ticker = ticker.upper()
     edgar_date = _parse_date((get_cached_holdings(ticker, source="nport") or {}).get("as_of_date"))
-    zacks_date = _parse_date((get_cached_holdings(ticker, source="zacks") or {}).get("as_of_date"))
+    web_date = _parse_date((get_cached_holdings(ticker, source="web") or {}).get("as_of_date"))
 
-    if zacks_date and edgar_date and zacks_date > edgar_date:
-        return f"⚡ Zacks has newer weights ({zacks_date.isoformat()})"
+    if web_date and edgar_date and web_date > edgar_date:
+        return f"⚡ Web source has newer weights ({web_date.isoformat()})"
     return None

@@ -1,4 +1,4 @@
-"""Sector lookup service - static GICS mapping + Zacks fallback."""
+"""Sector lookup service - static GICS mapping + web fallback."""
 
 from __future__ import annotations
 
@@ -179,8 +179,8 @@ _HEADERS = {
 }
 
 
-def _scrape_sector_zacks(ticker: str) -> str | None:
-    """Scrape sector from Zacks stock quote page."""
+def _scrape_sector_web(ticker: str) -> str | None:
+    """Scrape sector from web stock quote page."""
     try:
         url = f"https://www.zacks.com/stock/quote/{ticker.upper()}"
         r = httpx.get(url, headers=_HEADERS, timeout=10, follow_redirects=True)
@@ -199,7 +199,7 @@ def _scrape_sector_zacks(ticker: str) -> str | None:
 
 
 def get_sector(ticker: str) -> str:
-    """Get GICS sector for a ticker. Static map → DB cache → Zacks scrape."""
+    """Get GICS sector for a ticker. Static map → DB cache → web scrape."""
     ticker = ticker.upper().strip()
     if not ticker:
         return "Unclassified"
@@ -214,8 +214,8 @@ def get_sector(ticker: str) -> str:
     if cached:
         return cached
 
-    # 3. Zacks fallback
-    sector = _scrape_sector_zacks(ticker)
+    # 3. Web fallback
+    sector = _scrape_sector_web(ticker)
     if sector:
         from etfray.db.database import cache_sector
         cache_sector(ticker, sector)
@@ -256,10 +256,10 @@ def get_sectors_bulk(tickers: list[str], scrape: bool = False) -> dict[str, str]
             result[t] = "Unclassified"
         return result
 
-    # Scrape only first 20 misses to avoid hammering Zacks
+    # Scrape only first 20 misses to avoid hammering the web source
     from etfray.db.database import cache_sector
     for t in still_missing[:20]:
-        sector = _scrape_sector_zacks(t)
+        sector = _scrape_sector_web(t)
         if sector:
             cache_sector(t, sector)
             result[t] = sector

@@ -101,11 +101,11 @@ class CompareView(VerticalScroll):
 
             table.add_row(*row(f"Wt Overlap vs {first}", overlap_val))
 
-        # Zacks 52wk weighted average return
-        from etfray.data.zacks_service import get_holdings_from_zacks
+        # Web 52wk weighted average return
+        from etfray.data.web_service import get_holdings_from_web
 
         async def _avg_52wk(t: str) -> str:
-            zdf = await to_thread(get_holdings_from_zacks, t)
+            zdf = await to_thread(get_holdings_from_web, t)
             if zdf is None or zdf.empty or "week52_return" not in zdf.columns:
                 return "N/A"
             total_w = zdf["pct_value"].sum()

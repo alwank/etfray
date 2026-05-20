@@ -11,8 +11,8 @@ def _make_edgar_df(rows: list[dict]) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def _make_zacks_df(rows: list[dict]) -> pd.DataFrame:
-    """Helper: create Zacks-style DataFrame with pct_value."""
+def _make_web_df(rows: list[dict]) -> pd.DataFrame:
+    """Helper: create web-source-style DataFrame with pct_value."""
     return pd.DataFrame(rows)
 
 
@@ -56,10 +56,10 @@ class TestAggregationKey:
 
     def test_different_names_not_merged(self):
         """Holdings with different full names should NOT be merged."""
-        df_a = _make_zacks_df([
+        df_a = _make_web_df([
             {"ticker": "", "name": "TREASURY BILL", "pct_value": 5.0},
         ])
-        df_b = _make_zacks_df([
+        df_b = _make_web_df([
             {"ticker": "", "name": "TREASURY BILL DUE 2026-03-15", "pct_value": 3.0},
         ])
         positions = [
@@ -77,10 +77,10 @@ class TestAggregationKey:
 
     def test_same_full_name_merged(self):
         """Holdings with identical full names across ETFs should be merged."""
-        df_a = _make_zacks_df([
+        df_a = _make_web_df([
             {"ticker": "", "name": "State Street Navigator Securities", "pct_value": 2.0},
         ])
-        df_b = _make_zacks_df([
+        df_b = _make_web_df([
             {"ticker": "", "name": "State Street Navigator Securities", "pct_value": 3.0},
         ])
         positions = [
@@ -97,10 +97,10 @@ class TestAggregationKey:
 
     def test_same_ticker_merged(self):
         """Holdings with same ticker across ETFs should be merged."""
-        df_a = _make_zacks_df([
+        df_a = _make_web_df([
             {"ticker": "AAPL", "name": "Apple Inc", "pct_value": 10.0},
         ])
-        df_b = _make_zacks_df([
+        df_b = _make_web_df([
             {"ticker": "AAPL", "name": "Apple Inc.", "pct_value": 5.0},
         ])
         positions = [
@@ -123,7 +123,7 @@ class TestSelfDeduplication:
 
     def test_etf_excludes_itself(self):
         """If an ETF's holdings list includes its own ticker, it should be excluded."""
-        df = _make_zacks_df([
+        df = _make_web_df([
             {"ticker": "AAPL", "name": "Apple Inc", "pct_value": 50.0},
             {"ticker": "SCHD", "name": "Schwab US Dividend", "pct_value": 1.0},
             {"ticker": "MSFT", "name": "Microsoft", "pct_value": 49.0},

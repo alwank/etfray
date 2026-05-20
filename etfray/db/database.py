@@ -20,7 +20,7 @@ class Settings:
     margin_warning_cushion: float = 0.15
     leverage_warning: float = 2.0
     export_dir: str = str(Path.home() / ".etfray" / "exports")
-    data_source: str = "auto"  # "auto", "edgar", "zacks"
+    data_source: str = "auto"  # "auto", "edgar", "web"
 
 
 @dataclass
@@ -121,6 +121,10 @@ def _init_tables(conn: sqlite3.Connection) -> None:
             """)
     except Exception:
         pass
+    # Migration: rename 'zacks' source to 'web'
+    conn.execute("DELETE FROM holdings_cache WHERE source = 'zacks'")
+    conn.execute("UPDATE settings SET value = 'web' WHERE key = 'data_source' AND value = 'zacks'")
+    conn.commit()
 
 
 def load_settings() -> Settings:

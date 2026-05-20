@@ -202,7 +202,7 @@ class ETFTerminalApp(App):
     def action_cycle_source(self) -> None:
         if not self.query("#content"):
             return
-        cycle = {"auto": "edgar", "edgar": "zacks", "zacks": "auto"}
+        cycle = {"auto": "edgar", "edgar": "web", "web": "auto"}
         self._data_source = cycle[self._data_source]
         from etfray.db.database import load_settings, save_settings
         s = load_settings()

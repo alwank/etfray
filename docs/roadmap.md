@@ -22,4 +22,4 @@
 - [x] ETF research workspace (v0.1.0)
 - [x] Portfolio analytics workspace (v0.1.0)
 - [x] IBKR integration (v0.1.0)
-- [x] EDGAR + Zacks data sources (v0.1.0)
+- [x] EDGAR + alternative web data sources (v0.1.0)

@@ -1,4 +1,4 @@
-"""Zacks ETF holdings scraper service."""
+"""Alternative web holdings scraper service."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ _HEADERS = {
 
 
 def _fetch_and_parse(ticker: str) -> pd.DataFrame | None:
-    """Fetch Zacks holdings page and parse embedded data."""
+    """Fetch holdings page and parse embedded data."""
     url = f"https://www.zacks.com/funds/etf/{ticker.upper()}/holding"
     r = httpx.get(url, headers=_HEADERS, timeout=15, follow_redirects=True)
     if r.status_code != 200:
@@ -70,12 +70,12 @@ def _fetch_and_parse(ticker: str) -> pd.DataFrame | None:
     return pd.DataFrame(rows)
 
 
-def get_holdings_from_zacks(ticker: str) -> pd.DataFrame | None:
-    """Get holdings from Zacks, using cache if available."""
+def get_holdings_from_web(ticker: str) -> pd.DataFrame | None:
+    """Get holdings from web source, using cache if available."""
     ticker = ticker.upper()
 
     # Check cache
-    cached = get_cached_holdings(ticker, source="zacks")
+    cached = get_cached_holdings(ticker, source="web")
     if cached and cached.get("holdings_json"):
         try:
             return pd.read_json(io.StringIO(cached["holdings_json"]))
@@ -88,5 +88,5 @@ def get_holdings_from_zacks(ticker: str) -> pd.DataFrame | None:
         return None
 
     from datetime import date
-    cache_holdings(ticker, df.to_json(), date.today().isoformat(), "", source="zacks")
+    cache_holdings(ticker, df.to_json(), date.today().isoformat(), "", source="web")
     return df

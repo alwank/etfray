@@ -10,7 +10,7 @@ All settings are stored in a local SQLite database at `~/.etfray/data.db` and ca
 | `ibkr_port` | `7497` | IBKR API socket port |
 | `ibkr_client_id` | `1` | Client ID for IBKR connection |
 | `edgar_identity` | *(empty)* | Email for SEC EDGAR API (required by SEC fair use policy) |
-| `data_source` | `auto` | Holdings source: `auto`, `edgar`, or `zacks` |
+| `data_source` | `auto` | Holdings source: `auto`, `edgar`, or `web` |
 | `freshness_days_fresh` | `30` | Days before cached data is considered stale |
 | `freshness_days_acceptable` | `90` | Days before cached data is rejected |
 | `margin_warning_cushion` | `0.15` | Margin cushion warning threshold (15%) |

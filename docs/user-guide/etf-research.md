@@ -45,6 +45,6 @@ Side-by-side comparison of multiple ETFs across key metrics.
 etfray supports two data sources for holdings:
 
 - **EDGAR (N-PORT)** — Official SEC filings via EdgarTools. Most accurate but may lag by up to 60 days.
-- **Zacks** — Alternative source with more current data for some funds.
+- **Web** — Alternative web source with more current data for some funds.
 
 Configure the preferred source in Settings (`ctrl+,`) or let `auto` mode pick the best available.

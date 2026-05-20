@@ -12,7 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Portfolio analytics workspace: positions, lookthrough, exposure, concentration, margin, risk
 - IBKR TWS/Gateway integration for live portfolio data
 - EDGAR/EdgarTools integration for SEC fund filings
-- Zacks data source as alternative holdings provider
+- Alternative web data source for holdings
 - SQLite local cache with configurable freshness
 - Command palette (`ctrl+p`)
 - Watchlists and notes

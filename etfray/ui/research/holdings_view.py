@@ -164,16 +164,16 @@ class HoldingsView(VerticalScroll):
             table.loading = False
             return
 
-        is_zacks = self._source == "zacks"
+        is_web = self._source == "web"
         table.clear(columns=True)
 
-        if is_zacks:
+        if is_web:
             table.add_columns("Ticker", "Name", "Weight %", "Shares", "52wk Ret %")
         else:
             table.add_columns("Ticker", "Name", "Weight %", "Value", "Shares", "Type", "Country")
 
         from etfray.db.database import get_cached_holdings
-        src_key = "zacks" if is_zacks else "nport"
+        src_key = "web" if is_web else "nport"
         cached = get_cached_holdings(self._ticker, source=src_key)
         as_of = cached.get("as_of_date", "")[:10] if cached else ""
         shown = len(df) if df is not None else 0
@@ -183,7 +183,7 @@ class HoldingsView(VerticalScroll):
             for _, row in df.iterrows():
                 pct = float(row.get("pct_value", 0) or 0)
                 balance = float(row.get("balance", 0) or 0)
-                if is_zacks:
+                if is_web:
                     w52 = float(row.get("week52_return", 0) or 0)
                     table.add_row(
                         str(row.get("ticker", "") or ""),
