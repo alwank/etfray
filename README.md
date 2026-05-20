@@ -86,7 +86,7 @@ All settings are managed via **Workspace → Settings** in the sidebar and store
 | `freshness_days_fresh` | `30` | Days before cached data is considered stale |
 | `margin_warning_cushion` | `0.15` | Margin cushion threshold for warnings |
 
-See the [full configuration reference](https://etfray.readthedocs.io/user-guide/configuration/) for all options.
+See the [full configuration reference](https://etfray.readthedocs.io/latest/user-guide/configuration/) for all options.
 
 ## Installation
 
@@ -114,10 +114,10 @@ Configure the connection in **Workspace → Settings** in the sidebar.
 
 Full documentation at [etfray.readthedocs.io](https://etfray.readthedocs.io):
 
-- [Installation](https://etfray.readthedocs.io/getting-started/installation/)
-- [User Guide](https://etfray.readthedocs.io/user-guide/etf-research/)
-- [IBKR Setup](https://etfray.readthedocs.io/user-guide/ibkr-setup/)
-- [Developer Guide](https://etfray.readthedocs.io/developer/architecture/)
+- [Installation](https://etfray.readthedocs.io/latest/getting-started/installation/)
+- [User Guide](https://etfray.readthedocs.io/latest/user-guide/etf-research/)
+- [IBKR Setup](https://etfray.readthedocs.io/latest/user-guide/ibkr-setup/)
+- [Developer Guide](https://etfray.readthedocs.io/latest/developer/architecture/)
 
 ## Development
 
