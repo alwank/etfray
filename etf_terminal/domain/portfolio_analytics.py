@@ -16,6 +16,7 @@ class LookthroughHolding:
     source_etfs: list[str]
     asset_type: str = ""
     country: str = ""
+    sector: str = ""
 
 
 @dataclass

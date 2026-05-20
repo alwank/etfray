@@ -36,7 +36,7 @@ class ExposureView(VerticalScroll):
 
     def on_mount(self) -> None:
         st = self.query_one("#sector-table", DataTable)
-        st.add_columns("Asset Type", "Weight %", "Count")
+        st.add_columns("Sector", "Weight %", "Count")
         st.cursor_type = "row"
 
         ct = self.query_one("#country-table", DataTable)
@@ -49,43 +49,77 @@ class ExposureView(VerticalScroll):
 
     def load_etf(self, ticker: str) -> None:
         self._ticker = ticker
+        self._source_pref = getattr(self.app, "_data_source", "auto")
         self.query_one("#sector-table", DataTable).loading = True
         self.query_one("#country-table", DataTable).loading = True
         self.run_worker(self._load(ticker), exclusive=True)
 
     async def _load(self, ticker: str) -> None:
         from asyncio import to_thread
-        from etf_terminal.data.edgar_service import get_holdings_df
-        from etf_terminal.data.source_resolver import get_freshness_comparison
+        from etf_terminal.data.source_resolver import resolve_holdings, get_freshness_comparison
         from etf_terminal.domain.etf_analytics import calculate_exposure
 
         title = self.query_one("#exposure-title", Static)
-        badge = get_freshness_comparison(ticker)
-        badge_str = f" │ {badge}" if badge else ""
-        title.update(f"Exposure — {ticker}{badge_str}")
-
-        df = await to_thread(get_holdings_df, ticker)
-        if df is None or df.empty:
-            title.update(f"Exposure — {ticker} (unavailable)")
-            self.query_one("#sector-table", DataTable).loading = False
-            self.query_one("#country-table", DataTable).loading = False
-            return
-
-        # Asset type exposure
-        self._sector_data = calculate_exposure(df, "asset_category")
         st = self.query_one("#sector-table", DataTable)
-        st.clear()
-        for e in self._sector_data:
-            st.add_row(e.category, f"{e.weight:.1f}%", str(e.count))
-        st.loading = False
-
-        # Country exposure
-        self._country_data = calculate_exposure(df, "investment_country")
         ct = self.query_one("#country-table", DataTable)
-        ct.clear()
-        for e in self._country_data:
-            ct.add_row(e.category, f"{e.weight:.1f}%", str(e.count))
-        ct.loading = False
+
+        try:
+            badge = get_freshness_comparison(ticker)
+            badge_str = f" │ {badge}" if badge else ""
+            title.update(f"Exposure — {ticker} (loading...)")
+
+            df, source = await to_thread(resolve_holdings, ticker, self._source_pref)
+
+            if df is None or df.empty:
+                title.update(f"Exposure — {ticker} (unavailable)")
+                return
+
+            title.update(f"Exposure — {ticker} [{source}]{badge_str}")
+
+            # Determine if equity-dominated
+            is_equity = True
+            if "asset_category" in df.columns:
+                value_col = "pct_value" if "pct_value" in df.columns else "value_usd"
+                total = df[value_col].abs().sum()
+                if total > 0:
+                    equity_mask = df["asset_category"].isin(["EC", "EP", ""])
+                    equity_pct = df.loc[equity_mask, value_col].abs().sum() / total
+                    is_equity = equity_pct > 0.7
+
+            st.clear(columns=True)
+
+            if is_equity and "ticker" in df.columns:
+                st.add_columns("Sector", "Weight %", "Count")
+                tickers_list = df["ticker"].dropna().astype(str).str.upper().str.strip().tolist()
+                tickers_list = [t for t in tickers_list if t]
+                from etf_terminal.data.sector_service import get_sectors_bulk
+                sector_map = await to_thread(get_sectors_bulk, tickers_list)
+                df = df.copy()
+                df["sector"] = df["ticker"].apply(
+                    lambda t: sector_map.get(str(t).upper().strip(), "Unclassified") if pd.notna(t) and str(t).strip() else "Unclassified"
+                )
+                self._sector_data = calculate_exposure(df, "sector")
+            else:
+                st.add_columns("Asset Type", "Weight %", "Count")
+                self._sector_data = calculate_exposure(df, "asset_category")
+
+            for e in self._sector_data:
+                st.add_row(e.category, f"{e.weight:.1f}%", str(e.count))
+
+            # Country exposure
+            self._country_data = calculate_exposure(df, "investment_country") if "investment_country" in df.columns else []
+            ct.clear()
+            if self._country_data:
+                for e in self._country_data:
+                    ct.add_row(e.category, f"{e.weight:.1f}%", str(e.count))
+            else:
+                ct.add_row("N/A — switch to edgar source", "", "")
+
+        except Exception as e:
+            title.update(f"Exposure — {ticker} (error: {e})")
+        finally:
+            st.loading = False
+            ct.loading = False
 
     def _export(self) -> None:
         rows = []

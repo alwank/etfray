@@ -23,20 +23,20 @@ class PortfolioExposureView(VerticalScroll):
     def compose(self) -> ComposeResult:
         yield Static("Portfolio Exposure — Connect IBKR to view", id="pexp-title")
         with Horizontal():
-            yield DataTable(id="pexp-asset", classes="exp-table")
+            yield DataTable(id="pexp-sector", classes="exp-table")
             yield DataTable(id="pexp-country", classes="exp-table")
 
     def on_mount(self) -> None:
-        self.query_one("#pexp-asset", DataTable).add_columns("Asset Type", "Weight %")
+        self.query_one("#pexp-sector", DataTable).add_columns("Sector", "Weight %")
         self.query_one("#pexp-country", DataTable).add_columns("Country", "Weight %")
 
     def load_data(self) -> None:
         self.query_one("#pexp-title", Static).update("Portfolio Exposure — Loading...")
-        asset_table = self.query_one("#pexp-asset", DataTable)
+        sector_table = self.query_one("#pexp-sector", DataTable)
         country_table = self.query_one("#pexp-country", DataTable)
-        asset_table.clear()
+        sector_table.clear()
         country_table.clear()
-        asset_table.loading = True
+        sector_table.loading = True
         country_table.loading = True
         self.run_worker(self._load(), exclusive=True)
 
@@ -45,19 +45,20 @@ class PortfolioExposureView(VerticalScroll):
         from etf_terminal.data.ibkr_service import get_ibkr_service
         from etf_terminal.data.source_resolver import resolve_holdings
         from etf_terminal.domain.portfolio_analytics import calculate_lookthrough, calculate_portfolio_exposure
+        from etf_terminal.data.sector_service import get_sectors_bulk
 
         svc = get_ibkr_service()
         title = self.query_one("#pexp-title", Static)
 
         if not svc.is_connected or not svc.positions:
             title.update("Portfolio Exposure — IBKR not connected")
-            self.query_one("#pexp-asset", DataTable).loading = False
+            self.query_one("#pexp-sector", DataTable).loading = False
             self.query_one("#pexp-country", DataTable).loading = False
             return
 
         total_value = sum(abs(p.market_value) for p in svc.positions)
         if total_value == 0:
-            self.query_one("#pexp-asset", DataTable).loading = False
+            self.query_one("#pexp-sector", DataTable).loading = False
             self.query_one("#pexp-country", DataTable).loading = False
             return
 
@@ -76,14 +77,21 @@ class PortfolioExposureView(VerticalScroll):
 
         lookthrough, _ = calculate_lookthrough(positions, holdings_cache)
 
+        # Populate sector for all lookthrough holdings
+        tickers = [h.ticker for h in lookthrough if h.ticker]
+        sector_map = await to_thread(get_sectors_bulk, tickers)
+        for h in lookthrough:
+            if h.ticker and h.ticker in sector_map:
+                h.sector = sector_map[h.ticker]
+
         title.update("Portfolio Exposure")
 
-        # Asset type
-        asset_table = self.query_one("#pexp-asset", DataTable)
-        asset_table.clear()
-        for cat, wt in calculate_portfolio_exposure(lookthrough, "asset_type"):
-            asset_table.add_row(cat or "Unclassified", f"{wt:.2f}%")
-        asset_table.loading = False
+        # Sector
+        sector_table = self.query_one("#pexp-sector", DataTable)
+        sector_table.clear()
+        for cat, wt in calculate_portfolio_exposure(lookthrough, "sector"):
+            sector_table.add_row(cat or "Unclassified", f"{wt:.2f}%")
+        sector_table.loading = False
 
         # Country
         country_table = self.query_one("#pexp-country", DataTable)

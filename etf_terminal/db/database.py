@@ -91,6 +91,11 @@ def _init_tables(conn: sqlite3.Connection) -> None:
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS sector_cache (
+            ticker TEXT PRIMARY KEY,
+            sector TEXT NOT NULL,
+            cached_at TEXT NOT NULL
+        );
     """)
     # Migration: add source column if missing
     try:
@@ -272,3 +277,34 @@ def search_cached_etfs(query: str) -> list[CachedETF]:
     ).fetchall()
     conn.close()
     return [CachedETF(**dict(r)) for r in rows]
+
+
+# Sector cache operations
+def cache_sector(ticker: str, sector: str) -> None:
+    conn = get_db()
+    conn.execute(
+        "INSERT OR REPLACE INTO sector_cache (ticker, sector, cached_at) VALUES (?, ?, ?)",
+        (ticker.upper(), sector, datetime.now().isoformat()),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_cached_sector(ticker: str) -> str | None:
+    conn = get_db()
+    row = conn.execute("SELECT sector FROM sector_cache WHERE ticker = ?", (ticker.upper(),)).fetchone()
+    conn.close()
+    return row["sector"] if row else None
+
+
+def get_cached_sectors_bulk(tickers: list[str]) -> dict[str, str]:
+    if not tickers:
+        return {}
+    conn = get_db()
+    placeholders = ",".join("?" * len(tickers))
+    rows = conn.execute(
+        f"SELECT ticker, sector FROM sector_cache WHERE ticker IN ({placeholders})",
+        [t.upper() for t in tickers],
+    ).fetchall()
+    conn.close()
+    return {row["ticker"]: row["sector"] for row in rows}
