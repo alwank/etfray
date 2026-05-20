@@ -6,9 +6,9 @@ repo_name: alwank/etfray
 theme:
   name: material
   palette:
-    - scheme: slate
-      primary: teal
-      accent: cyan
+    - scheme: default
+      primary: black
+      accent: teal
   features:
     - navigation.sections
     - navigation.expand
