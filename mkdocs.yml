@@ -37,6 +37,9 @@ nav:
   - Tutorials:
       - Research Workflow: tutorials/research-workflow.md
       - Portfolio Setup: tutorials/portfolio-setup.md
+      - Overlap Analysis: tutorials/overlap-analysis.md
+      - Three-Fund Analysis: tutorials/three-fund-analysis.md
+      - Margin Monitoring: tutorials/margin-monitoring.md
   - Developer:
       - Architecture: developer/architecture.md
       - Contributing: developer/contributing.md
