@@ -54,13 +54,13 @@ etfray is designed for keyboard-first navigation. Everything can be done without
 
 ### Research an ETF
 
-1. `ctrl+p` → type ticker (e.g., `VTI`) → `enter`
+1. `/` → type ticker (e.g., `VTI`) → `enter`
 2. Use `h`, `x`, `c`, `r` to jump between Holdings, Exposure, Concentration, Risk
 3. Click the **Export** button (available in Holdings, Exposure, Concentration, Documents, and Compare views) to save to CSV
 
 ### Compare two ETFs
 
-1. `ctrl+p` → search first ETF → `enter`
+1. `/` → search first ETF → `enter`
 2. Navigate to **Compare** view in the sidebar
 3. Add a second ETF to the comparison
 
@@ -85,6 +85,6 @@ Alternatively, use **Workspace → Exports** for centralized export of holdings,
 
 ## Tips
 
-- **`ctrl+p` is your best friend** — It's the fastest way to do anything. Search ETFs, switch views, run commands — all from the palette.
+- **`/` for ETF search, `ctrl+p` for everything else** — Press `/` to jump straight to ETF Search. Use `ctrl+p` to open the command palette for navigation and commands.
 - **Single-key shortcuts are fast** — Press `h` for holdings, `x` for exposure, `c` for concentration without any modifier keys.
 - **`escape` always goes back** — Dismiss dialogs, close the palette, or return to the previous view.

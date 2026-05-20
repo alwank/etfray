@@ -29,11 +29,11 @@ An overlap of 40% means that 40% of each fund's weight is invested in the same s
 
 ### 1. Look up the first ETF
 
-Press `ctrl+p`, type `VTI`, and press Enter. Browse the Holdings view to get a sense of the fund — ~3,700 holdings, cap-weighted, with Apple/Microsoft/Nvidia at the top.
+Press `/`, type `VTI`, and press Enter. Browse the Holdings view to get a sense of the fund — ~3,700 holdings, cap-weighted, with Apple/Microsoft/Nvidia at the top.
 
 ### 2. Look up the second ETF
 
-Press `ctrl+p`, type `QQQ`, and press Enter. QQQ has ~100 holdings, also cap-weighted but limited to Nasdaq-listed stocks. The top holdings look similar to VTI's.
+Press `/`, type `QQQ`, and press Enter. QQQ has ~100 holdings, also cap-weighted but limited to Nasdaq-listed stocks. The top holdings look similar to VTI's.
 
 ### 3. Use the Compare view
 

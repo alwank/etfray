@@ -4,10 +4,10 @@ The Research workspace lets you look up any ETF and explore its holdings, exposu
 
 ## Search
 
-Navigate to **Research → Search** or use the command palette (`ctrl+p`). Enter a ticker symbol (e.g., `VTI`, `QQQM`, `AVUV`) to look up an ETF.
+Navigate to **Research → Search** or press `/`. Enter a ticker symbol (e.g., `VTI`, `QQQM`, `AVUV`) to look up an ETF.
 
 !!! tip
-    The command palette (`ctrl+p`) is the fastest way to search. Start typing a ticker and press Enter.
+    Press `/` to jump straight to ETF Search — it's the fastest way to look up a fund.
 
 ## Views
 

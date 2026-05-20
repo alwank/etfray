@@ -1,7 +1,7 @@
 # etfray
 
 [![CI](https://github.com/alwank/etfray/actions/workflows/ci.yml/badge.svg)](https://github.com/alwank/etfray/actions/workflows/ci.yml)
-[![Docs](https://readthedocs.org/projects/etfray/badge/?version=latest)](https://etfray.readthedocs.io)
+[![Docs](https://readthedocs.org/projects/etfray/badge/?version=latest)](https://etfray.readthedocs.io/en/latest/)
 [![PyPI](https://img.shields.io/pypi/v/etfray)](https://pypi.org/project/etfray/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -13,7 +13,6 @@ etfray converts SEC fund filings and IBKR portfolio data into holdings, exposure
 
 - **No cloud accounts** — No sign-ups, no API keys to manage, no third-party dashboards. Your data stays on your machine.
 - **No subscriptions** — ETF holdings data comes directly from SEC EDGAR filings. Free, authoritative, and always available.
-- **Offline-capable** — All data is cached locally in SQLite. After the first fetch, everything works without a network connection.
 - **Keyboard-first** — Designed for speed. Command palette, tree navigation, and keybindings — no mouse required.
 
 ## Features
@@ -43,7 +42,7 @@ etfray converts SEC fund filings and IBKR portfolio data into holdings, exposure
 ### Research an ETF
 
 1. Launch `etfray` and navigate to **Research → Search** in the sidebar
-2. Press `ctrl+p` to open the command palette, type a ticker (e.g., `VTI`)
+2. Press `/` to open ETF Search, type a ticker (e.g., `VTI`), and press Enter
 3. Browse tabs: **Holdings** → **Exposure** → **Concentration** → **Risk**
 4. Click the **Export** button to save the current view to CSV
 
@@ -86,7 +85,7 @@ All settings are managed via **Workspace → Settings** in the sidebar and store
 | `freshness_days_fresh` | `30` | Days before cached data is considered stale |
 | `margin_warning_cushion` | `0.15` | Margin cushion threshold for warnings |
 
-See the [full configuration reference](https://etfray.readthedocs.io/latest/user-guide/configuration/) for all options.
+See the [full configuration reference](https://etfray.readthedocs.io/en/latest/user-guide/configuration/) for all options.
 
 ## Installation
 
@@ -112,12 +111,12 @@ Configure the connection in **Workspace → Settings** in the sidebar.
 
 ## Documentation
 
-Full documentation at [etfray.readthedocs.io](https://etfray.readthedocs.io):
+Full documentation at [etfray.readthedocs.io](https://etfray.readthedocs.io/en/latest/):
 
-- [Installation](https://etfray.readthedocs.io/latest/getting-started/installation/)
-- [User Guide](https://etfray.readthedocs.io/latest/user-guide/etf-research/)
-- [IBKR Setup](https://etfray.readthedocs.io/latest/user-guide/ibkr-setup/)
-- [Developer Guide](https://etfray.readthedocs.io/latest/developer/architecture/)
+- [Installation](https://etfray.readthedocs.io/en/latest/getting-started/installation/)
+- [User Guide](https://etfray.readthedocs.io/en/latest/user-guide/etf-research/)
+- [IBKR Setup](https://etfray.readthedocs.io/en/latest/user-guide/ibkr-setup/)
+- [Developer Guide](https://etfray.readthedocs.io/en/latest/developer/architecture/)
 
 ## Development
 
