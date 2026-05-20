@@ -52,7 +52,10 @@ def calculate_lookthrough(
             continue
 
         for _, row in df.iterrows():
-            hticker = str(row.get("ticker", "") or "").strip().upper()
+            if str(row.get("asset_category", "") or "").strip().upper() == "STIV":
+                continue
+            raw_ticker = row.get("ticker", "")
+            hticker = "" if pd.isna(raw_ticker) else str(raw_ticker).strip().upper()
             if hticker == symbol:
                 continue
             hname = str(row.get("name", "") or "")

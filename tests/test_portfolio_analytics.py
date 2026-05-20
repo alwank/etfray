@@ -159,3 +159,37 @@ class TestUnresolved:
         _, unresolved = calculate_lookthrough(positions, holdings_cache)
 
         assert len(unresolved) == 1
+
+
+class TestSTIVFiltering:
+    """STIV (Short-Term Investment) holdings should be excluded from lookthrough."""
+
+    def test_stiv_holdings_excluded(self):
+        """Holdings with asset_category STIV should not appear in results."""
+        df = _make_edgar_df([
+            {"ticker": "AAPL", "name": "Apple Inc", "value_usd": 500_000, "asset_category": "EC", "investment_country": "US"},
+            {"ticker": None, "name": "State Street Navigator Securities Lending Trust", "value_usd": 100_000, "asset_category": "STIV", "investment_country": "US"},
+        ])
+        positions = [{"symbol": "SPY", "weight": 100.0}]
+        holdings_cache = {"SPY": df}
+
+        results, _ = calculate_lookthrough(positions, holdings_cache)
+
+        names = [h.name for h in results]
+        assert "State Street Navigator Securities Lending Trust" not in names
+        assert len(results) == 1
+        assert results[0].ticker == "AAPL"
+
+    def test_nan_ticker_displayed_as_empty(self):
+        """Holdings with NaN ticker should have empty string ticker, not 'NAN'."""
+        df = _make_edgar_df([
+            {"ticker": float("nan"), "name": "Some Bond", "value_usd": 200_000, "asset_category": "DBT", "investment_country": "US"},
+        ])
+        positions = [{"symbol": "BND", "weight": 100.0}]
+        holdings_cache = {"BND": df}
+
+        results, _ = calculate_lookthrough(positions, holdings_cache)
+
+        assert len(results) == 1
+        assert results[0].ticker == ""
+        assert results[0].name == "Some Bond"
