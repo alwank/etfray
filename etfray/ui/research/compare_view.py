@@ -48,7 +48,9 @@ class CompareView(VerticalScroll):
         from asyncio import to_thread
 
         from etfray.data.edgar_service import get_etf_report, get_holdings_df
+        from etfray.data.market_data_service import get_etf_profile
         from etfray.domain.etf_analytics import calculate_concentration, calculate_weight_overlap
+        from etfray.domain.overview_format import fmt_expense_ratio, fmt_pct
 
         table = self.query_one("#compare-table", DataTable)
         table.clear(columns=True)
@@ -58,10 +60,12 @@ class CompareView(VerticalScroll):
 
         # Gather data
         reports = {}
+        profiles = {}
         concentrations = {}
         holdings_dfs = {}
         for t in tickers:
             reports[t] = await to_thread(get_etf_report, t)
+            profiles[t] = await to_thread(get_etf_profile, t)
             df = await to_thread(get_holdings_df, t)
             holdings_dfs[t] = df
             if df is not None and not df.empty:
@@ -75,6 +79,11 @@ class CompareView(VerticalScroll):
             return r
 
         table.add_row(*row("Fund Name", lambda t: (reports.get(t) and reports[t].fund_name[:20]) or "N/A"))
+        table.add_row(*row("Category", lambda t: (profiles.get(t) and profiles[t].category) or "N/A"))
+        table.add_row(*row("Expense Ratio", lambda t: fmt_expense_ratio(profiles[t].expense_ratio) if profiles.get(t) else "N/A"))
+        table.add_row(*row("Div Yield", lambda t: fmt_pct(profiles[t].dividend_yield) if profiles.get(t) else "N/A"))
+        table.add_row(*row("YTD Return", lambda t: fmt_pct(profiles[t].ytd_return, signed=True) if profiles.get(t) and profiles[t].ytd_return is not None else "N/A"))
+        table.add_row(*row("Beta (3Y)", lambda t: f"{profiles[t].beta:.2f}" if profiles.get(t) and profiles[t].beta is not None else "N/A"))
         table.add_row(*row("Holdings", lambda t: f"{reports[t].num_holdings:,}" if reports.get(t) else "N/A"))
         table.add_row(*row("Total Assets", lambda t: f"${float(reports[t].total_assets)/1e9:.1f}B" if reports.get(t) and reports[t].total_assets else "N/A"))
         table.add_row(*row("Top 10 Wt", lambda t: f"{concentrations[t].top10_weight:.1f}%" if t in concentrations else "N/A"))

@@ -22,34 +22,69 @@ class FeesView(VerticalScroll):
         self.run_worker(self._load(ticker), exclusive=True)
 
     async def _load(self, ticker: str) -> None:
+        import asyncio
         from asyncio import to_thread
+
+        from etfray.data.edgar_service import get_etf_report
+        from etfray.data.market_data_service import get_etf_profile, profile_fetched_date
+        from etfray.domain.overview_format import fmt_dollars, fmt_expense_ratio, fmt_pct
+
         content = self.query_one("#fees-content", Static)
 
-        # Fee data typically comes from prospectus (N-1A/497)
-        # edgartools doesn't directly parse expense ratios from N-1A yet,
-        # so we show what's available from N-PORT fund_info
-        from etfray.data.edgar_service import get_etf_report
+        report, profile = await asyncio.gather(
+            to_thread(get_etf_report, ticker),
+            to_thread(get_etf_profile, ticker),
+        )
 
-        report = await to_thread(get_etf_report, ticker)
-        if not report:
+        if not report and not profile:
             content.loading = False
             content.update(f"Fees — {ticker} (data unavailable)")
             return
 
+        fund_name = ""
+        if profile and profile.long_name:
+            fund_name = profile.long_name
+        elif report and report.fund_name:
+            fund_name = report.fund_name
+
         lines = [
             f"[bold]Fees — {ticker}[/bold]",
-            f"{report.fund_name}",
+            fund_name,
             "",
-            "  Fee data from prospectus parsing is limited.",
-            "  Check Documents view for latest prospectus/497 filing.",
-            "",
-            "── Available Fund Data ──",
-            f"  Total Assets:    ${report.total_assets:,.0f}" if report.total_assets else "  Total Assets:    N/A",
-            f"  Net Assets:      ${report.net_assets:,.0f}" if report.net_assets else "  Net Assets:      N/A",
-            "",
-            "── Source ──",
-            f"  Source: N-PORT filing, period {report.reporting_period}",
-            "  For expense ratio, see latest N-1A or 497 filing.",
         ]
+
+        if profile:
+            lines.append("── Fees (Yahoo Finance) ──")
+            lines.append(f"  Net Expense Ratio:  {fmt_expense_ratio(profile.expense_ratio)}")
+            lines.append(f"  Dividend Yield:     {fmt_pct(profile.dividend_yield)}")
+            lines.append("")
+        else:
+            lines.append("  Fee data from Yahoo Finance is unavailable.")
+            lines.append("  Check Documents view for latest prospectus/497 filing.")
+            lines.append("")
+
+        if report:
+            lines.append("── Fund Size (SEC N-PORT) ──")
+            lines.append(
+                f"  Total Assets:    {fmt_dollars(report.total_assets)}"
+                if report.total_assets
+                else "  Total Assets:    N/A"
+            )
+            lines.append(
+                f"  Net Assets:      {fmt_dollars(report.net_assets)}"
+                if report.net_assets
+                else "  Net Assets:      N/A"
+            )
+            lines.append("")
+
+        lines.append("── Source ──")
+        if profile:
+            fetched = profile_fetched_date(profile)
+            suffix = f" (cached {fetched})" if fetched else ""
+            lines.append(f"  Expense ratio: Yahoo Finance{suffix} — not SEC prospectus")
+        if report:
+            lines.append(f"  AUM: N-PORT filing, period {report.reporting_period}")
+        lines.append("  For official fee schedule, see Documents view (N-1A/497).")
+
         content.loading = False
         content.update("\n".join(lines))

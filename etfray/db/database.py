@@ -94,6 +94,11 @@ def _init_tables(conn: sqlite3.Connection) -> None:
             sector TEXT NOT NULL,
             cached_at TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS etf_profile_cache (
+            ticker TEXT PRIMARY KEY,
+            profile_json TEXT NOT NULL,
+            fetched_at TEXT NOT NULL
+        );
     """)
     # Migration: add source column if missing
     try:
@@ -333,3 +338,23 @@ def get_cached_sectors_bulk(tickers: list[str]) -> dict[str, str]:
     ).fetchall()
     conn.close()
     return {row["ticker"]: row["sector"] for row in rows}
+
+
+# ETF profile cache (Yahoo Finance / yfinance)
+def cache_etf_profile(ticker: str, profile_json: str, fetched_at: str) -> None:
+    conn = get_db()
+    conn.execute(
+        "INSERT OR REPLACE INTO etf_profile_cache (ticker, profile_json, fetched_at) VALUES (?, ?, ?)",
+        (ticker.upper(), profile_json, fetched_at),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_cached_etf_profile(ticker: str) -> dict | None:
+    conn = get_db()
+    row = conn.execute("SELECT * FROM etf_profile_cache WHERE ticker = ?", (ticker.upper(),)).fetchone()
+    conn.close()
+    if row:
+        return dict(row)
+    return None

@@ -31,69 +31,45 @@ class OverviewView(VerticalScroll):
         self.run_worker(self._load(ticker), exclusive=True)
 
     async def _load(self, ticker: str) -> None:
+        import asyncio
         from asyncio import to_thread
 
         from etfray.data.edgar_service import get_etf_report, get_holdings_df
+        from etfray.data.market_data_service import get_etf_profile
         from etfray.data.source_resolver import get_freshness_comparison
+        from etfray.db.database import load_settings
+        from etfray.domain.etf_analytics import calculate_concentration, calculate_exposure
+        from etfray.domain.overview_format import format_overview_lines
 
         content = self.query_one("#overview-content", Static)
+        settings = load_settings()
 
-        # Pre-fetch holdings into cache
-        await to_thread(get_holdings_df, ticker)
+        report, profile, df = await asyncio.gather(
+            to_thread(get_etf_report, ticker),
+            to_thread(get_etf_profile, ticker),
+            to_thread(get_holdings_df, ticker),
+        )
 
-        report = await to_thread(get_etf_report, ticker)
-        if not report:
-            content.loading = False
-            content.update(f"No data available for {ticker}.\nTry searching for a different ETF.")
-            return
+        concentration = None
+        top_sector = None
+        if df is not None and not df.empty:
+            concentration = calculate_concentration(df)
+            sector_col = "sector" if "sector" in df.columns else None
+            if sector_col:
+                sectors = calculate_exposure(df, sector_col)
+                top_sector = sectors[0] if sectors else None
 
-        # Format dollar amounts
-        def fmt_dollars(v) -> str:
-            v = float(v)
-            if v >= 1_000_000_000:
-                return f"${v / 1_000_000_000:.1f}B"
-            if v >= 1_000_000:
-                return f"${v / 1_000_000:.0f}M"
-            return f"${v:,.0f}"
-
-        lines = [
-            f"[bold]{ticker} — {report.fund_name}[/bold]",
-            f"Issuer: {report.issuer}",
-            "",
-            "── Key Metrics ──",
-            f"  Total Assets:    {fmt_dollars(report.total_assets)}",
-            f"  Net Assets:      {fmt_dollars(report.net_assets)}",
-            f"  Holdings:        {report.num_holdings:,}",
-            "",
-            "── Source Provenance ──",
-        ]
-
-        from etfray.db.database import get_cached_holdings
-        get_cached_holdings(ticker)
-        lines.append("  Source:          N-PORT filing")
-        lines.append(f"  Period ended:    {report.reporting_period}")
-        lines.append(f"  Filed:           {report.filed_date}")
-        lines.append(f"  CIK:            {report.cik}")
-        lines.append(f"  Series ID:      {report.series_id}")
-
-        # Freshness indicator
-        from datetime import date, datetime
-        try:
-            as_of = datetime.fromisoformat(str(report.reporting_period)).date()
-            days = (date.today() - as_of).days
-            if days < 60:
-                freshness = "🟢 Fresh"
-            elif days < 150:
-                freshness = "🟡 Acceptable"
-            else:
-                freshness = "🔴 Stale"
-            lines.insert(3, f"  Data Freshness:  {freshness} ({days} days old)")
-        except (ValueError, TypeError):
-            pass
-
-        badge = get_freshness_comparison(ticker)
-        if badge:
-            lines.append(f"\n  {badge}")
+        freshness_badge = get_freshness_comparison(ticker)
+        lines = format_overview_lines(
+            ticker,
+            report,
+            profile,
+            concentration,
+            top_sector,
+            freshness_badge,
+            fresh_days=settings.freshness_days_fresh,
+            acceptable_days=settings.freshness_days_acceptable,
+        )
 
         content.loading = False
         content.update("\n".join(lines))
