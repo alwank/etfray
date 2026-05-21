@@ -1,8 +1,8 @@
 """ETF Search view with input and results table."""
 
 from textual.app import ComposeResult
-from textual.containers import VerticalScroll
-from textual.widgets import DataTable, Input, Static
+from textual.containers import Horizontal, VerticalScroll
+from textual.widgets import Button, DataTable, Input, Static
 
 
 class SearchView(VerticalScroll):
@@ -20,7 +20,9 @@ class SearchView(VerticalScroll):
 
     def compose(self) -> ComposeResult:
         yield Static("Search ETF / Fund / Issuer")
-        yield Input(placeholder="Enter ticker, fund name, or issuer...", id="search-input")
+        with Horizontal():
+            yield Input(placeholder="Enter ticker, fund name, or issuer...", id="search-input")
+            yield Button("Watch", id="search-watch", variant="warning")
         yield Static("", id="search-status")
         yield DataTable(id="search-results")
 
@@ -63,3 +65,13 @@ class SearchView(VerticalScroll):
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         if event.row_key and str(event.row_key.value) != "—":
             self.app.navigate_to_etf(str(event.row_key.value))
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "search-watch":
+            table = self.query_one("#search-results", DataTable)
+            if table.cursor_row is not None and table.row_count > 0:
+                ticker = str(table.coordinate_to_cell_key((table.cursor_row, 0)).row_key.value)
+                if ticker and ticker != "—":
+                    from etfray.db.database import add_to_watchlist
+                    add_to_watchlist("default", ticker)
+                    self.app.notify(f"{ticker} added to watchlist")

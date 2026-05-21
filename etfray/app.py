@@ -24,6 +24,7 @@ from etfray.ui.research.search_view import SearchView
 from etfray.ui.splash_screen import SplashScreen
 from etfray.ui.workspace.exports_view import ExportsView
 from etfray.ui.workspace.settings_view import SettingsView
+from etfray.ui.workspace.watchlist_view import WatchlistView
 
 
 class Sidebar(Widget):
@@ -67,7 +68,7 @@ class Sidebar(Widget):
         portfolio.add_leaf("Risk", data="portfolio-risk")
 
         workspace = tree.root.add("Workspace", expand=True)
-
+        workspace.add_leaf("Watchlist", data="workspace-watchlist")
         workspace.add_leaf("Exports", data="workspace-exports")
         workspace.add_leaf("Settings", data="workspace-settings")
 
@@ -144,6 +145,7 @@ class ETFTerminalApp(App):
         Binding("r", "nav('research-risk')", "Risk"),
         Binding("d", "nav('research-documents')", "Documents"),
         Binding("escape", "nav('welcome')", "Back"),
+        Binding("w", "add_to_watchlist", "Watch"),
         Binding("ctrl+i", "connect_ibkr", "Connect IBKR"),
         Binding("s", "cycle_source", "Source"),
     ]
@@ -189,6 +191,7 @@ class ETFTerminalApp(App):
                 yield PortfolioRiskView(id="portfolio-risk")
 
                 yield ExportsView(id="workspace-exports")
+                yield WatchlistView(id="workspace-watchlist")
                 yield SettingsView(id="workspace-settings")
         yield StatusBar()
         yield Footer()
@@ -229,6 +232,8 @@ class ETFTerminalApp(App):
                 self.set_timer(0.1, lambda: self.query_one("#portfolio-overview", PortfolioOverviewView)._refresh())
             elif view_id.startswith("portfolio-"):
                 self.set_timer(0.1, lambda: self._load_portfolio_view(view_id))
+            elif view_id == "workspace-watchlist":
+                self.set_timer(0.1, lambda: self.query_one("#workspace-watchlist", WatchlistView).load_data())
         else:
             self.notify(f"View '{view_id}' not yet implemented", severity="warning")
 
@@ -271,6 +276,14 @@ class ETFTerminalApp(App):
 
     def action_nav(self, view_id: str) -> None:
         self.navigate_to(view_id)
+
+    def action_add_to_watchlist(self) -> None:
+        if not self._current_etf:
+            self.notify("No ETF selected", severity="warning")
+            return
+        from etfray.db.database import add_to_watchlist
+        add_to_watchlist("default", self._current_etf)
+        self.notify(f"{self._current_etf} added to watchlist")
 
     def action_connect_ibkr(self) -> None:
         if self._ibkr_connected:

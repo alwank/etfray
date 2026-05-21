@@ -31,6 +31,7 @@ class ETFCommands(Provider):
             ("Portfolio Risk", "portfolio-risk"),
 
             ("Exports", "workspace-exports"),
+            ("Watchlist", "workspace-watchlist"),
             ("Settings", "workspace-settings"),
         ]
 
