@@ -99,6 +99,13 @@ def _init_tables(conn: sqlite3.Connection) -> None:
             profile_json TEXT NOT NULL,
             fetched_at TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS price_history_cache (
+            ticker TEXT NOT NULL,
+            period TEXT NOT NULL,
+            history_json TEXT NOT NULL,
+            fetched_at TEXT NOT NULL,
+            PRIMARY KEY (ticker, period)
+        );
     """)
     # Migration: add source column if missing
     try:
@@ -354,6 +361,29 @@ def cache_etf_profile(ticker: str, profile_json: str, fetched_at: str) -> None:
 def get_cached_etf_profile(ticker: str) -> dict | None:
     conn = get_db()
     row = conn.execute("SELECT * FROM etf_profile_cache WHERE ticker = ?", (ticker.upper(),)).fetchone()
+    conn.close()
+    if row:
+        return dict(row)
+    return None
+
+
+# Price history cache (Yahoo Finance / yfinance)
+def cache_price_history(ticker: str, period: str, history_json: str, fetched_at: str) -> None:
+    conn = get_db()
+    conn.execute(
+        "INSERT OR REPLACE INTO price_history_cache (ticker, period, history_json, fetched_at) VALUES (?, ?, ?, ?)",
+        (ticker.upper(), period, history_json, fetched_at),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_cached_price_history(ticker: str, period: str) -> dict | None:
+    conn = get_db()
+    row = conn.execute(
+        "SELECT * FROM price_history_cache WHERE ticker = ? AND period = ?",
+        (ticker.upper(), period),
+    ).fetchone()
     conn.close()
     if row:
         return dict(row)

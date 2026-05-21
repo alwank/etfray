@@ -19,6 +19,7 @@ from etfray.ui.research.exposure_view import ExposureView
 from etfray.ui.research.fees_view import FeesView
 from etfray.ui.research.holdings_view import HoldingsView
 from etfray.ui.research.overview_view import OverviewView
+from etfray.ui.research.performance_view import PerformanceView
 from etfray.ui.research.risk_view import RiskView
 from etfray.ui.research.search_view import SearchView
 from etfray.ui.splash_screen import SplashScreen
@@ -50,6 +51,7 @@ class Sidebar(Widget):
         research = tree.root.add("Research", expand=True)
         research.add_leaf("ETF Search", data="research-search")
         research.add_leaf("Overview", data="research-overview")
+        research.add_leaf("Performance", data="research-performance")
         research.add_leaf("Holdings", data="research-holdings")
         research.add_leaf("Exposure", data="research-exposure")
         research.add_leaf("Concentration", data="research-concentration")
@@ -129,6 +131,10 @@ class ETFTerminalApp(App):
     #content {
         width: 1fr;
     }
+    #content VerticalScroll,
+    #content Vertical {
+        height: auto;
+    }
     #content VerticalScroll Horizontal {
         height: auto;
     }
@@ -138,6 +144,7 @@ class ETFTerminalApp(App):
         Binding("q", "quit", "Quit"),
         Binding("slash", "nav('research-search')", "Search", key_display="/"),
         Binding("p", "nav('portfolio-overview')", "Portfolio"),
+        Binding("t", "nav('research-performance')", "Performance"),
         Binding("h", "nav('research-holdings')", "Holdings"),
         Binding("x", "nav('research-exposure')", "Exposure"),
         Binding("c", "nav('research-concentration')", "Concentration"),
@@ -167,14 +174,15 @@ class ETFTerminalApp(App):
                     "Use the sidebar or press / to search for an ETF.\n\n"
                     "Keyboard shortcuts:\n"
                     "  /  Search        p  Portfolio\n"
-                    "  h  Holdings      x  Exposure\n"
-                    "  c  Concentration m  Margin\n"
-                    "  r  Risk          d  Documents\n"
+                    "  t  Performance   h  Holdings\n"
+                    "  x  Exposure      c  Concentration\n"
+                    "  m  Margin        r  Risk          d  Documents\n"
                     "  q  Quit          Esc Back",
                     id="welcome",
                 )
                 yield SearchView(id="research-search")
                 yield OverviewView(id="research-overview")
+                yield PerformanceView(id="research-performance")
                 yield HoldingsView(id="research-holdings")
                 yield ExposureView(id="research-exposure")
                 yield ConcentrationView(id="research-concentration")
@@ -243,6 +251,7 @@ class ETFTerminalApp(App):
             return
         view_map = {
             "research-overview": OverviewView,
+            "research-performance": PerformanceView,
             "research-holdings": HoldingsView,
             "research-exposure": ExposureView,
             "research-concentration": ConcentrationView,

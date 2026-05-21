@@ -13,14 +13,18 @@ etfray/
 │   ├── web_service.py      # Alternative web holdings scraper
 │   ├── sector_service.py   # Sector classification
 │   ├── source_resolver.py  # Data source selection logic
+│   ├── market_data_service.py  # Yahoo fund profile (yfinance)
+│   ├── price_history_service.py  # Yahoo price history (yfinance)
 │   └── export_service.py   # CSV/JSON export
 ├── domain/
 │   ├── etf_analytics.py        # ETF-level computations
+│   ├── performance_analytics.py  # Period returns and seasonals curves
+│   ├── seasonals_plot.py         # plotext seasonals chart rendering
 │   └── portfolio_analytics.py  # Portfolio-level computations (lookthrough, concentration)
 └── ui/
     ├── splash_screen.py    # Onboarding splash
     ├── commands.py         # Command palette provider
-    ├── research/           # Research workspace views
+    ├── research/           # Research workspace views (Performance: seasonals chart + returns table)
     ├── portfolio/          # Portfolio workspace views
     ├── workspace/          # Settings, exports
     └── components/         # Shared UI components
