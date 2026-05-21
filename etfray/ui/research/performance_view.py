@@ -5,9 +5,30 @@ from __future__ import annotations
 import pandas as pd
 from textual.app import ComposeResult
 from textual.containers import Horizontal, VerticalScroll
+from textual.timer import Timer
 from textual.widgets import Button, DataTable, Select, Static
 
+from etfray.domain.seasonals_plot import (
+    DEFAULT_CHART_ROWS,
+    chart_deps_status,
+    chart_image_status,
+    chart_pixel_dimensions,
+    charts_available,
+    color_for_series_index,
+    render_seasonals_chart,
+    render_seasonals_figure,
+    terminal_cell_size,
+)
+
+try:
+    from textual_image.widget import Image as TerminalImage
+
+    _TERMINAL_IMAGE_CLASS = TerminalImage
+except ImportError:
+    _TERMINAL_IMAGE_CLASS = None
+
 _PLACEHOLDER_YEAR_OPTS: list[tuple[str, str]] = [("—", "")]
+_CHART_IMAGE_DPI = 150
 
 
 def _fmt_seasonal_pct(value: float) -> str:
@@ -49,17 +70,38 @@ class PerformanceView(VerticalScroll):
     PerformanceView #perf-chart-row {
         width: 100%;
         height: auto;
-        min-height: 16;
+        min-height: 24;
         margin-bottom: 1;
     }
-    PerformanceView #perf-chart {
+    PerformanceView #perf-chart-container {
         width: 1fr;
+        height: auto;
+        min-height: 24;
+    }
+    PerformanceView #perf-chart-image {
+        height: auto;
+        min-height: 20;
+        width: auto;
+        max-width: 100%;
+        border: solid $primary-background;
+    }
+    PerformanceView #perf-chart-fallback {
+        width: 100%;
         height: auto;
         min-height: 16;
     }
+    PerformanceView #perf-chart-status {
+        width: 100%;
+        height: 1;
+        color: $text-muted;
+        display: none;
+    }
+    PerformanceView #perf-chart-status.visible {
+        display: block;
+    }
     PerformanceView #perf-legend {
-        width: 20;
-        min-width: 20;
+        width: 22;
+        min-width: 18;
         height: auto;
         padding: 0 1;
         color: $text-muted;
@@ -96,6 +138,19 @@ class PerformanceView(VerticalScroll):
     _period_rows: list[tuple[str, float | None]] = []
     _available_years: list[int] = []
     _syncing_year_selects: bool = False
+    _chart_mode: str = "none"
+    _resize_timer: Timer | None = None
+    _summary_base: str = ""
+    _has_chart_image_widget: bool = False
+    _last_render_cells: tuple[int, int] = (0, 0)
+    _needs_layout_rerender: bool = False
+    _chart_render_cache: tuple[list, object | None, str] | None = None
+
+    def _chart_image_widget(self):
+        """Return the image chart widget if it was composed, else None."""
+        if not self._has_chart_image_widget:
+            return None
+        return self.query_one("#perf-chart-image")
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="perf-header"):
@@ -118,12 +173,17 @@ class PerformanceView(VerticalScroll):
             )
             yield Button("Average", id="perf-average-btn")
         with Horizontal(id="perf-chart-row"):
-            yield Static(
-                "Select an ETF to view seasonals chart.",
-                id="perf-chart",
-                markup=False,
-            )
-            yield Static("", id="perf-legend", markup=False)
+            yield Static("", id="perf-chart-status")
+            with Horizontal(id="perf-chart-container"):
+                self._has_chart_image_widget = _TERMINAL_IMAGE_CLASS is not None
+                if _TERMINAL_IMAGE_CLASS is not None:
+                    yield _TERMINAL_IMAGE_CLASS(id="perf-chart-image")
+                yield Static(
+                    "Select an ETF to view seasonals chart.",
+                    id="perf-chart-fallback",
+                    markup=False,
+                )
+            yield Static("", id="perf-legend")
         with VerticalScroll(id="perf-table-scroll"):
             yield DataTable(id="perf-table")
         yield Static("", id="perf-summary")
@@ -135,10 +195,23 @@ class PerformanceView(VerticalScroll):
         table.cursor_type = "row"
         self._update_toggle_buttons()
         self._update_average_button()
+        if charts_available() and not self._has_chart_image_widget:
+            self.app.notify(
+                "textual-image widget unavailable — reinstall etfray[charts]",
+                severity="warning",
+            )
+        if charts_available() and self._has_chart_image_widget:
+            self._set_chart_mode("image")
+        else:
+            self._set_chart_mode("fallback")
+        self._update_summary_chart_status()
 
     def on_resize(self) -> None:
-        if self._prices is not None and self._display_mode == "chart":
-            self._render_chart()
+        if self._prices is None or self._display_mode != "chart":
+            return
+        if self._resize_timer is not None:
+            self._resize_timer.stop()
+        self._resize_timer = self.set_timer(0.15, self._render_chart)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "perf-chart-btn":
@@ -193,8 +266,90 @@ class PerformanceView(VerticalScroll):
         self.run_worker(self._load(self._ticker), exclusive=True)
 
     def _set_loading(self, loading: bool) -> None:
-        self.query_one("#perf-chart", Static).loading = loading
+        status = self.query_one("#perf-chart-status", Static)
+        fallback = self.query_one("#perf-chart-fallback", Static)
+        if loading:
+            status.update("Loading chart…")
+            status.add_class("visible")
+            fallback.loading = True
+            image = self._chart_image_widget()
+            if image is not None:
+                image.add_class("hidden")
+        else:
+            status.remove_class("visible")
+            status.update("")
+            fallback.loading = False
         self.query_one("#perf-table", DataTable).loading = loading
+
+    def _set_chart_mode(self, mode: str) -> None:
+        """Show image widget or plotext fallback static."""
+        self._chart_mode = mode
+        image = self._chart_image_widget()
+        fallback = self.query_one("#perf-chart-fallback", Static)
+        if mode == "image" and image is not None:
+            image.remove_class("hidden")
+            fallback.add_class("hidden")
+        else:
+            if image is not None:
+                image.add_class("hidden")
+            fallback.remove_class("hidden")
+
+    def _chart_cell_size(self) -> tuple[int, int]:
+        """Chart area size in terminal cells (cols, rows)."""
+        widget = self._chart_image_widget()
+        if widget is not None and widget.size.width > 0 and widget.size.height > 0:
+            return widget.size.width, widget.size.height
+
+        view_w = self.size.width or 0
+        if view_w < 40:
+            try:
+                view_w = self.app.size.width
+            except Exception:
+                view_w = 80
+        cols = max(40, view_w - 28)
+        return cols, DEFAULT_CHART_ROWS
+
+    def _chart_pixel_size(self) -> tuple[int, int, int, int]:
+        """Return (cols, rows, width_px, height_px) with supersampling."""
+        cols, rows = self._chart_cell_size()
+        return chart_pixel_dimensions(cols, rows, cell_size=terminal_cell_size())
+
+    def _apply_chart_widget_size(self, cols: int, rows: int) -> None:
+        """Pin image widget to 1:1 cell mapping to avoid upscaling a small PNG."""
+        widget = self._chart_image_widget()
+        if widget is None:
+            return
+        widget.styles.width = cols
+        widget.styles.height = rows
+
+    def _chart_dimensions(self) -> tuple[int, int]:
+        """Fit plotext canvas to available terminal width (legend uses ~22 cols)."""
+        view_width = self.size.width or 0
+        if view_width < 40:
+            try:
+                view_width = self.app.size.width
+            except Exception:
+                view_width = 100
+        width = max(50, min(view_width - 28, 100))
+        return width, 18
+
+    def _update_summary_chart_status(self) -> None:
+        """Append chart backend status to the summary line."""
+        if not self._summary_base:
+            return
+        summary = self.query_one("#perf-summary", Static)
+        if self._chart_mode == "image":
+            status = chart_image_status()
+        elif self._chart_mode == "fallback":
+            status = chart_deps_status()
+        else:
+            status = chart_deps_status()
+        summary.update(f"{self._summary_base} | {status}")
+
+    def _show_chart_error(self, message: str) -> None:
+        self.query_one("#perf-legend", Static).update("")
+        self._set_chart_mode("fallback")
+        self.query_one("#perf-chart-fallback", Static).update(message)
 
     async def _load(self, ticker: str) -> None:
         from asyncio import to_thread
@@ -209,23 +364,21 @@ class PerformanceView(VerticalScroll):
         )
 
         df = await to_thread(get_price_history, ticker, "max")
-        chart = self.query_one("#perf-chart", Static)
         table = self.query_one("#perf-table", DataTable)
         summary = self.query_one("#perf-summary", Static)
 
-        chart.loading = False
-        table.loading = False
+        self._set_loading(False)
 
         if df is None or df.empty:
             err = get_price_history_last_error() or "No price history available"
-            chart.update(f"Error: {err}")
-            self.query_one("#perf-legend", Static).update("")
+            self._show_chart_error(f"Error: {err}")
             table.clear()
             summary.update(f"Error: {err}")
             self._history_df = None
             self._prices = None
             self._period_rows = []
             self._available_years = []
+            self._summary_base = ""
             self._reset_year_selects()
             return
 
@@ -243,10 +396,11 @@ class PerformanceView(VerticalScroll):
         self.set_timer(0.05, self._render_chart)
         total_str = fmt_pct(perf_summary.total_return, signed=True)
         year_range = f"{self._year_start}–{self._year_end}" if self._available_years else "N/A"
-        summary.update(
+        self._summary_base = (
             f"{self._ticker} | {year_range} | Total return {total_str} | "
             f"{perf_summary.start_date} → {perf_summary.end_date} | Source: Yahoo Finance"
         )
+        self._update_summary_chart_status()
 
     def _reset_year_selects(self) -> None:
         self._year_start = 0
@@ -276,23 +430,84 @@ class PerformanceView(VerticalScroll):
         end_select.set_options(options)
         self._sync_year_selects()
 
-    def _chart_dimensions(self) -> tuple[int, int]:
-        """Fit plotext canvas to available terminal width (legend uses ~22 cols)."""
-        view_width = self.size.width or 0
-        if view_width < 40:
-            try:
-                view_width = self.app.size.width
-            except Exception:
-                view_width = 100
-        width = max(50, min(view_width - 28, 100))
-        return width, 18
+    def _update_legend(self, series_list: list, average) -> None:
+        sorted_asc = sorted(series_list, key=lambda s: s.year)
+        lines = []
+        for s in sorted(series_list, key=lambda s: s.year, reverse=True):
+            idx = next(i for i, x in enumerate(sorted_asc) if x.year == s.year)
+            hex_color = color_for_series_index(idx)
+            lines.append(f"[{hex_color}]■[/] {s.year}  {_fmt_seasonal_pct(s.final_return_pct)}")
+        if average is not None and average.day_of_year:
+            lines.append(f"[bold white]--[/] Avg  {_fmt_seasonal_pct(average.final_return_pct)}")
+        self.query_one("#perf-legend", Static).update("\n".join(lines) if lines else "")
+
+    def _render_chart_fallback(self, series_list, average) -> None:
+        width, height = self._chart_dimensions()
+        chart_text = render_seasonals_chart(series_list, average, width=width, height=height)
+        self.query_one("#perf-chart-fallback", Static).update(chart_text or "Chart unavailable.")
+        self._set_chart_mode("fallback")
+        self._update_summary_chart_status()
+
+    def _finish_layout_rerender(self) -> None:
+        """Re-render once the image widget has real layout dimensions."""
+        if not self._needs_layout_rerender or self._chart_render_cache is None:
+            return
+        widget = self._chart_image_widget()
+        if widget is None or widget.size.width == 0 or widget.size.height == 0:
+            return
+        cols, rows = self._chart_cell_size()
+        if (cols, rows) == self._last_render_cells:
+            self._needs_layout_rerender = False
+            return
+        self._needs_layout_rerender = False
+        series_list, average, title = self._chart_render_cache
+        self.run_worker(
+            self._render_chart_image(series_list, average, title),
+            exclusive=True,
+            group="perf-chart",
+        )
+
+    async def _render_chart_image(self, series_list, average, title: str) -> None:
+        from asyncio import to_thread
+        from io import BytesIO
+
+        from PIL import Image as PILImage
+
+        widget = self._chart_image_widget()
+        used_estimate = widget is None or widget.size.width == 0 or widget.size.height == 0
+        cols, rows, width_px, height_px = self._chart_pixel_size()
+        try:
+            png = await to_thread(
+                render_seasonals_figure,
+                series_list,
+                average,
+                title=title,
+                width_px=width_px,
+                height_px=height_px,
+                dpi=_CHART_IMAGE_DPI,
+            )
+        except Exception as exc:
+            self.app.notify(f"Chart render failed: {exc}", severity="warning")
+            self._render_chart_fallback(series_list, average)
+            return
+
+        if widget is None:
+            self._render_chart_fallback(series_list, average)
+            return
+        widget.image = PILImage.open(BytesIO(png))
+        self._apply_chart_widget_size(cols, rows)
+        self._last_render_cells = (cols, rows)
+        self._set_chart_mode("image")
+        self._update_summary_chart_status()
+        if used_estimate:
+            self._needs_layout_rerender = True
+            self.call_after_refresh(self._finish_layout_rerender)
 
     def _render_chart(self) -> None:
         if self._prices is None or not self._year_start or not self._year_end:
             return
 
         from etfray.domain.performance_analytics import compute_seasonals
-        from etfray.domain.seasonals_plot import render_seasonals_chart
 
         series_list, average = compute_seasonals(
             self._prices,
@@ -301,20 +516,27 @@ class PerformanceView(VerticalScroll):
             include_average=self._show_average,
         )
         if not series_list:
-            self.query_one("#perf-chart", Static).update("No seasonal data for selected years.")
-            self.query_one("#perf-legend", Static).update("")
+            self._show_chart_error("No seasonal data for selected years.")
             return
 
-        width, height = self._chart_dimensions()
-        chart_text = render_seasonals_chart(series_list, average, width=width, height=height)
-        self.query_one("#perf-chart", Static).update(chart_text or "Chart unavailable.")
+        title = f"{self._ticker} Seasonals ({self._year_start}–{self._year_end})"
+        self._update_legend(series_list, average)
+        self._chart_render_cache = (series_list, average, title)
 
-        legend_lines = []
-        for series in sorted(series_list, key=lambda s: s.year, reverse=True):
-            legend_lines.append(f"{series.year}: {_fmt_seasonal_pct(series.final_return_pct)}")
-        if average is not None and average.day_of_year:
-            legend_lines.append(f"Avg: {_fmt_seasonal_pct(average.final_return_pct)}")
-        self.query_one("#perf-legend", Static).update("\n".join(legend_lines) if legend_lines else "")
+        use_image = charts_available() and self._has_chart_image_widget
+        if charts_available() and not self._has_chart_image_widget:
+            self.app.notify(
+                "textual-image widget unavailable — reinstall etfray[charts]",
+                severity="warning",
+            )
+        if use_image:
+            self.run_worker(
+                self._render_chart_image(series_list, average, title),
+                exclusive=True,
+                group="perf-chart",
+            )
+        else:
+            self._render_chart_fallback(series_list, average)
 
     def _set_display_mode(self, mode: str) -> None:
         self._display_mode = mode

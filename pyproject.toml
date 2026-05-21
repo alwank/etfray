@@ -25,6 +25,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+charts = [
+    "matplotlib>=3.8.0",
+    "textual-image[textual]>=0.8.0",
+]
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
@@ -57,3 +61,6 @@ ignore = ["E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "charts: requires matplotlib and textual-image (pip install etfray[charts])",
+]

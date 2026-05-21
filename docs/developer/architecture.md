@@ -19,7 +19,7 @@ etfray/
 ├── domain/
 │   ├── etf_analytics.py        # ETF-level computations
 │   ├── performance_analytics.py  # Period returns and seasonals curves
-│   ├── seasonals_plot.py         # plotext seasonals chart rendering
+│   ├── seasonals_plot.py         # Seasonals chart: matplotlib PNG (optional [charts]) or plotext ASCII fallback
 │   └── portfolio_analytics.py  # Portfolio-level computations (lookthrough, concentration)
 └── ui/
     ├── splash_screen.py    # Onboarding splash

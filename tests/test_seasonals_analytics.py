@@ -4,14 +4,21 @@ import pandas as pd
 import pytest
 
 from etfray.domain.performance_analytics import (
-    SeasonalYearSeries,
     _adj_close_series,
     available_years,
     compute_seasonal_series,
     compute_seasonals,
     split_prices_by_year,
 )
-from etfray.domain.seasonals_plot import render_seasonals_chart
+from etfray.domain.seasonals_plot import (
+    chart_deps_status,
+    chart_pixel_dimensions,
+    chart_render_protocol,
+    charts_available,
+    render_seasonals_chart,
+    render_seasonals_figure,
+    seasonal_ylim,
+)
 
 
 def _make_multi_year_history() -> pd.DataFrame:
@@ -82,3 +89,61 @@ class TestSeasonalsAnalytics:
         assert len(output) > 100
         assert "\x1b[" not in output
         assert "Month" in output or "┌" in output
+
+    def test_seasonal_ylim_padding(self):
+        df = _make_multi_year_history()
+        prices = _adj_close_series(df)
+        series_list, average = compute_seasonals(prices, 2023, 2025, include_average=True)
+        ymin, ymax = seasonal_ylim(series_list, average)
+        assert ymin < ymax
+        assert ymax - ymin >= 4.0
+
+    def test_seasonal_ylim_empty(self):
+        ymin, ymax = seasonal_ylim([], None)
+        assert ymin == -5.0
+        assert ymax == 5.0
+
+    @pytest.mark.charts
+    def test_render_seasonals_figure_smoke(self):
+        pytest.importorskip("matplotlib")
+        df = _make_multi_year_history()
+        prices = _adj_close_series(df)
+        series_list, average = compute_seasonals(prices, 2023, 2025, include_average=True)
+        png = render_seasonals_figure(
+            series_list,
+            average,
+            title="TEST Seasonals",
+            width_px=400,
+            height_px=240,
+        )
+        assert png[:8] == b"\x89PNG\r\n\x1a\n"
+        assert len(png) > 500
+
+    def test_charts_available_is_bool(self):
+        assert isinstance(charts_available(), bool)
+
+    def test_chart_deps_status_returns_string(self):
+        status = chart_deps_status()
+        assert isinstance(status, str)
+        assert status.startswith("Chart:")
+
+    def test_chart_pixel_dimensions_supersampling(self):
+        cols, rows, width_px, height_px = chart_pixel_dimensions(
+            50,
+            20,
+            scale=2,
+            cell_size=(10, 20),
+        )
+        assert cols == 50
+        assert rows == 20
+        assert width_px == 50 * 10 * 2
+        assert height_px == 20 * 20 * 2
+
+    def test_chart_pixel_dimensions_minimums(self):
+        _, _, width_px, height_px = chart_pixel_dimensions(10, 5, cell_size=(8, 8))
+        assert width_px >= 640
+        assert height_px >= 360
+
+    def test_chart_render_protocol_returns_string(self):
+        proto = chart_render_protocol()
+        assert proto in ("sixel", "tgp", "halfcell", "unicode", "unavailable")

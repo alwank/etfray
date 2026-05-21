@@ -103,6 +103,25 @@ pip install etfray
 
 Requires Python 3.11+.
 
+**Performance chart (optional):** For a matplotlib seasonals chart in the Performance tab:
+
+```bash
+pip install etfray[charts]
+# or from source:
+pip install -e ".[charts]"
+```
+
+Verify dependencies: `python scripts/check_charts.py` (should report `Chart: image (matplotlib)` and `True`).
+
+**Terminal image support** is required for a crisp chart (not blocky ASCII). Enable one of:
+
+- **Cursor / VS Code:** Settings → `terminal.integrated.enableImages` → `true`, then restart the terminal
+- **iTerm2, Kitty, WezTerm, or Windows Terminal 1.22+** (recommended)
+
+Without `[charts]` or without image support, etfray uses an ASCII plotext chart and shows the active mode in the Performance summary line.
+
+**Blurry chart?** If the summary says `Chart: image (halfcell)` or `(unicode)`, the terminal is using a low-resolution block renderer. For a sharp chart, run etfray in **iTerm2** or **Kitty**, or enable Cursor `terminal.integrated.enableImages` and restart the terminal. Check `python scripts/check_charts.py` for `protocol: sixel` or `tgp`.
+
 ## Quick Start
 
 ```bash

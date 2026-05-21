@@ -4,6 +4,11 @@ from textual.containers import Horizontal
 from textual.widget import Widget
 from textual.widgets import ContentSwitcher, Footer, Header, Static, Tree
 
+try:
+    import textual_image  # noqa: F401 — register terminal graphics before App.run
+except ImportError:
+    pass
+
 from etfray.ui.commands import ETFCommands
 from etfray.ui.portfolio.concentration_view import PortfolioConcentrationView
 from etfray.ui.portfolio.exposure_view import PortfolioExposureView
