@@ -192,14 +192,27 @@ def get_cached_holdings(ticker: str, source: str | None = None) -> dict | None:
 
 
 # Watchlist operations
-def add_to_watchlist(name: str, ticker: str) -> None:
+def is_in_watchlist(name: str, ticker: str) -> bool:
     conn = get_db()
-    conn.execute(
+    row = conn.execute(
+        "SELECT 1 FROM watchlists WHERE name = ? AND ticker = ?",
+        (name, ticker),
+    ).fetchone()
+    conn.close()
+    return row is not None
+
+
+def add_to_watchlist(name: str, ticker: str) -> bool:
+    """Add ticker to watchlist. Returns True if newly added, False if duplicate."""
+    conn = get_db()
+    cursor = conn.execute(
         "INSERT OR IGNORE INTO watchlists VALUES (?, ?, ?)",
         (name, ticker, datetime.now().isoformat()),
     )
+    added = cursor.rowcount > 0
     conn.commit()
     conn.close()
+    return added
 
 
 def remove_from_watchlist(name: str, ticker: str) -> None:
@@ -267,6 +280,16 @@ def delete_note(note_id: int) -> None:
     conn.execute("DELETE FROM notes WHERE id = ?", (note_id,))
     conn.commit()
     conn.close()
+
+
+def get_cached_issuers() -> list[str]:
+    """Return distinct non-empty issuers from local ETF cache."""
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT DISTINCT issuer FROM etf_cache WHERE issuer IS NOT NULL AND issuer != '' ORDER BY issuer",
+    ).fetchall()
+    conn.close()
+    return [r["issuer"] for r in rows]
 
 
 def search_cached_etfs(query: str) -> list[CachedETF]:

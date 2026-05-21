@@ -33,10 +33,17 @@ class TestWatchlistDB:
 
     def test_add_duplicate_is_idempotent(self):
         from etfray.db.database import add_to_watchlist, get_watchlist
-        add_to_watchlist("default", "VTI")
-        add_to_watchlist("default", "VTI")
+        assert add_to_watchlist("default", "VTI") is True
+        assert add_to_watchlist("default", "VTI") is False
         result = get_watchlist("default")
         assert result.count("VTI") == 1
+
+    def test_is_in_watchlist(self):
+        from etfray.db.database import add_to_watchlist, is_in_watchlist
+        assert is_in_watchlist("default", "VTI") is False
+        add_to_watchlist("default", "VTI")
+        assert is_in_watchlist("default", "VTI") is True
+        assert is_in_watchlist("default", "SCHB") is False
 
     def test_remove_from_watchlist(self):
         from etfray.db.database import add_to_watchlist, get_watchlist, remove_from_watchlist

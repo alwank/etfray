@@ -61,17 +61,48 @@ class SearchView(VerticalScroll):
             status.update("")
 
         table.loading = False
+        self._update_watch_button()
+
+    def _get_selected_ticker(self) -> str | None:
+        table = self.query_one("#search-results", DataTable)
+        if table.cursor_row is not None and table.row_count > 0:
+            ticker = str(table.coordinate_to_cell_key((table.cursor_row, 0)).row_key.value)
+            if ticker and ticker != "—":
+                return ticker
+        return None
+
+    def _update_watch_button(self) -> None:
+        from etfray.db.database import is_in_watchlist
+
+        button = self.query_one("#search-watch", Button)
+        ticker = self._get_selected_ticker()
+        if ticker and is_in_watchlist("default", ticker):
+            button.label = "Unwatch"
+            button.variant = "default"
+        else:
+            button.label = "Watch"
+            button.variant = "warning"
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         if event.row_key and str(event.row_key.value) != "—":
+            self._update_watch_button()
             self.app.navigate_to_etf(str(event.row_key.value))
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "search-watch":
-            table = self.query_one("#search-results", DataTable)
-            if table.cursor_row is not None and table.row_count > 0:
-                ticker = str(table.coordinate_to_cell_key((table.cursor_row, 0)).row_key.value)
-                if ticker and ticker != "—":
-                    from etfray.db.database import add_to_watchlist
-                    add_to_watchlist("default", ticker)
-                    self.app.notify(f"{ticker} added to watchlist")
+            ticker = self._get_selected_ticker()
+            if not ticker:
+                self.app.notify("Select a search result first", severity="warning")
+                return
+
+            from etfray.db.database import add_to_watchlist, is_in_watchlist, remove_from_watchlist
+
+            if is_in_watchlist("default", ticker):
+                remove_from_watchlist("default", ticker)
+                self.app.notify(f"{ticker} removed from watchlist")
+            elif add_to_watchlist("default", ticker):
+                self.app.notify(f"{ticker} added to watchlist")
+            else:
+                self.app.notify(f"{ticker} already in watchlist", severity="warning")
+
+            self._update_watch_button()

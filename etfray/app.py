@@ -282,8 +282,10 @@ class ETFTerminalApp(App):
             self.notify("No ETF selected", severity="warning")
             return
         from etfray.db.database import add_to_watchlist
-        add_to_watchlist("default", self._current_etf)
-        self.notify(f"{self._current_etf} added to watchlist")
+        if add_to_watchlist("default", self._current_etf):
+            self.notify(f"{self._current_etf} added to watchlist")
+        else:
+            self.notify(f"{self._current_etf} already in watchlist", severity="warning")
 
     def action_connect_ibkr(self) -> None:
         if self._ibkr_connected:
