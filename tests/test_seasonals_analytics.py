@@ -11,6 +11,9 @@ from etfray.domain.performance_analytics import (
     split_prices_by_year,
 )
 from etfray.domain.seasonals_plot import (
+    MPL_AXES_FACE,
+    MPL_FIGURE_FACE,
+    TERMINAL_BACKGROUND,
     chart_deps_status,
     chart_pixel_dimensions,
     chart_render_protocol,
@@ -118,6 +121,11 @@ class TestSeasonalsAnalytics:
         )
         assert png[:8] == b"\x89PNG\r\n\x1a\n"
         assert len(png) > 500
+
+    def test_chart_background_matches_terminal(self):
+        assert TERMINAL_BACKGROUND == "#121212"
+        assert MPL_FIGURE_FACE == TERMINAL_BACKGROUND
+        assert MPL_AXES_FACE == TERMINAL_BACKGROUND
 
     def test_charts_available_is_bool(self):
         assert isinstance(charts_available(), bool)

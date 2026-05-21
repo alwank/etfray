@@ -25,8 +25,10 @@ SEASONAL_COLORS: tuple[str, ...] = (
     "#64B5CD",
 )
 
-MPL_FIGURE_FACE = "#1e1e1e"
-MPL_AXES_FACE = "#1e1e1e"
+# Textual textual-dark $background (main content area)
+TERMINAL_BACKGROUND = "#121212"
+MPL_FIGURE_FACE = TERMINAL_BACKGROUND
+MPL_AXES_FACE = TERMINAL_BACKGROUND
 MPL_AXES_EDGE = "#555555"
 MPL_LABEL_COLOR = "#cccccc"
 MPL_TICK_COLOR = "#aaaaaa"
@@ -112,11 +114,15 @@ def chart_pixel_dimensions(
     *,
     scale: int = CHART_SCALE,
     cell_size: tuple[int, int] | None = None,
+    apply_mins: bool = True,
 ) -> tuple[int, int, int, int]:
     """Return (cols, rows, width_px, height_px) for a chart area."""
     cell_w, cell_h = cell_size or terminal_cell_size()
-    width_px = max(MIN_CHART_WIDTH_PX, int(cols * cell_w * scale))
-    height_px = max(MIN_CHART_HEIGHT_PX, int(rows * cell_h * scale))
+    width_px = int(cols * cell_w * scale)
+    height_px = int(rows * cell_h * scale)
+    if apply_mins:
+        width_px = max(MIN_CHART_WIDTH_PX, width_px)
+        height_px = max(MIN_CHART_HEIGHT_PX, height_px)
     return cols, rows, width_px, height_px
 
 
@@ -210,6 +216,7 @@ def render_seasonals_figure(
     ax.axhline(0, color=ZERO_LINE_COLOR, linewidth=0.8, zorder=0)
     ax.grid(True, axis="y", linestyle="-", linewidth=0.5, color=MPL_GRID_COLOR, alpha=0.6)
     ax.set_title(title, fontsize=10, pad=8)
+    fig.subplots_adjust(left=0.10, right=0.98, top=0.90, bottom=0.14)
 
     buf = io.BytesIO()
     fig.savefig(
@@ -217,8 +224,7 @@ def render_seasonals_figure(
         format="png",
         facecolor=fig.get_facecolor(),
         edgecolor="none",
-        bbox_inches="tight",
-        pad_inches=0.15,
+        pad_inches=0,
     )
     buf.seek(0)
     return buf.read()

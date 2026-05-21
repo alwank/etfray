@@ -143,6 +143,13 @@ class ETFTerminalApp(App):
     #content VerticalScroll Horizontal {
         height: auto;
     }
+    #content ContentSwitcher {
+        height: 1fr;
+        width: 1fr;
+    }
+    #content PerformanceView {
+        height: 1fr;
+    }
     """
 
     BINDINGS = [

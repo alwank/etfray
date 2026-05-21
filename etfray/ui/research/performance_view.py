@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import pandas as pd
 from textual.app import ComposeResult
-from textual.containers import Horizontal, VerticalScroll
+from textual.containers import Horizontal, Vertical
 from textual.timer import Timer
 from textual.widgets import Button, DataTable, Select, Static
 
 from etfray.domain.seasonals_plot import (
-    DEFAULT_CHART_ROWS,
     chart_deps_status,
     chart_image_status,
     chart_pixel_dimensions,
@@ -29,30 +28,37 @@ except ImportError:
 
 _PLACEHOLDER_YEAR_OPTS: list[tuple[str, str]] = [("—", "")]
 _CHART_IMAGE_DPI = 150
+_MIN_CHART_ROWS = 12
+_LEGEND_SEPARATOR = "    ·    "
 
 
 def _fmt_seasonal_pct(value: float) -> str:
     return f"{value:+.2f}%"
 
 
-class PerformanceView(VerticalScroll):
+class PerformanceView(Vertical):
     """Performance view — seasonals chart and period returns table."""
 
     DEFAULT_CSS = """
     PerformanceView {
-        padding: 1 2;
+        height: 1fr;
+        padding: 1 1;
+        layout: grid;
+        grid-size: 1 4;
+        grid-gutter: 0 1;
+        grid-rows: auto auto 1fr auto;
     }
     PerformanceView #perf-header {
         height: auto;
         min-height: 3;
         width: 100%;
-        margin-bottom: 1;
+        row-span: 1;
     }
     PerformanceView #perf-controls {
         height: auto;
         min-height: 3;
         width: 100%;
-        margin-bottom: 1;
+        row-span: 1;
     }
     PerformanceView #perf-year-start,
     PerformanceView #perf-year-end {
@@ -67,28 +73,35 @@ class PerformanceView(VerticalScroll):
         height: 3;
         margin: 0 0 0 1;
     }
-    PerformanceView #perf-chart-row {
+    PerformanceView #perf-chart-area {
+        height: 100%;
+        min-height: 0;
         width: 100%;
+        row-span: 1;
+    }
+    PerformanceView #perf-footer {
         height: auto;
-        min-height: 24;
-        margin-bottom: 1;
+        min-height: 8;
+        width: 100%;
+        background: $background;
+        row-span: 1;
     }
     PerformanceView #perf-chart-container {
-        width: 1fr;
-        height: auto;
-        min-height: 24;
+        height: 1fr;
+        width: 100%;
+        min-height: 12;
+        overflow: hidden;
     }
     PerformanceView #perf-chart-image {
         height: auto;
-        min-height: 20;
         width: auto;
         max-width: 100%;
-        border: solid $primary-background;
+        border: none;
     }
     PerformanceView #perf-chart-fallback {
         width: 100%;
         height: auto;
-        min-height: 16;
+        max-height: 100%;
     }
     PerformanceView #perf-chart-status {
         width: 100%;
@@ -100,28 +113,22 @@ class PerformanceView(VerticalScroll):
         display: block;
     }
     PerformanceView #perf-legend {
-        width: 22;
-        min-width: 18;
+        width: 100%;
         height: auto;
-        padding: 0 1;
+        min-height: 1;
+        padding: 1 0;
         color: $text-muted;
     }
-    PerformanceView #perf-table-scroll {
-        height: auto;
-        min-height: 10;
-    }
-    PerformanceView #perf-table-scroll.hidden {
-        display: none;
-    }
     PerformanceView #perf-table {
-        height: auto;
-        min-height: 10;
+        height: 3;
+        min-height: 3;
+        width: 100%;
+        margin-bottom: 1;
     }
     PerformanceView #perf-summary {
         height: auto;
         min-height: 2;
         color: $text-muted;
-        margin-top: 1;
     }
     PerformanceView .hidden {
         display: none;
@@ -129,7 +136,6 @@ class PerformanceView(VerticalScroll):
     """
 
     _ticker: str = ""
-    _display_mode: str = "chart"
     _show_average: bool = False
     _year_start: int = 0
     _year_end: int = 0
@@ -155,8 +161,6 @@ class PerformanceView(VerticalScroll):
     def compose(self) -> ComposeResult:
         with Horizontal(id="perf-header"):
             yield Static("Performance — Select an ETF first", id="perf-title")
-            yield Button("Chart", id="perf-chart-btn", variant="primary")
-            yield Button("Table", id="perf-table-btn")
             yield Button("Export", id="perf-export", variant="success")
         with Horizontal(id="perf-controls"):
             yield Select(
@@ -172,7 +176,7 @@ class PerformanceView(VerticalScroll):
                 allow_blank=True,
             )
             yield Button("Average", id="perf-average-btn")
-        with Horizontal(id="perf-chart-row"):
+        with Vertical(id="perf-chart-area"):
             yield Static("", id="perf-chart-status")
             with Horizontal(id="perf-chart-container"):
                 self._has_chart_image_widget = _TERMINAL_IMAGE_CLASS is not None
@@ -183,17 +187,14 @@ class PerformanceView(VerticalScroll):
                     id="perf-chart-fallback",
                     markup=False,
                 )
+        with Vertical(id="perf-footer"):
             yield Static("", id="perf-legend")
-        with VerticalScroll(id="perf-table-scroll"):
             yield DataTable(id="perf-table")
-        yield Static("", id="perf-summary")
+            yield Static("", id="perf-summary")
 
     def on_mount(self) -> None:
         table = self.query_one("#perf-table", DataTable)
-        table.add_column("Period", key="period")
-        table.add_column("Return", key="return")
-        table.cursor_type = "row"
-        self._update_toggle_buttons()
+        table.cursor_type = "none"
         self._update_average_button()
         if charts_available() and not self._has_chart_image_widget:
             self.app.notify(
@@ -207,18 +208,18 @@ class PerformanceView(VerticalScroll):
         self._update_summary_chart_status()
 
     def on_resize(self) -> None:
-        if self._prices is None or self._display_mode != "chart":
-            return
         if self._resize_timer is not None:
             self._resize_timer.stop()
-        self._resize_timer = self.set_timer(0.15, self._render_chart)
+        self._resize_timer = self.set_timer(0.15, self._on_resize_layout)
+
+    def _on_resize_layout(self) -> None:
+        if self._period_rows:
+            self._populate_returns_table()
+        if self._prices is not None:
+            self._render_chart()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "perf-chart-btn":
-            self._set_display_mode("chart")
-        elif event.button.id == "perf-table-btn":
-            self._set_display_mode("table")
-        elif event.button.id == "perf-export":
+        if event.button.id == "perf-export":
             self._export()
         elif event.button.id == "perf-average-btn":
             self._show_average = not self._show_average
@@ -294,44 +295,131 @@ class PerformanceView(VerticalScroll):
                 image.add_class("hidden")
             fallback.remove_class("hidden")
 
-    def _chart_cell_size(self) -> tuple[int, int]:
-        """Chart area size in terminal cells (cols, rows)."""
-        widget = self._chart_image_widget()
-        if widget is not None and widget.size.width > 0 and widget.size.height > 0:
-            return widget.size.width, widget.size.height
-
+    def _chart_container_width(self) -> int:
+        """Available chart width in terminal cells."""
+        try:
+            container = self.query_one("#perf-chart-container")
+            if container.size.width > 0:
+                return container.size.width
+            if container.region.width > 0:
+                return container.region.width
+        except Exception:
+            pass
         view_w = self.size.width or 0
         if view_w < 40:
             try:
                 view_w = self.app.size.width
             except Exception:
                 view_w = 80
-        cols = max(40, view_w - 28)
-        return cols, DEFAULT_CHART_ROWS
+        return max(40, view_w - 4)
+
+    def _chart_container_height(self) -> int:
+        """Chart container height in terminal rows (where the image is placed)."""
+        try:
+            container = self.query_one("#perf-chart-container")
+            height = container.size.height if container.size.height > 0 else container.region.height
+            if height > 0:
+                return height
+        except Exception:
+            pass
+        return 0
+
+    def _footer_height(self) -> int:
+        """Footer band height in terminal rows (legend + table + summary)."""
+        try:
+            footer = self.query_one("#perf-footer")
+            height = footer.size.height if footer.size.height > 0 else footer.region.height
+            if height > 0:
+                return height
+        except Exception:
+            pass
+        return 9
+
+    def _max_image_rows(self) -> int:
+        """Cap sixel to chart container height (footer is in a separate grid row)."""
+        container_h = self._chart_container_height()
+        if container_h > 0:
+            return max(_MIN_CHART_ROWS, container_h - 1)
+        try:
+            area = self.query_one("#perf-chart-area")
+            area_h = area.size.height if area.size.height > 0 else area.region.height
+            if area_h > 0:
+                return max(_MIN_CHART_ROWS, area_h - 2)
+        except Exception:
+            pass
+        return _MIN_CHART_ROWS
+
+    def _chart_available_rows(self) -> int:
+        """Chart height in terminal rows, leaving room for header, controls, and footer."""
+        return self._max_image_rows()
+
+    def _chart_cell_size(self) -> tuple[int, int]:
+        """Chart area size in terminal cells (cols, rows), clamped to container."""
+        cols = self._chart_container_width()
+        rows = min(self._chart_available_rows(), self._max_image_rows())
+        container_h = self._chart_container_height()
+        if container_h > 0:
+            rows = min(rows, container_h)
+        return cols, max(_MIN_CHART_ROWS, rows)
 
     def _chart_pixel_size(self) -> tuple[int, int, int, int]:
         """Return (cols, rows, width_px, height_px) with supersampling."""
         cols, rows = self._chart_cell_size()
-        return chart_pixel_dimensions(cols, rows, cell_size=terminal_cell_size())
+        return chart_pixel_dimensions(
+            cols, rows, cell_size=terminal_cell_size(), apply_mins=False
+        )
 
     def _apply_chart_widget_size(self, cols: int, rows: int) -> None:
         """Pin image widget to 1:1 cell mapping to avoid upscaling a small PNG."""
         widget = self._chart_image_widget()
         if widget is None:
             return
+        try:
+            container = self.query_one("#perf-chart-container")
+            if container.size.width > 0:
+                cols = min(cols, container.size.width)
+            container_h = container.size.height if container.size.height > 0 else container.region.height
+            if container_h > 0:
+                rows = min(rows, container_h)
+        except Exception:
+            container_h = self._chart_container_height()
+            if container_h > 0:
+                rows = min(rows, max(_MIN_CHART_ROWS, container_h - 1))
         widget.styles.width = cols
-        widget.styles.height = rows
+        widget.styles.height = max(_MIN_CHART_ROWS, rows)
 
     def _chart_dimensions(self) -> tuple[int, int]:
-        """Fit plotext canvas to available terminal width (legend uses ~22 cols)."""
-        view_width = self.size.width or 0
-        if view_width < 40:
-            try:
-                view_width = self.app.size.width
-            except Exception:
-                view_width = 100
-        width = max(50, min(view_width - 28, 100))
-        return width, 18
+        """Fit plotext canvas to available terminal width and height."""
+        width = max(50, self._chart_container_width())
+        return width, self._chart_available_rows()
+
+    def _table_column_width(self, num_cols: int) -> int:
+        """Equal column width so the returns table spans the content area."""
+        table = self.query_one("#perf-table", DataTable)
+        width = table.size.width if table.size.width > 0 else table.region.width
+        if width <= 0:
+            width = max(40, (self.size.width or 0) - 4)
+            if width < 40:
+                try:
+                    width = max(40, self.app.size.width - 4)
+                except Exception:
+                    width = 80
+        return max(6, (width - 2) // num_cols)
+
+    def _populate_returns_table(self) -> None:
+        """Populate period returns as a single horizontal row."""
+        from etfray.domain.overview_format import fmt_pct
+        from etfray.domain.performance_analytics import PERIOD_LABELS
+
+        table = self.query_one("#perf-table", DataTable)
+        returns_by_label = dict(self._period_rows)
+        col_w = self._table_column_width(len(PERIOD_LABELS))
+        table.clear(columns=True)
+        for label in PERIOD_LABELS:
+            table.add_column(label, key=label, width=col_w)
+        table.add_row(
+            *[fmt_pct(returns_by_label.get(label), signed=True) for label in PERIOD_LABELS]
+        )
 
     def _update_summary_chart_status(self) -> None:
         """Append chart backend status to the summary line."""
@@ -364,7 +452,6 @@ class PerformanceView(VerticalScroll):
         )
 
         df = await to_thread(get_price_history, ticker, "max")
-        table = self.query_one("#perf-table", DataTable)
         summary = self.query_one("#perf-summary", Static)
 
         self._set_loading(False)
@@ -372,7 +459,7 @@ class PerformanceView(VerticalScroll):
         if df is None or df.empty:
             err = get_price_history_last_error() or "No price history available"
             self._show_chart_error(f"Error: {err}")
-            table.clear()
+            self._populate_returns_table()
             summary.update(f"Error: {err}")
             self._history_df = None
             self._prices = None
@@ -389,9 +476,7 @@ class PerformanceView(VerticalScroll):
         self._populate_year_selects()
         perf_summary = compute_summary(df)
 
-        table.clear()
-        for label, ret in self._period_rows:
-            table.add_row(label, fmt_pct(ret, signed=True))
+        self._populate_returns_table()
 
         self.set_timer(0.05, self._render_chart)
         total_str = fmt_pct(perf_summary.total_return, signed=True)
@@ -430,16 +515,31 @@ class PerformanceView(VerticalScroll):
         end_select.set_options(options)
         self._sync_year_selects()
 
+    def _redraw_footer(self) -> None:
+        """Re-apply footer content after sixel chart draw (graphics can overwrite cells)."""
+        if self._chart_render_cache is not None:
+            series_list, average, _ = self._chart_render_cache
+            self._update_legend(series_list, average)
+        if self._period_rows:
+            self._populate_returns_table()
+        self._update_summary_chart_status()
+        footer = self.query_one("#perf-footer")
+        footer.refresh()
+        for child in footer.children:
+            child.refresh()
+
     def _update_legend(self, series_list: list, average) -> None:
         sorted_asc = sorted(series_list, key=lambda s: s.year)
-        lines = []
+        parts = []
         for s in sorted(series_list, key=lambda s: s.year, reverse=True):
             idx = next(i for i, x in enumerate(sorted_asc) if x.year == s.year)
             hex_color = color_for_series_index(idx)
-            lines.append(f"[{hex_color}]■[/] {s.year}  {_fmt_seasonal_pct(s.final_return_pct)}")
+            parts.append(f"[{hex_color}]■[/] {s.year} {_fmt_seasonal_pct(s.final_return_pct)}")
         if average is not None and average.day_of_year:
-            lines.append(f"[bold white]--[/] Avg  {_fmt_seasonal_pct(average.final_return_pct)}")
-        self.query_one("#perf-legend", Static).update("\n".join(lines) if lines else "")
+            parts.append(f"[bold white]--[/] Avg {_fmt_seasonal_pct(average.final_return_pct)}")
+        self.query_one("#perf-legend", Static).update(
+            _LEGEND_SEPARATOR.join(parts) if parts else ""
+        )
 
     def _render_chart_fallback(self, series_list, average) -> None:
         width, height = self._chart_dimensions()
@@ -494,10 +594,15 @@ class PerformanceView(VerticalScroll):
         if widget is None:
             self._render_chart_fallback(series_list, average)
             return
-        widget.image = PILImage.open(BytesIO(png))
+        img = PILImage.open(BytesIO(png))
+        if img.size != (width_px, height_px):
+            resample = getattr(PILImage, "Resampling", PILImage).LANCZOS
+            img = img.resize((width_px, height_px), resample)
+        widget.image = img
         self._apply_chart_widget_size(cols, rows)
         self._last_render_cells = (cols, rows)
         self._set_chart_mode("image")
+        self._redraw_footer()
         self._update_summary_chart_status()
         if used_estimate:
             self._needs_layout_rerender = True
@@ -537,30 +642,6 @@ class PerformanceView(VerticalScroll):
             )
         else:
             self._render_chart_fallback(series_list, average)
-
-    def _set_display_mode(self, mode: str) -> None:
-        self._display_mode = mode
-        chart_row = self.query_one("#perf-chart-row")
-        table_scroll = self.query_one("#perf-table-scroll")
-        if mode == "chart":
-            chart_row.remove_class("hidden")
-            table_scroll.add_class("hidden")
-            if self._prices is not None:
-                self._render_chart()
-        else:
-            chart_row.add_class("hidden")
-            table_scroll.remove_class("hidden")
-        self._update_toggle_buttons()
-
-    def _update_toggle_buttons(self) -> None:
-        chart_btn = self.query_one("#perf-chart-btn", Button)
-        table_btn = self.query_one("#perf-table-btn", Button)
-        if self._display_mode == "chart":
-            chart_btn.variant = "primary"
-            table_btn.variant = "default"
-        else:
-            chart_btn.variant = "default"
-            table_btn.variant = "primary"
 
     def _update_average_button(self) -> None:
         btn = self.query_one("#perf-average-btn", Button)
