@@ -124,6 +124,8 @@ class PerformanceView(Vertical):
         min-height: 3;
         width: 100%;
         margin-bottom: 1;
+        overflow-x: hidden;
+        overflow-y: hidden;
     }
     PerformanceView #perf-summary {
         height: auto;
@@ -195,6 +197,8 @@ class PerformanceView(Vertical):
     def on_mount(self) -> None:
         table = self.query_one("#perf-table", DataTable)
         table.cursor_type = "none"
+        table.show_horizontal_scrollbar = False
+        table.show_vertical_scrollbar = False
         self._update_average_button()
         if charts_available() and not self._has_chart_image_widget:
             self.app.notify(
@@ -394,7 +398,7 @@ class PerformanceView(Vertical):
         return width, self._chart_available_rows()
 
     def _table_column_width(self, num_cols: int) -> int:
-        """Equal column width so the returns table spans the content area."""
+        """Equal column width so columns fit without horizontal scroll."""
         table = self.query_one("#perf-table", DataTable)
         width = table.size.width if table.size.width > 0 else table.region.width
         if width <= 0:
@@ -404,11 +408,23 @@ class PerformanceView(Vertical):
                     width = max(40, self.app.size.width - 4)
                 except Exception:
                     width = 80
-        return max(6, (width - 2) // num_cols)
+        pad = 2 * table.cell_padding
+        usable = max(num_cols * 4, width - 1)
+        return max(4, (usable - num_cols * pad) // num_cols)
+
+    def _fit_return_cell(self, value: float | None, col_w: int) -> str:
+        """Format a return for a fixed-width column, dropping decimals if needed."""
+        from etfray.domain.overview_format import fmt_pct
+
+        for decimals in (2, 1, 0):
+            text = fmt_pct(value, signed=True, decimals=decimals)
+            if len(text) <= col_w:
+                return text
+        text = fmt_pct(value, signed=True, decimals=0)
+        return text[:col_w] if len(text) > col_w else text
 
     def _populate_returns_table(self) -> None:
         """Populate period returns as a single horizontal row."""
-        from etfray.domain.overview_format import fmt_pct
         from etfray.domain.performance_analytics import PERIOD_LABELS
 
         table = self.query_one("#perf-table", DataTable)
@@ -418,7 +434,10 @@ class PerformanceView(Vertical):
         for label in PERIOD_LABELS:
             table.add_column(label, key=label, width=col_w)
         table.add_row(
-            *[fmt_pct(returns_by_label.get(label), signed=True) for label in PERIOD_LABELS]
+            *[
+                self._fit_return_cell(returns_by_label.get(label), col_w)
+                for label in PERIOD_LABELS
+            ]
         )
 
     def _update_summary_chart_status(self) -> None:
