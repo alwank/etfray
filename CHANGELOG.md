@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.1] - 2026-05-22
+
+### Added
+
+- **IBKR splash connection** — IBKR connects during the splash screen startup sequence for faster portfolio access.
+
+### Changed
+
+- **Contributing guidelines** — Consolidated into a single source of truth with Gitflow branching workflow, codebase orientation, and documentation contribution guidance.
+- **Code formatting** — Cleaned up formatting and improved readability across multiple files.
+
 ## [0.2.0] - 2026-05-22
 
 ### Added
