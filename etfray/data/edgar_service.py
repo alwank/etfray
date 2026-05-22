@@ -201,6 +201,121 @@ def _load_series_class_csv() -> list[dict] | None:
         return None
 
 
+@dataclass
+class ETFUniverseEntry:
+    ticker: str
+    fund_name: str
+    issuer: str
+    cik: str
+    asset_class: str
+    category: str
+    geography: str
+
+
+_universe_cache: list[ETFUniverseEntry] | None = None
+
+
+def _classify_etf(series_name: str, registrant: str) -> tuple[str, str, str]:
+    """Infer (asset_class, category, geography) from fund name keywords.
+
+    Returns best-effort labels; falls back to 'Equity', 'Broad Market', 'US'.
+    """
+    name = (series_name + " " + registrant).lower()
+
+    # Asset class
+    if any(k in name for k in ("bond", "treasury", "fixed income", "tips", "credit", "note", "debt", "municipal", "muni", "yield", "income fund", "aggregate")):
+        asset_class = "Fixed Income"
+    elif any(k in name for k in ("gold", "silver", "oil", "commodity", "commodities", "metal", "copper", "natural gas", "energy fund", "agriculture")):
+        asset_class = "Commodity"
+    elif any(k in name for k in ("multi-asset", "allocation", "balanced", "managed futures", "real return", "inflation")):
+        asset_class = "Multi-Asset"
+    elif any(k in name for k in ("real estate", "reit", "property", "mortgage")):
+        asset_class = "Real Estate"
+    else:
+        asset_class = "Equity"
+
+    # Category
+    _sector_keywords = ("technology", "tech", "health", "healthcare", "energy", "financials", "financial", "utilities", "industrial", "consumer", "materials", "communication", "semiconductor", "biotech", "bank", "insurance", "retail", "aerospace", "defense", "clean energy", "solar", "cyber", "cloud", "ai ", "artificial intelligence")
+    _factor_keywords = ("dividend", "growth", "value", "quality", "momentum", "low volatility", "min vol", "multifactor", "factor", "esg", "sustainable", "responsible")
+
+    if asset_class == "Fixed Income":
+        category = "Fixed Income"
+    elif asset_class == "Commodity":
+        category = "Commodity"
+    elif asset_class == "Real Estate":
+        category = "Real Estate"
+    elif asset_class == "Multi-Asset":
+        category = "Multi-Asset"
+    elif any(k in name for k in _sector_keywords):
+        category = "Sector / Thematic"
+    elif any(k in name for k in _factor_keywords):
+        category = "Factor / Smart Beta"
+    elif any(k in name for k in ("s&p 500", "total market", "total stock", "broad market", "all cap", "large cap", "mid cap", "small cap", "extended market", "russell", "nasdaq", "dow")):
+        category = "Broad Market"
+    elif any(k in name for k in ("leveraged", "2x", "3x", "ultra", "inverse", "short ")):
+        category = "Leveraged / Inverse"
+    elif any(k in name for k in ("currency", "forex", "fx ")):
+        category = "Currency"
+    else:
+        category = "Broad Market"
+
+    # Geography
+    _intl_keywords = ("international", "world", "global", "developed markets", "msci eafe", "eafe", "europe", "pacific", "acwi", "acwx")
+    _em_keywords = ("emerging", "emerging markets", "em ", "bric", "latin america", "asia", "china", "india", "brazil", "korea", "taiwan", "mexico", "africa", "frontier")
+    _single_country = ("germany", "japan", "uk ", "united kingdom", "australia", "canada", "france", "switzerland", "israel", "indonesia", "vietnam", "poland", "hungary", "turkey", "greece")
+
+    if any(k in name for k in _em_keywords):
+        geography = "Emerging Markets"
+    elif any(k in name for k in _single_country):
+        geography = "Single Country"
+    elif any(k in name for k in _intl_keywords):
+        geography = "International"
+    else:
+        geography = "US"
+
+    return asset_class, category, geography
+
+
+def get_etf_universe() -> list[ETFUniverseEntry]:
+    """Return the full ETF universe from the cached SEC Series & Class CSV.
+
+    Results are classified by asset class, category, and geography using
+    keyword heuristics on the fund name. The parsed list is cached in memory
+    for the lifetime of the process.
+    """
+    global _universe_cache
+    if _universe_cache is not None:
+        return _universe_cache
+
+    data = _load_series_class_csv()
+    if not data:
+        _universe_cache = []
+        return _universe_cache
+
+    seen: set[str] = set()
+    entries: list[ETFUniverseEntry] = []
+    for row in data:
+        ticker = row["ticker"]
+        if not ticker or ticker in seen:
+            continue
+        seen.add(ticker)
+        asset_class, category, geography = _classify_etf(row["series_name"], row["registrant"])
+        entries.append(
+            ETFUniverseEntry(
+                ticker=ticker,
+                fund_name=row["series_name"] or f"Fund ({row['series_id']})",
+                issuer=row["registrant"],
+                cik=row["cik"],
+                asset_class=asset_class,
+                category=category,
+                geography=geography,
+            )
+        )
+
+    _universe_cache = entries
+    return _universe_cache
+
+
 def _search_sec_tickers(query: str) -> list[tuple[str, str, str, str]]:
     """Search SEC Series & Class CSV for funds matching a name/issuer query.
 

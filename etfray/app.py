@@ -19,13 +19,13 @@ from etfray.ui.portfolio.positions_view import PositionsView
 from etfray.ui.portfolio.risk_view import PortfolioRiskView
 from etfray.ui.research.compare_view import CompareView
 from etfray.ui.research.concentration_view import ConcentrationView
+from etfray.ui.research.discovery_view import DiscoveryView
 from etfray.ui.research.documents_view import DocumentsView
 from etfray.ui.research.exposure_view import ExposureView
 from etfray.ui.research.fees_view import FeesView
 from etfray.ui.research.holdings_view import HoldingsView
 from etfray.ui.research.overview_view import OverviewView
 from etfray.ui.research.risk_view import RiskView
-from etfray.ui.research.search_view import SearchView
 from etfray.ui.research.seasonals_view import SeasonalsView
 from etfray.ui.splash_screen import SplashScreen
 from etfray.ui.workspace.exports_view import ExportsView
@@ -54,7 +54,7 @@ class Sidebar(Widget):
         tree.root.expand()
 
         research = tree.root.add("Research", expand=True)
-        research.add_leaf("ETF Search", data="research-search")
+        research.add_leaf("Search", data="research-search")
         research.add_leaf("Overview", data="research-overview")
         research.add_leaf("Seasonals", data="research-seasonals")
         research.add_leaf("Holdings", data="research-holdings")
@@ -139,10 +139,6 @@ class ETFTerminalApp(App):
         width: 1fr;
         height: 1fr;
     }
-    #welcome {
-        height: 1fr;
-        padding: 2 4;
-    }
     /* Nested toolbars only — do not collapse top-level content views */
     #content ContentSwitcher VerticalScroll Horizontal,
     #content ContentSwitcher Vertical Horizontal {
@@ -154,7 +150,7 @@ class ETFTerminalApp(App):
     }
     /* Direct page roots only — avoid stretching nested toolbars/tables */
     #content ContentSwitcher > Static,
-    #content ContentSwitcher > SearchView,
+    #content ContentSwitcher > DiscoveryView,
     #content ContentSwitcher > OverviewView,
     #content ContentSwitcher > SeasonalsView,
     #content ContentSwitcher > HoldingsView,
@@ -237,7 +233,7 @@ class ETFTerminalApp(App):
         Binding("m", "nav('portfolio-margin')", "Margin"),
         Binding("r", "nav('research-risk')", "Risk"),
         Binding("d", "nav('research-documents')", "Documents"),
-        Binding("escape", "nav('welcome')", "Back"),
+        Binding("escape", "nav('research-search')", "Home"),
         Binding("w", "add_to_watchlist", "Watch"),
         Binding("ctrl+i", "connect_ibkr", "Connect IBKR"),
         Binding("s", "cycle_source", "Source"),
@@ -256,19 +252,8 @@ class ETFTerminalApp(App):
         yield Header()
         with Horizontal(id="app-body"):
             yield Sidebar()
-            with ContentSwitcher(initial="welcome", id="content"):
-                yield Static(
-                    "Welcome to ETFray\n\n"
-                    "Use the sidebar or press / to search for an ETF.\n\n"
-                    "Keyboard shortcuts:\n"
-                    "  /  Search        p  Portfolio\n"
-                    "  t  Seasonals    h  Holdings\n"
-                    "  x  Exposure      c  Concentration\n"
-                    "  m  Margin        r  Risk          d  Documents\n"
-                    "  q  Quit          Esc Back",
-                    id="welcome",
-                )
-                yield SearchView(id="research-search")
+            with ContentSwitcher(initial="research-search", id="content"):
+                yield DiscoveryView(id="research-search")
                 yield OverviewView(id="research-overview")
                 yield SeasonalsView(id="research-seasonals")
                 yield HoldingsView(id="research-holdings")
@@ -304,13 +289,11 @@ class ETFTerminalApp(App):
 
     def _on_splash_dismissed(self, _result=None) -> None:
         switcher = self.query_one("#content", ContentSwitcher)
-        if switcher.current != "welcome":
-            switcher.current = "welcome"
+        switcher.current = "research-search"
         self.call_after_refresh(self._refresh_home_after_splash)
 
     def _refresh_home_after_splash(self) -> None:
         self.screen.refresh(layout=True)
-        self.query_one("#welcome", Static).refresh()
         self.query_one(".sidebar-title", Static).refresh()
         if self._ibkr_connected:
             self.query_one(StatusBar).refresh()
