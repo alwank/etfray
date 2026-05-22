@@ -95,8 +95,13 @@ class SnapshotView(VerticalScroll):
         yield Static("── Recent / Quick Jump ──\n", id="snap-recent")
         yield Static(
             "── Quick Keys ──\n"
-            "  /  Search     p  Portfolio   t  Seasonals   h  Holdings\n"
-            "  x  Exposure   c  Concentr.   m  Margin      r  Risk",
+            "  /  Search       p  Portfolio\n"
+            "  t  Seasonals    h  Holdings\n"
+            "  x  Exposure     c  Concentr.\n"
+            "  m  Margin       r  Risk\n"
+            "  d  Documents    Esc  Home\n"
+            "  w  Watch        s  Source\n"
+            " ^I  IBKR          q  Quit",
             id="snap-keys",
         )
 
