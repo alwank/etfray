@@ -136,6 +136,10 @@ class ETFTerminalApp(App):
     #content {
         width: 1fr;
     }
+    #welcome {
+        height: 1fr;
+        padding: 2 4;
+    }
     #content VerticalScroll,
     #content Vertical {
         height: auto;
@@ -221,10 +225,21 @@ class ETFTerminalApp(App):
             self.navigate_to(event.node.data)
 
     def on_mount(self) -> None:
-        self.push_screen(SplashScreen())
+        self.push_screen(SplashScreen(), callback=self._on_splash_dismissed)
 
     def on_screen_resume(self) -> None:
         self.screen.refresh(layout=True)
+
+    def _on_splash_dismissed(self, _result=None) -> None:
+        switcher = self.query_one("#content", ContentSwitcher)
+        if switcher.current != "welcome":
+            switcher.current = "welcome"
+        self.call_after_refresh(self._refresh_home_after_splash)
+
+    def _refresh_home_after_splash(self) -> None:
+        self.screen.refresh(layout=True)
+        self.query_one("#welcome", Static).refresh()
+        self.query_one(".sidebar-title", Static).refresh()
 
     def action_cycle_source(self) -> None:
         if not self.query("#content"):

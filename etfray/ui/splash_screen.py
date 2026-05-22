@@ -95,23 +95,20 @@ class SplashScreen(Screen):
         self.query_one(f"#{widget_id}", StatusLine).set_state(state, detail)
 
     def _startup_sequence(self) -> None:
-        has_failure = False
-
         # 1. Database init
         self.app.call_from_thread(self._set_status, "status-db", "running")
-        sleep(0.3)
+        sleep(0.1)
         try:
             from etfray.db.database import get_db
             get_db().close()
             self.app.call_from_thread(self._set_status, "status-db", "ok")
         except Exception as e:
             self.app.call_from_thread(self._set_status, "status-db", "fail", str(e))
-            has_failure = True
-        sleep(0.3)
+        sleep(0.1)
 
         # 2. Settings validation
         self.app.call_from_thread(self._set_status, "status-settings", "running")
-        sleep(0.3)
+        sleep(0.1)
         try:
             from etfray.db.database import load_settings
             s = load_settings()
@@ -126,32 +123,14 @@ class SplashScreen(Screen):
                 self.app.call_from_thread(self._set_status, "status-settings", "ok")
         except Exception as e:
             self.app.call_from_thread(self._set_status, "status-settings", "fail", str(e))
-            has_failure = True
-        sleep(0.3)
+        sleep(0.1)
 
-        # 3. IBKR connection
-        self.app.call_from_thread(self._set_status, "status-ibkr", "running")
-        try:
-            from etfray.data.ibkr_service import get_ibkr_service
-            from etfray.db.database import load_settings
-            settings = load_settings()
-            svc = get_ibkr_service()
-            ok = svc.connect(settings.ibkr_host, settings.ibkr_port, settings.ibkr_client_id)
-            if ok:
-                self.app.call_from_thread(self._set_status, "status-ibkr", "ok", "Connected")
-                self.app.call_from_thread(setattr, self.app, "_ibkr_connected", True)
-            else:
-                err = getattr(svc, '_last_error', 'Connection refused')
-                self.app.call_from_thread(self._set_status, "status-ibkr", "fail", err)
-                has_failure = True
-        except Exception as e:
-            self.app.call_from_thread(self._set_status, "status-ibkr", "fail", str(e))
-            has_failure = True
-        sleep(0.3)
+        # 3. IBKR — skip auto-connect (use Ctrl+I to connect manually)
+        self.app.call_from_thread(self._set_status, "status-ibkr", "ok", "Manual (Ctrl+I)")
+        sleep(0.1)
 
         # 4. Cache warmup
         self.app.call_from_thread(self._set_status, "status-cache", "running")
-        sleep(0.2)
         try:
             from etfray.db.database import get_all_watchlists, get_cached_holdings
             watchlists = get_all_watchlists()
@@ -161,9 +140,8 @@ class SplashScreen(Screen):
             self.app.call_from_thread(self._set_status, "status-cache", "ok", f"{len(tickers)} tickers")
         except Exception as e:
             self.app.call_from_thread(self._set_status, "status-cache", "warn", str(e))
-        sleep(0.3)
+        sleep(0.1)
 
         # Dismiss
-        pause = 2.5 if has_failure else 1.0
-        sleep(pause)
-        self.app.call_from_thread(self.app.pop_screen)
+        sleep(0.3)
+        self.app.call_from_thread(self.dismiss)
