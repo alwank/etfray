@@ -9,7 +9,7 @@ from datetime import date, datetime
 
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.widgets import Button, DataTable, Static
+from textual.widgets import Button, DataTable, Label, Static
 
 BENCHMARK_TICKERS = ["SPY", "QQQ", "AGG", "GLD"]
 _DOUBLE_CLICK_SECONDS = 0.45
@@ -71,6 +71,19 @@ class SnapshotView(VerticalScroll):
         margin-bottom: 1;
         padding: 0 1;
     }
+    SnapshotView #snap-recent-label {
+        margin-bottom: 1;
+    }
+    SnapshotView #snap-recent-pills {
+        height: auto;
+        margin-top: 0;
+    }
+    SnapshotView #snap-recent-pills Button {
+        min-width: 7;
+        max-width: 16;
+        height: 3;
+        margin-right: 1;
+    }
     SnapshotView #snap-keys {
         height: auto;
         padding: 0 1;
@@ -92,7 +105,9 @@ class SnapshotView(VerticalScroll):
                 with Horizontal(id="snap-watchlist-footer"):
                     yield Button("Go to Watchlist →", id="snap-go-watchlist")
 
-        yield Static("── Recent / Quick Jump ──\n", id="snap-recent")
+        with Vertical(id="snap-recent"):
+            yield Label("── Recent / Quick Jump ──", id="snap-recent-label")
+            yield Horizontal(id="snap-recent-pills")
         yield Static(
             "── Quick Keys ──\n"
             "  /  Search       p  Portfolio\n"
@@ -123,7 +138,7 @@ class SnapshotView(VerticalScroll):
         """Re-render all panels. Safe to call from navigate_to() and _on_splash_dismissed()."""
         self._render_benchmarks()
         self._load_watchlist()
-        self._render_recent()
+        self.run_worker(self._render_recent(), exclusive=True, name="snap-recent")
 
     # ── Benchmark Strip ────────────────────────────────────────────────────
 
@@ -251,7 +266,7 @@ class SnapshotView(VerticalScroll):
 
     # ── Recent ETFs ────────────────────────────────────────────────────────
 
-    def _render_recent(self) -> None:
+    async def _render_recent(self) -> None:
         from etfray.db.database import get_note
 
         note = get_note("system", "recent_etfs")
@@ -262,16 +277,14 @@ class SnapshotView(VerticalScroll):
             except (json.JSONDecodeError, AttributeError):
                 pass
 
-        if tickers:
-            pills = "  ".join(f"[bold]{t}[/bold]" for t in tickers)
-            text = f"── Recent / Quick Jump ──\n  Last viewed:  {pills}   [Search →]"
-        else:
-            text = (
-                "── Recent / Quick Jump ──\n"
-                "  [dim]No recent ETFs yet — search and open one to populate.[/dim]   [Search →]"
-            )
+        pills = self.query_one("#snap-recent-pills", Horizontal)
+        # Await removal so the node list is cleared before we mount new buttons
+        await pills.query(Button).remove()
 
-        self.query_one("#snap-recent", Static).update(text)
+        if tickers:
+            for t in tickers:
+                await pills.mount(Button(t, id=f"snap-recent-btn-{t}", variant="default"))
+        await pills.mount(Button("Search →", id="snap-recent-search", variant="primary"))
 
     # ── Event handlers ─────────────────────────────────────────────────────
 
@@ -282,6 +295,11 @@ class SnapshotView(VerticalScroll):
             self.app.notify("Refreshing benchmarks…", timeout=8)
         elif bid == "snap-go-watchlist":
             self.app.navigate_to("workspace-watchlist")
+        elif bid and bid.startswith("snap-recent-btn-"):
+            ticker = bid.removeprefix("snap-recent-btn-")
+            self.app.navigate_to_etf(ticker)
+        elif bid == "snap-recent-search":
+            self.app.navigate_to("research-search")
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         if event.control.id != "snap-watchlist-table" or not event.row_key:

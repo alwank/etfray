@@ -2,7 +2,7 @@
 
 from textual.app import ComposeResult
 from textual.containers import VerticalScroll
-from textual.widgets import Static
+from textual.widgets import Button, Static
 
 
 class OverviewView(VerticalScroll):
@@ -21,15 +21,27 @@ class OverviewView(VerticalScroll):
         border: solid $primary-background;
         padding: 1;
     }
+    OverviewView #overview-open-search {
+        margin-top: 1;
+    }
     """
 
     def compose(self) -> ComposeResult:
         yield Static("Select an ETF from Search to view overview.", id="overview-content")
+        yield Button("Open Search to select an ETF →", id="overview-open-search", variant="primary")
 
     def load_etf(self, ticker: str) -> None:
+        try:
+            self.query_one("#overview-open-search", Button).display = False
+        except Exception:
+            pass
         self.query_one("#overview-content", Static).update("")
         self.loading = True
         self.run_worker(self._load(ticker), exclusive=True)
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "overview-open-search":
+            self.app.navigate_to("research-search")
 
     async def _load(self, ticker: str) -> None:
         import asyncio
