@@ -109,13 +109,14 @@ class SplashScreen(Screen):
         # 2. Settings validation
         self.app.call_from_thread(self._set_status, "status-settings", "running")
         sleep(0.1)
+        settings = None
         try:
             from etfray.db.database import load_settings
-            s = load_settings()
+            settings = load_settings()
             warnings = []
-            if not s.edgar_identity:
+            if not settings.edgar_identity:
                 warnings.append("EDGAR identity not set")
-            if not (1 <= s.ibkr_port <= 65535):
+            if not (1 <= settings.ibkr_port <= 65535):
                 warnings.append("Invalid IBKR port")
             if warnings:
                 self.app.call_from_thread(self._set_status, "status-settings", "warn", "; ".join(warnings))
@@ -125,23 +126,38 @@ class SplashScreen(Screen):
             self.app.call_from_thread(self._set_status, "status-settings", "fail", str(e))
         sleep(0.1)
 
-        # 3. IBKR — skip auto-connect (use Ctrl+I to connect manually)
-        self.app.call_from_thread(self._set_status, "status-ibkr", "ok", "Manual (Ctrl+I)")
-        sleep(0.1)
+        # 3. IBKR connection
+        if settings and 1 <= settings.ibkr_port <= 65535:
+            endpoint = f"{settings.ibkr_host}:{settings.ibkr_port}"
+            self.app.call_from_thread(self._set_status, "status-ibkr", "running", endpoint)
+            ok, svc = self.app._connect_ibkr_blocking()
+            if ok:
+                n = len(svc.positions)
+                detail = f"Connected ({n} positions)" if n else "Connected"
+                self.app.call_from_thread(self._set_status, "status-ibkr", "ok", detail)
+                self.app.call_from_thread(self.app._mark_ibkr_connected)
+            else:
+                err = getattr(svc, "_last_error", "Connection failed")
+                if len(err) > 60:
+                    err = err[:57] + "..."
+                self.app.call_from_thread(self._set_status, "status-ibkr", "fail", err)
+        else:
+            self.app.call_from_thread(self._set_status, "status-ibkr", "fail", "Invalid IBKR port in settings")
 
-        # 4. Cache warmup
+        # 4. Cache warmup (watchlist count only — avoid blocking UI thread)
         self.app.call_from_thread(self._set_status, "status-cache", "running")
+        cache_detail = "ready"
         try:
-            from etfray.db.database import get_all_watchlists, get_cached_holdings
+            from etfray.db.database import get_all_watchlists
+
             watchlists = get_all_watchlists()
             tickers = {t for wl in watchlists.values() for t in wl}
-            for t in list(tickers)[:10]:
-                get_cached_holdings(t)
-            self.app.call_from_thread(self._set_status, "status-cache", "ok", f"{len(tickers)} tickers")
+            cache_detail = f"{len(tickers)} tickers" if tickers else "empty"
+            cache_state = "ok"
         except Exception as e:
-            self.app.call_from_thread(self._set_status, "status-cache", "warn", str(e))
-        sleep(0.1)
-
-        # Dismiss
-        sleep(0.3)
-        self.app.call_from_thread(self.dismiss)
+            cache_state = "warn"
+            cache_detail = str(e)[:60]
+        finally:
+            self.app.call_from_thread(self._set_status, "status-cache", cache_state, cache_detail)
+            sleep(0.3)
+            self.app.call_from_thread(self.dismiss)

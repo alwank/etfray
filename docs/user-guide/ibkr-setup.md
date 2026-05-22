@@ -39,11 +39,11 @@ Open Settings in etfray (Workspace → Settings in the sidebar) and set:
 
 ## Connection Behavior
 
-etfray connects **lazily** — it only establishes the IBKR connection when you first navigate to a Portfolio view. This means:
+etfray attempts to connect to IBKR **during the startup splash screen**, using the host, port, and client ID from Settings. This means:
 
-- The app starts instantly without waiting for IBKR
-- If TWS/Gateway isn't running, Research features work normally
-- Connection errors only appear when you access Portfolio views
+- If TWS/Gateway is running with API enabled, you arrive in the app already connected (splash may take a few seconds while account data loads)
+- If TWS/Gateway isn't running, the splash shows a connection failure and the app still opens — Research features work normally
+- Press `Ctrl+I` at any time to retry the connection, or use **Connect IBKR** on Portfolio Overview
 
 ## Security
 
@@ -65,7 +65,7 @@ etfray connects **lazily** — it only establishes the IBKR connection when you 
 | Client ID conflict | Another app using the same client ID | Change `ibkr_client_id` to an unused number (e.g., 2, 3) |
 | No positions shown | No open positions, or account lacks market data | Verify positions exist in TWS; check market data subscriptions |
 | Stale data | Positions loaded but not updating | Navigate away from Portfolio and back, or restart etfray |
-| Connection drops | TWS/Gateway restarted or network interruption | Navigate to any Portfolio view to trigger reconnection |
+| Connection drops | TWS/Gateway restarted or network interruption | Press `Ctrl+I` to reconnect, or restart the app |
 | "Timeout" error | TWS/Gateway is slow to respond | Increase timeout by restarting TWS/Gateway; ensure it's fully loaded before connecting |
 | Multiple accounts | Wrong account's data showing | Ensure the correct account is selected in TWS/Gateway before connecting |
 

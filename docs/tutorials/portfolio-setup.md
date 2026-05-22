@@ -18,24 +18,26 @@ Open Settings (Workspace → Settings in the sidebar) and verify:
 - Port: `7497` (TWS) or `4001` (Gateway)
 - Client ID: `1`
 
-### 2. Navigate to Portfolio
+### 2. Start etfray with TWS/Gateway running
 
-Use the sidebar to expand **Portfolio** and select **Overview**.
+Launch the app (`etfray`). The splash screen attempts to connect to IBKR using your Settings. When connection succeeds, the status bar shows **IBKR: Connected**.
 
-etfray will connect to IBKR automatically and display your account summary.
+### 3. Open Portfolio Overview
 
-### 3. View positions
+Use the sidebar to expand **Portfolio** and select **Overview**. Your account summary should already be loaded if the splash connection succeeded. If not, click **Connect IBKR** or press `Ctrl+I`.
+
+### 4. View positions
 
 Switch to **Positions** to see all holdings with market value and portfolio weight.
 
-### 4. Lookthrough analysis
+### 5. Lookthrough analysis
 
 The **Lookthrough** view decomposes your ETF positions into underlying holdings. If you hold VTI and QQQM, you'll see the combined underlying stocks weighted by your position sizes.
 
-### 5. Check concentration
+### 6. Check concentration
 
 **Concentration** shows your true single-stock exposure across all ETFs. You might discover you have 8% in Apple across multiple funds.
 
-### 6. Monitor margin
+### 7. Monitor margin
 
 The **Margin** view shows leverage ratio, maintenance margin, and available buying power. Warnings appear when leverage exceeds your configured threshold.

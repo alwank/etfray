@@ -6,7 +6,7 @@
 etfray
 ```
 
-The app opens with a splash screen showing available keybindings. Press any key to dismiss it.
+The app opens with a splash screen that runs startup checks (database, settings, IBKR connection, cache warmup) and dismisses automatically when complete. If TWS/Gateway is running, IBKR connects during splash; otherwise use `Ctrl+I` to connect later.
 
 ## Navigation
 

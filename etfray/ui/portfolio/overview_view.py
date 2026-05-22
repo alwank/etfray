@@ -40,14 +40,8 @@ class PortfolioOverviewView(VerticalScroll):
     def _do_connect_thread(self) -> None:
         import threading
 
-        from etfray.data.ibkr_service import get_ibkr_service
-        from etfray.db.database import load_settings
-
-        s = load_settings()
-        svc = get_ibkr_service()
-
         def _connect():
-            ok = svc.connect(s.ibkr_host, s.ibkr_port, s.ibkr_client_id)
+            ok, svc = self.app._connect_ibkr_blocking()
             self.app.call_from_thread(self._on_connected, ok, svc)
 
         self.query_one("#port-content", Static).update("")
@@ -57,11 +51,9 @@ class PortfolioOverviewView(VerticalScroll):
     def _on_connected(self, ok: bool, svc) -> None:
         self.loading = False
         if ok:
-            self.app._ibkr_connected = True
-            self.app.query_one("StatusBar").refresh()
-            self._refresh()
+            self.app._apply_ibkr_connect_result(ok, svc, notify=False)
         else:
-            err = getattr(svc, '_last_error', 'Unknown error')
+            err = getattr(svc, "_last_error", "Unknown error")
             self.query_one("#port-content", Static).update(
                 f"Failed to connect to IBKR.\n{err}\n\n"
                 "Ensure TWS/Gateway is running and API is enabled."

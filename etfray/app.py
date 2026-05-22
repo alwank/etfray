@@ -309,6 +309,34 @@ class ETFTerminalApp(App):
         self.screen.refresh(layout=True)
         self.query_one("#welcome", Static).refresh()
         self.query_one(".sidebar-title", Static).refresh()
+        if self._ibkr_connected:
+            self.query_one(StatusBar).refresh()
+            self.query_one("#portfolio-overview", PortfolioOverviewView)._refresh()
+
+    def _connect_ibkr_blocking(self) -> tuple[bool, object]:
+        """Connect to IBKR using saved settings. Blocking — call from a worker thread."""
+        from etfray.data.ibkr_service import get_ibkr_service
+        from etfray.db.database import load_settings
+
+        s = load_settings()
+        svc = get_ibkr_service()
+        ok = svc.connect(s.ibkr_host, s.ibkr_port, s.ibkr_client_id)
+        return ok, svc
+
+    def _mark_ibkr_connected(self) -> None:
+        """Lightweight flag update safe to call during splash (no widget refresh)."""
+        self._ibkr_connected = True
+
+    def _apply_ibkr_connect_result(self, ok: bool, svc, notify: bool = True) -> None:
+        if ok:
+            self._ibkr_connected = True
+            self.query_one(StatusBar).refresh()
+            if notify:
+                self.notify("IBKR connected successfully")
+            self.query_one("#portfolio-overview", PortfolioOverviewView)._refresh()
+        elif notify:
+            err = getattr(svc, "_last_error", "Unknown error")
+            self.notify(f"IBKR connection failed: {err}", severity="error")
 
     def action_cycle_source(self) -> None:
         if not self.query("#content"):
@@ -408,32 +436,15 @@ class ETFTerminalApp(App):
         if self._ibkr_connected:
             self.notify("IBKR already connected")
             return
-        from etfray.data.ibkr_service import get_ibkr_service
-        from etfray.db.database import load_settings
-
-        s = load_settings()
-        svc = get_ibkr_service()
-
-        def _do_connect():
-            return svc.connect(s.ibkr_host, s.ibkr_port, s.ibkr_client_id)
 
         import threading
+
         def _connect_thread():
-            ok = _do_connect()
-            self.call_from_thread(self._on_ibkr_connected, ok, svc)
+            ok, svc = self._connect_ibkr_blocking()
+            self.call_from_thread(self._apply_ibkr_connect_result, ok, svc)
 
         threading.Thread(target=_connect_thread, daemon=True).start()
         self.notify("Connecting to IBKR...", timeout=10)
-
-    def _on_ibkr_connected(self, ok: bool, svc) -> None:
-        if ok:
-            self._ibkr_connected = True
-            self.query_one(StatusBar).refresh()
-            self.notify("IBKR connected successfully")
-            self.query_one("#portfolio-overview", PortfolioOverviewView)._refresh()
-        else:
-            err = getattr(svc, '_last_error', 'Unknown error')
-            self.notify(f"IBKR connection failed: {err}", severity="error")
 
 
 def main():

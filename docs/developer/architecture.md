@@ -23,7 +23,7 @@ etfray/
 │   ├── seasonals_plot.py       # Chart rendering: matplotlib PNG or plotext ASCII
 │   └── portfolio_analytics.py  # Portfolio-level computations (lookthrough, concentration)
 └── ui/
-    ├── splash_screen.py    # Onboarding splash with boot sequence
+    ├── splash_screen.py    # Startup splash: DB init, settings, IBKR connect, cache warmup
     ├── commands.py         # Command palette provider
     ├── research/           # Research workspace views
     │   ├── search_view.py
@@ -81,7 +81,7 @@ IBKR TWS API ──────→ ibkr_service ──────────�
 
 - **Local-first**: All data cached in SQLite (`~/.etfray/data.db`). The app works offline after initial data fetch.
 - **Source provenance**: Each data point tracks its source (EDGAR filing date, Yahoo fetch date, web scrape date) for trust and freshness.
-- **Lazy connection**: IBKR connects only when portfolio views are accessed, not at startup.
+- **Startup connection**: IBKR connects during the splash screen using saved settings; failures are shown on splash and the app continues.
 - **Separation of concerns**: `data/` handles I/O and caching, `domain/` handles computation and formatting, `ui/` handles presentation.
 - **Graceful degradation**: Features work with partial data. If Yahoo is unavailable, Overview still shows EDGAR data. If `[charts]` isn't installed, Seasonals uses plotext ASCII.
 - **Multiple data sources**: Holdings can come from EDGAR or web scraper. The `source_resolver` picks the best available based on freshness and user preference.
