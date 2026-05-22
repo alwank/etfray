@@ -24,9 +24,9 @@ from etfray.ui.research.exposure_view import ExposureView
 from etfray.ui.research.fees_view import FeesView
 from etfray.ui.research.holdings_view import HoldingsView
 from etfray.ui.research.overview_view import OverviewView
-from etfray.ui.research.performance_view import PerformanceView
 from etfray.ui.research.risk_view import RiskView
 from etfray.ui.research.search_view import SearchView
+from etfray.ui.research.seasonals_view import SeasonalsView
 from etfray.ui.splash_screen import SplashScreen
 from etfray.ui.workspace.exports_view import ExportsView
 from etfray.ui.workspace.settings_view import SettingsView
@@ -56,7 +56,7 @@ class Sidebar(Widget):
         research = tree.root.add("Research", expand=True)
         research.add_leaf("ETF Search", data="research-search")
         research.add_leaf("Overview", data="research-overview")
-        research.add_leaf("Performance", data="research-performance")
+        research.add_leaf("Seasonals", data="research-seasonals")
         research.add_leaf("Holdings", data="research-holdings")
         research.add_leaf("Exposure", data="research-exposure")
         research.add_leaf("Concentration", data="research-concentration")
@@ -147,7 +147,7 @@ class ETFTerminalApp(App):
         height: 1fr;
         width: 1fr;
     }
-    #content PerformanceView {
+    #content SeasonalsView {
         height: 1fr;
     }
     """
@@ -156,7 +156,7 @@ class ETFTerminalApp(App):
         Binding("q", "quit", "Quit"),
         Binding("slash", "nav('research-search')", "Search", key_display="/"),
         Binding("p", "nav('portfolio-overview')", "Portfolio"),
-        Binding("t", "nav('research-performance')", "Performance"),
+        Binding("t", "nav('research-seasonals')", "Seasonals"),
         Binding("h", "nav('research-holdings')", "Holdings"),
         Binding("x", "nav('research-exposure')", "Exposure"),
         Binding("c", "nav('research-concentration')", "Concentration"),
@@ -186,7 +186,7 @@ class ETFTerminalApp(App):
                     "Use the sidebar or press / to search for an ETF.\n\n"
                     "Keyboard shortcuts:\n"
                     "  /  Search        p  Portfolio\n"
-                    "  t  Performance   h  Holdings\n"
+                    "  t  Seasonals    h  Holdings\n"
                     "  x  Exposure      c  Concentration\n"
                     "  m  Margin        r  Risk          d  Documents\n"
                     "  q  Quit          Esc Back",
@@ -194,7 +194,7 @@ class ETFTerminalApp(App):
                 )
                 yield SearchView(id="research-search")
                 yield OverviewView(id="research-overview")
-                yield PerformanceView(id="research-performance")
+                yield SeasonalsView(id="research-seasonals")
                 yield HoldingsView(id="research-holdings")
                 yield ExposureView(id="research-exposure")
                 yield ConcentrationView(id="research-concentration")
@@ -222,6 +222,9 @@ class ETFTerminalApp(App):
 
     def on_mount(self) -> None:
         self.push_screen(SplashScreen())
+
+    def on_screen_resume(self) -> None:
+        self.screen.refresh(layout=True)
 
     def action_cycle_source(self) -> None:
         if not self.query("#content"):
@@ -263,7 +266,7 @@ class ETFTerminalApp(App):
             return
         view_map = {
             "research-overview": OverviewView,
-            "research-performance": PerformanceView,
+            "research-seasonals": SeasonalsView,
             "research-holdings": HoldingsView,
             "research-exposure": ExposureView,
             "research-concentration": ConcentrationView,

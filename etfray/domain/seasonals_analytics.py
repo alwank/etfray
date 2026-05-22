@@ -1,4 +1,4 @@
-"""Performance analytics — period returns, seasonals, and growth index."""
+"""Seasonals analytics — period returns, seasonals, and growth index."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ MIN_TRADING_DAYS_PER_YEAR = 2
 
 
 @dataclass
-class PerformanceSummary:
+class SeasonalsSummary:
     start_date: str
     end_date: str
     latest_price: float | None
@@ -112,11 +112,11 @@ def compute_cumulative_index(df: pd.DataFrame) -> list[float]:
     return [float(v) for v in index.tolist()]
 
 
-def compute_summary(df: pd.DataFrame) -> PerformanceSummary:
+def compute_summary(df: pd.DataFrame) -> SeasonalsSummary:
     """Summary stats for the loaded history slice."""
     prices = _adj_close_series(df)
     if prices.empty:
-        return PerformanceSummary("", "", None, None)
+        return SeasonalsSummary("", "", None, None)
 
     start_ts = prices.index[0]
     end_ts = prices.index[-1]
@@ -126,7 +126,7 @@ def compute_summary(df: pd.DataFrame) -> PerformanceSummary:
     if start_price != 0:
         total_return = (end_price / start_price) - 1
 
-    return PerformanceSummary(
+    return SeasonalsSummary(
         start_date=start_ts.strftime("%Y-%m-%d"),
         end_date=end_ts.strftime("%Y-%m-%d"),
         latest_price=end_price,

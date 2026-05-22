@@ -17,7 +17,7 @@
 
 ## Completed
 
-- [x] Historical performance tracking (Performance view: TradingView-style seasonals chart via plotext + period returns table)
+- [x] Historical performance tracking (Seasonals view: TradingView-style seasonals chart via plotext + period returns table)
 - [x] ETF research workspace (v0.1.0)
 - [x] Portfolio analytics workspace (v0.1.0)
 - [x] IBKR integration (v0.1.0)

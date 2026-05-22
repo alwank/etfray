@@ -18,13 +18,13 @@ etfray/
 │   └── export_service.py   # CSV/JSON export
 ├── domain/
 │   ├── etf_analytics.py        # ETF-level computations
-│   ├── performance_analytics.py  # Period returns and seasonals curves
+│   ├── seasonals_analytics.py    # Period returns and seasonals curves
 │   ├── seasonals_plot.py         # Seasonals chart: matplotlib PNG (optional [charts]) or plotext ASCII fallback
 │   └── portfolio_analytics.py  # Portfolio-level computations (lookthrough, concentration)
 └── ui/
     ├── splash_screen.py    # Onboarding splash
     ├── commands.py         # Command palette provider
-    ├── research/           # Research workspace views (Performance: seasonals chart + returns table)
+    ├── research/           # Research workspace views (Seasonals: chart + returns table)
     ├── portfolio/          # Portfolio workspace views
     ├── workspace/          # Settings, exports
     └── components/         # Shared UI components

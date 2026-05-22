@@ -1,4 +1,4 @@
-"""ETF Performance view — seasonals chart and period returns table."""
+"""ETF Seasonals view — seasonals chart and period returns table."""
 
 from __future__ import annotations
 
@@ -36,11 +36,11 @@ def _fmt_seasonal_pct(value: float) -> str:
     return f"{value:+.2f}%"
 
 
-class PerformanceView(Vertical):
-    """Performance view — seasonals chart and period returns table."""
+class SeasonalsView(Vertical):
+    """Seasonals view — seasonals chart and period returns table."""
 
     DEFAULT_CSS = """
-    PerformanceView {
+    SeasonalsView {
         height: 1fr;
         padding: 1 1;
         layout: grid;
@@ -48,78 +48,70 @@ class PerformanceView(Vertical):
         grid-gutter: 0 1;
         grid-rows: auto auto 1fr auto;
     }
-    PerformanceView #perf-header {
+    SeasonalsView #perf-header {
         height: auto;
         min-height: 3;
         width: 100%;
         row-span: 1;
     }
-    PerformanceView #perf-controls {
+    SeasonalsView #perf-controls {
         height: auto;
         min-height: 3;
         width: 100%;
         row-span: 1;
     }
-    PerformanceView #perf-year-start,
-    PerformanceView #perf-year-end {
+    SeasonalsView #perf-year-start,
+    SeasonalsView #perf-year-end {
         width: 14;
         min-width: 14;
         margin-right: 1;
     }
-    PerformanceView #perf-header Button,
-    PerformanceView #perf-controls Button {
+    SeasonalsView #perf-header Button,
+    SeasonalsView #perf-controls Button {
         min-width: 8;
         max-width: 12;
         height: 3;
         margin: 0 0 0 1;
     }
-    PerformanceView #perf-chart-area {
+    SeasonalsView #perf-chart-area {
         height: 100%;
         min-height: 0;
         width: 100%;
         row-span: 1;
     }
-    PerformanceView #perf-footer {
+    SeasonalsView #perf-footer {
         height: auto;
         min-height: 8;
         width: 100%;
         background: $background;
         row-span: 1;
     }
-    PerformanceView #perf-chart-container {
+    SeasonalsView #perf-chart-container {
         height: 1fr;
         width: 100%;
         min-height: 12;
         overflow: hidden;
     }
-    PerformanceView #perf-chart-image {
+    SeasonalsView #perf-chart-image {
         height: auto;
         width: auto;
         max-width: 100%;
         border: none;
     }
-    PerformanceView #perf-chart-fallback {
+    SeasonalsView #perf-chart-fallback {
         width: 100%;
         height: auto;
         max-height: 100%;
     }
-    PerformanceView #perf-chart-status {
-        width: 100%;
-        height: 1;
-        color: $text-muted;
-        display: none;
-    }
-    PerformanceView #perf-chart-status.visible {
-        display: block;
-    }
-    PerformanceView #perf-legend {
+
+    SeasonalsView #perf-legend {
         width: 100%;
         height: auto;
         min-height: 1;
         padding: 1 0;
         color: $text-muted;
     }
-    PerformanceView #perf-table {
+    SeasonalsView #perf-table {
         height: 3;
         min-height: 3;
         width: 100%;
@@ -127,12 +119,12 @@ class PerformanceView(Vertical):
         overflow-x: hidden;
         overflow-y: hidden;
     }
-    PerformanceView #perf-summary {
+    SeasonalsView #perf-summary {
         height: auto;
         min-height: 2;
         color: $text-muted;
     }
-    PerformanceView .hidden {
+    SeasonalsView .hidden {
         display: none;
     }
     """
@@ -162,7 +154,7 @@ class PerformanceView(Vertical):
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="perf-header"):
-            yield Static("Performance — Select an ETF first", id="perf-title")
+            yield Static("Seasonals — Select an ETF first", id="perf-title")
             yield Button("Export", id="perf-export", variant="success")
         with Horizontal(id="perf-controls"):
             yield Select(
@@ -179,7 +171,6 @@ class PerformanceView(Vertical):
             )
             yield Button("Average", id="perf-average-btn")
         with Vertical(id="perf-chart-area"):
-            yield Static("", id="perf-chart-status")
             with Horizontal(id="perf-chart-container"):
                 self._has_chart_image_widget = _TERMINAL_IMAGE_CLASS is not None
                 if _TERMINAL_IMAGE_CLASS is not None:
@@ -266,25 +257,9 @@ class PerformanceView(Vertical):
 
     def load_etf(self, ticker: str) -> None:
         self._ticker = ticker.upper()
-        self.query_one("#perf-title", Static).update(f"{self._ticker} — Performance (Seasonals)")
-        self._set_loading(True)
+        self.query_one("#perf-title", Static).update(f"{self._ticker} — Seasonals")
+        self.loading = True
         self.run_worker(self._load(self._ticker), exclusive=True)
-
-    def _set_loading(self, loading: bool) -> None:
-        status = self.query_one("#perf-chart-status", Static)
-        fallback = self.query_one("#perf-chart-fallback", Static)
-        if loading:
-            status.update("Loading chart…")
-            status.add_class("visible")
-            fallback.loading = True
-            image = self._chart_image_widget()
-            if image is not None:
-                image.add_class("hidden")
-        else:
-            status.remove_class("visible")
-            status.update("")
-            fallback.loading = False
-        self.query_one("#perf-table", DataTable).loading = loading
 
     def _set_chart_mode(self, mode: str) -> None:
         """Show image widget or plotext fallback static."""
@@ -425,7 +400,7 @@ class PerformanceView(Vertical):
 
     def _populate_returns_table(self) -> None:
         """Populate period returns as a single horizontal row."""
-        from etfray.domain.performance_analytics import PERIOD_LABELS
+        from etfray.domain.seasonals_analytics import PERIOD_LABELS
 
         table = self.query_one("#perf-table", DataTable)
         returns_by_label = dict(self._period_rows)
@@ -453,17 +428,12 @@ class PerformanceView(Vertical):
             status = chart_deps_status()
         summary.update(f"{self._summary_base} | {status}")
 
-    def _show_chart_error(self, message: str) -> None:
-        self.query_one("#perf-legend", Static).update("")
-        self._set_chart_mode("fallback")
-        self.query_one("#perf-chart-fallback", Static).update(message)
-
     async def _load(self, ticker: str) -> None:
         from asyncio import to_thread
 
         from etfray.data.price_history_service import get_price_history, get_price_history_last_error
         from etfray.domain.overview_format import fmt_pct
-        from etfray.domain.performance_analytics import (
+        from etfray.domain.seasonals_analytics import (
             _adj_close_series,
             available_years,
             compute_period_returns,
@@ -473,11 +443,11 @@ class PerformanceView(Vertical):
         df = await to_thread(get_price_history, ticker, "max")
         summary = self.query_one("#perf-summary", Static)
 
-        self._set_loading(False)
+        self.loading = False
 
         if df is None or df.empty:
             err = get_price_history_last_error() or "No price history available"
-            self._show_chart_error(f"Error: {err}")
+            self.app.notify(err, severity="warning")
             self._populate_returns_table()
             summary.update(f"Error: {err}")
             self._history_df = None
@@ -631,7 +601,7 @@ class PerformanceView(Vertical):
         if self._prices is None or not self._year_start or not self._year_end:
             return
 
-        from etfray.domain.performance_analytics import compute_seasonals
+        from etfray.domain.seasonals_analytics import compute_seasonals
 
         series_list, average = compute_seasonals(
             self._prices,
@@ -640,7 +610,7 @@ class PerformanceView(Vertical):
             include_average=self._show_average,
         )
         if not series_list:
-            self._show_chart_error("No seasonal data for selected years.")
+            self.app.notify("No seasonal data for selected years.", severity="warning")
             return
 
         title = f"{self._ticker} Seasonals ({self._year_start}–{self._year_end})"
@@ -673,7 +643,7 @@ class PerformanceView(Vertical):
 
         from etfray.data.export_service import export_dataframe_csv
         from etfray.db.database import load_settings
-        from etfray.domain.performance_analytics import compute_seasonals, seasonals_to_export_rows
+        from etfray.domain.seasonals_analytics import compute_seasonals, seasonals_to_export_rows
 
         series_list, _ = compute_seasonals(
             self._prices,

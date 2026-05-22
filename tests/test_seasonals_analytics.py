@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from etfray.domain.performance_analytics import (
+from etfray.domain.seasonals_analytics import (
     _adj_close_series,
     available_years,
     compute_seasonal_series,

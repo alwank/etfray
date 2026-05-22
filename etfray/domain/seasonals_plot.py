@@ -6,7 +6,7 @@ import functools
 import importlib.util
 import io
 
-from etfray.domain.performance_analytics import SeasonalYearSeries
+from etfray.domain.seasonals_analytics import SeasonalYearSeries
 
 # Approximate day-of-year for the 1st of each month (non-leap year).
 MONTH_TICKS = [1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335]

@@ -20,6 +20,7 @@ etfray is designed for keyboard-first navigation. Everything can be done without
 | Key | Action |
 |-----|--------|
 | `p` | Portfolio overview |
+| `t` | Seasonals |
 | `h` | Holdings |
 | `x` | Exposure |
 | `c` | Concentration |

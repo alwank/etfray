@@ -1,9 +1,9 @@
-"""Tests for performance analytics."""
+"""Tests for period returns and growth index (seasonals analytics)."""
 
 import pandas as pd
 import pytest
 
-from etfray.domain.performance_analytics import (
+from etfray.domain.seasonals_analytics import (
     PERIOD_LABELS,
     compute_cumulative_index,
     compute_period_returns,
@@ -19,7 +19,7 @@ def _make_history(start: str, days: int, daily_return: float = 0.001) -> pd.Data
     return pd.DataFrame({"Adj Close": prices}, index=dates)
 
 
-class TestPerformanceAnalytics:
+class TestPeriodReturns:
     def test_compute_cumulative_index_starts_at_100(self):
         df = _make_history("2024-01-02", 20)
         index = compute_cumulative_index(df)
