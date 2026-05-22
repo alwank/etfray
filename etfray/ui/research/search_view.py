@@ -1,8 +1,15 @@
 """ETF Search view with input and results table."""
 
+from __future__ import annotations
+
+import time
+
 from textual.app import ComposeResult
+from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Button, DataTable, Input, Static
+
+_DOUBLE_CLICK_SECONDS = 0.45
 
 
 class SearchView(Vertical):
@@ -51,6 +58,12 @@ class SearchView(Vertical):
         row-span: 1;
     }
     """
+
+    BINDINGS = [
+        Binding("enter", "open_selected", "Open ETF", show=False),
+    ]
+
+    _last_table_click: tuple[str, float] | None = None
 
     def compose(self) -> ComposeResult:
         with Vertical(id="search-toolbar"):
@@ -117,10 +130,28 @@ class SearchView(Vertical):
             button.label = "Watch"
             button.variant = "warning"
 
+    def action_open_selected(self) -> None:
+        ticker = self._get_selected_ticker()
+        if ticker:
+            self.app.navigate_to_etf(ticker)
+
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
-        if event.row_key and str(event.row_key.value) != "—":
-            self._update_watch_button()
-            self.app.navigate_to_etf(str(event.row_key.value))
+        if not event.row_key:
+            return
+        ticker = str(event.row_key.value)
+        if ticker == "—":
+            return
+        self._update_watch_button()
+        now = time.monotonic()
+        if (
+            self._last_table_click
+            and self._last_table_click[0] == ticker
+            and now - self._last_table_click[1] < _DOUBLE_CLICK_SECONDS
+        ):
+            self._last_table_click = None
+            self.app.navigate_to_etf(ticker)
+        else:
+            self._last_table_click = (ticker, now)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "search-watch":
