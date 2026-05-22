@@ -65,25 +65,25 @@ class SeasonalsView(Vertical):
     }
     SeasonalsView #perf-header {
         height: auto;
-        min-height: 3;
+        min-height: 1;
         width: 100%;
     }
     SeasonalsView #perf-controls {
         height: auto;
-        min-height: 3;
+        min-height: 5;
         width: 100%;
+        margin-bottom: 1;
     }
     SeasonalsView #perf-year-start,
     SeasonalsView #perf-year-end {
-        width: 14;
-        min-width: 14;
+        width: 18;
+        min-width: 18;
         margin-right: 1;
     }
     SeasonalsView #perf-header Button,
     SeasonalsView #perf-controls Button {
         min-width: 8;
         max-width: 12;
-        height: 3;
         margin: 0 0 0 1;
     }
     SeasonalsView TabbedContent {
