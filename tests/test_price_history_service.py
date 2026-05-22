@@ -6,7 +6,6 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
-import pytest
 
 from etfray.data.price_history_service import (
     PRICE_HISTORY_CACHE_TTL_HOURS,
