@@ -173,7 +173,7 @@ class SeasonalsView(Vertical):
     def compose(self) -> ComposeResult:
         with Horizontal(id="perf-header"):
             yield Static("Seasonals — Select an ETF first", id="perf-title")
-            yield Button("Export", id="perf-export", variant="success")
+            yield Button("Export", id="perf-export")
         with Horizontal(id="perf-controls"):
             yield Select(
                 _PLACEHOLDER_YEAR_OPTS,
@@ -652,7 +652,7 @@ class SeasonalsView(Vertical):
 
     def _update_average_button(self) -> None:
         btn = self.query_one("#perf-average-btn", Button)
-        btn.variant = "primary" if self._show_average else "default"
+        btn.set_class(self._show_average, "-on")
 
     def _export(self) -> None:
         if self._history_df is None or self._prices is None:

@@ -175,6 +175,53 @@ class ETFTerminalApp(App):
         height: 1fr;
         min-height: 1fr;
     }
+
+    /* Neutral buttons app-wide (Textual 1.0 3D button style) */
+    Button {
+        color: $text-muted;
+        background: $surface;
+        border: none;
+        border-top: tall $surface-lighten-1;
+        border-bottom: tall $surface-darken-1;
+
+        &:hover {
+            color: $text;
+            background: $surface-darken-1;
+            border-top: tall $surface;
+            border-bottom: tall $surface-darken-1;
+        }
+
+        &:focus {
+            text-style: bold;
+        }
+
+        &.-primary,
+        &.-success,
+        &.-warning,
+        &.-error {
+            color: $text-muted;
+            background: $surface;
+            border: none;
+            border-top: tall $surface-lighten-1;
+            border-bottom: tall $surface-darken-1;
+
+            &:hover {
+                color: $text;
+                background: $surface-darken-1;
+                border-top: tall $surface;
+                border-bottom: tall $surface-darken-1;
+            }
+        }
+
+        &.-on {
+            color: $text;
+            background: $surface-darken-1;
+            border: none;
+            border-top: tall $surface-darken-1;
+            border-bottom: tall $surface-lighten-1;
+            text-style: bold;
+        }
+    }
     """
 
     BINDINGS = [

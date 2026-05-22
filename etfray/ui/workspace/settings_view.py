@@ -60,7 +60,7 @@ class SettingsView(VerticalScroll):
         yield Label("Export Directory:")
         yield Input(value=s.export_dir, id="export-dir")
 
-        yield Button("Save Settings", id="save-settings", variant="primary")
+        yield Button("Save Settings", id="save-settings")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "save-settings":

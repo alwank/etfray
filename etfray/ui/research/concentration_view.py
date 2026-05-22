@@ -26,7 +26,7 @@ class ConcentrationView(VerticalScroll):
     def compose(self) -> ComposeResult:
         with Horizontal():
             yield Static("Concentration — Select an ETF first", id="conc-title")
-            yield Button("Export", id="export-conc", variant="success")
+            yield Button("Export", id="export-conc")
         yield Static("", id="conc-content")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:

@@ -54,7 +54,7 @@ class CompareView(Vertical):
             yield Static("Compare ETFs — Enter tickers separated by spaces")
             with Horizontal():
                 yield Input(placeholder="e.g. VTI ITOT SCHB", id="compare-input")
-                yield Button("Export", id="export-compare", variant="success")
+                yield Button("Export", id="export-compare")
         yield DataTable(id="compare-table")
 
     def on_mount(self) -> None:

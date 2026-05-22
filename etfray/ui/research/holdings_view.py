@@ -45,7 +45,7 @@ class HoldingsView(VerticalScroll):
             yield Button("Top 10", id="top10")
             yield Button("Top 25", id="top25")
             yield Button("All", id="all")
-            yield Button("Export", id="export-holdings", variant="success")
+            yield Button("Export", id="export-holdings")
         with Horizontal(id="holdings-filters"):
             yield Input(placeholder="Search...", id="filter-search")
             yield Select([], prompt="Asset Type", id="filter-asset", allow_blank=True)

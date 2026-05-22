@@ -29,7 +29,7 @@ class ExposureView(VerticalScroll):
     def compose(self) -> ComposeResult:
         with Horizontal():
             yield Static("Exposure — Select an ETF first", id="exposure-title")
-            yield Button("Export", id="export-exposure", variant="success")
+            yield Button("Export", id="export-exposure")
         with Horizontal():
             yield DataTable(id="sector-table", classes="exposure-table")
             yield DataTable(id="country-table", classes="exposure-table")

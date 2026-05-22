@@ -46,7 +46,7 @@ class ExportsView(VerticalScroll):
                 prompt="Format",
                 id="export-format",
             )
-            yield Button("Export", id="btn-export", variant="primary")
+            yield Button("Export", id="btn-export")
         yield Static("Select a target and format, then click Export.", id="export-status")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:

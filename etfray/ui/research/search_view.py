@@ -70,7 +70,7 @@ class SearchView(Vertical):
             yield Static("Search ETF / Fund / Issuer")
             with Horizontal():
                 yield Input(placeholder="Enter ticker, fund name, or issuer...", id="search-input")
-                yield Button("Watch", id="search-watch", variant="warning")
+                yield Button("Watch", id="search-watch")
             yield Static("", id="search-status")
         yield DataTable(id="search-results")
 
@@ -125,10 +125,8 @@ class SearchView(Vertical):
         ticker = self._get_selected_ticker()
         if ticker and is_in_watchlist("default", ticker):
             button.label = "Unwatch"
-            button.variant = "default"
         else:
             button.label = "Watch"
-            button.variant = "warning"
 
     def action_open_selected(self) -> None:
         ticker = self._get_selected_ticker()

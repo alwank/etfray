@@ -24,7 +24,7 @@ class PortfolioOverviewView(VerticalScroll):
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="port-toolbar"):
-            yield Button("Connect IBKR", id="btn-connect", variant="primary")
+            yield Button("Connect IBKR", id="btn-connect")
             yield Button("Refresh", id="btn-refresh")
         yield Static("IBKR not connected. Configure in Settings and connect.", id="port-content")
 

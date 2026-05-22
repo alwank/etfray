@@ -40,7 +40,7 @@ class DocumentsView(VerticalScroll):
     def compose(self) -> ComposeResult:
         with Horizontal():
             yield Static("Documents — Select an ETF first", id="docs-title")
-            yield Button("Export", id="export-docs", variant="success")
+            yield Button("Export", id="export-docs")
         yield DataTable(id="docs-table")
 
     def on_mount(self) -> None:
