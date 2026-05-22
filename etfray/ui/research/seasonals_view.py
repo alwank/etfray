@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pandas as pd
 from textual.app import ComposeResult
+from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.timer import Timer
 from textual.widgets import Button, DataTable, Select, Static
@@ -38,6 +39,19 @@ def _fmt_seasonal_pct(value: float) -> str:
 
 class SeasonalsView(Vertical):
     """Seasonals view — seasonals chart and period returns table."""
+
+    # Sixel/ANSI chart output can leak into Textual as keypresses; consume app nav keys.
+    BINDINGS = [
+        Binding("escape", "consume_graphics_key", show=False, priority=True),
+        Binding("c", "consume_graphics_key", show=False, priority=True),
+        Binding("h", "consume_graphics_key", show=False, priority=True),
+        Binding("t", "consume_graphics_key", show=False, priority=True),
+        Binding("x", "consume_graphics_key", show=False, priority=True),
+        Binding("r", "consume_graphics_key", show=False, priority=True),
+        Binding("d", "consume_graphics_key", show=False, priority=True),
+        Binding("m", "consume_graphics_key", show=False, priority=True),
+        Binding("p", "consume_graphics_key", show=False, priority=True),
+    ]
 
     DEFAULT_CSS = """
     SeasonalsView {
@@ -151,6 +165,9 @@ class SeasonalsView(Vertical):
         if not self._has_chart_image_widget:
             return None
         return self.query_one("#perf-chart-image")
+
+    def action_consume_graphics_key(self) -> None:
+        """Block app-level nav shortcuts while this view is focused."""
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="perf-header"):

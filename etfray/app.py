@@ -176,6 +176,7 @@ class ETFTerminalApp(App):
     _current_etf: str | None = None
     _ibkr_connected: bool = False
     _data_source: str = "auto"
+    _nav_debounce_buf: list[str] = []
 
     def compose(self) -> ComposeResult:
         from etfray.db.database import load_settings
@@ -314,7 +315,16 @@ class ETFTerminalApp(App):
         self.navigate_to("research-overview")
 
     def action_nav(self, view_id: str) -> None:
-        self.navigate_to(view_id)
+        # Terminal graphics (sixel) can inject spurious key events (e.g. ESC, 'c').
+        # Debounce: only apply when exactly one nav key arrives in a short window.
+        self._nav_debounce_buf.append(view_id)
+        self.set_timer(0.05, self._apply_debounced_nav, name="nav_debounce")
+
+    def _apply_debounced_nav(self) -> None:
+        buf = self._nav_debounce_buf[:]
+        self._nav_debounce_buf.clear()
+        if len(buf) == 1:
+            self.navigate_to(buf[0])
 
     def action_add_to_watchlist(self) -> None:
         if not self._current_etf:
