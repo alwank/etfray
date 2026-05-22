@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 
 import pandas as pd
@@ -26,6 +26,15 @@ class SeasonalYearSeries:
     day_of_year: list[int]
     cumulative_pct: list[float]
     final_return_pct: float
+
+
+@dataclass
+class MonthlyReturnsTable:
+    years: list[int]                                    # descending order
+    monthly: dict[int, dict[int, float | None]] = field(default_factory=dict)  # year → {1..12 → pct or None}
+    annual: dict[int, float | None] = field(default_factory=dict)              # year → full-year pct or None
+    rises: dict[int, int] = field(default_factory=dict)                        # month → count of positive years
+    falls: dict[int, int] = field(default_factory=dict)                        # month → count of negative years
 
 
 def _adj_close_series(df: pd.DataFrame) -> pd.Series:
@@ -224,3 +233,88 @@ def seasonals_to_export_rows(series_list: list[SeasonalYearSeries], prices: pd.S
                 }
             )
     return pd.DataFrame(rows)
+
+
+def compute_monthly_returns_table(prices: pd.Series) -> MonthlyReturnsTable:
+    """Build a monthly returns heatmap table from a price series.
+
+    Each cell holds the month-over-month return:
+        (last_close_of_month / last_close_of_previous_month) - 1
+
+    The annual return for each year uses the last close of December of the
+    prior year as the base, falling back to the first price of the year when
+    no prior-December close is available.
+
+    Future months (no data yet) are represented as None.
+    """
+    if prices.empty:
+        return MonthlyReturnsTable(years=[])
+
+    today = pd.Timestamp.today().normalize()
+
+    # Build a series of month-end closes indexed by (year, month) tuples.
+    # We need one extra month before the first full year to anchor Jan returns.
+    monthly_last: dict[tuple[int, int], float] = {}
+    for (yr, mo), grp in prices.groupby([prices.index.year, prices.index.month]):
+        monthly_last[(int(yr), int(mo))] = float(grp.iloc[-1])
+
+    all_years = sorted({yr for yr, _ in monthly_last})
+    if not all_years:
+        return MonthlyReturnsTable(years=[])
+
+    monthly_returns: dict[int, dict[int, float | None]] = {}
+    annual_returns: dict[int, float | None] = {}
+    rises: dict[int, int] = {m: 0 for m in range(1, 13)}
+    falls: dict[int, int] = {m: 0 for m in range(1, 13)}
+
+    for year in all_years:
+        monthly_returns[year] = {}
+        for month in range(1, 13):
+            # Determine previous month key
+            if month == 1:
+                prev_key = (year - 1, 12)
+            else:
+                prev_key = (year, month - 1)
+
+            cur_key = (year, month)
+
+            # Future month: the month hasn't started yet
+            month_start = pd.Timestamp(year, month, 1)
+            if month_start > today:
+                monthly_returns[year][month] = None
+                continue
+
+            cur_price = monthly_last.get(cur_key)
+            prev_price = monthly_last.get(prev_key)
+
+            if cur_price is None or prev_price is None or prev_price == 0:
+                monthly_returns[year][month] = None
+            else:
+                ret = (cur_price / prev_price) - 1
+                monthly_returns[year][month] = ret
+                if ret > 0:
+                    rises[month] += 1
+                elif ret < 0:
+                    falls[month] += 1
+
+        # Annual return: base is last close of prior December, else first price of year
+        prior_dec = monthly_last.get((year - 1, 12))
+        year_prices = prices[prices.index.year == year]
+        if year_prices.empty:
+            annual_returns[year] = None
+        else:
+            last_price = float(year_prices.iloc[-1])
+            base_price = prior_dec if prior_dec is not None else float(year_prices.iloc[0])
+            if base_price == 0:
+                annual_returns[year] = None
+            else:
+                annual_returns[year] = (last_price / base_price) - 1
+
+    years_desc = sorted(all_years, reverse=True)
+    return MonthlyReturnsTable(
+        years=years_desc,
+        monthly=monthly_returns,
+        annual=annual_returns,
+        rises=rises,
+        falls=falls,
+    )
