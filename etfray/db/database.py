@@ -296,6 +296,41 @@ def delete_note(note_id: int) -> None:
     conn.close()
 
 
+def get_note(target_type: str, target_id: str) -> Note | None:
+    """Return the most-recent note matching (target_type, target_id), or None."""
+    conn = get_db()
+    row = conn.execute(
+        "SELECT * FROM notes WHERE target_type = ? AND target_id = ? ORDER BY updated_at DESC LIMIT 1",
+        (target_type, target_id),
+    ).fetchone()
+    conn.close()
+    if row:
+        return Note(**dict(row))
+    return None
+
+
+def upsert_note(target_type: str, target_id: str, content: str) -> None:
+    """Insert or update the single canonical note for (target_type, target_id)."""
+    now = datetime.now().isoformat()
+    conn = get_db()
+    row = conn.execute(
+        "SELECT id FROM notes WHERE target_type = ? AND target_id = ?",
+        (target_type, target_id),
+    ).fetchone()
+    if row:
+        conn.execute(
+            "UPDATE notes SET content = ?, updated_at = ? WHERE id = ?",
+            (content, now, row["id"]),
+        )
+    else:
+        conn.execute(
+            "INSERT INTO notes (target_type, target_id, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+            (target_type, target_id, content, now, now),
+        )
+    conn.commit()
+    conn.close()
+
+
 def get_cached_issuers() -> list[str]:
     """Return distinct non-empty issuers from local ETF cache."""
     conn = get_db()

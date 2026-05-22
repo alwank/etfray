@@ -1,3 +1,5 @@
+import json
+
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal
@@ -10,6 +12,7 @@ except ImportError:
     pass
 
 from etfray.ui.commands import ETFCommands
+from etfray.ui.snapshot_view import SnapshotView
 from etfray.ui.portfolio.concentration_view import PortfolioConcentrationView
 from etfray.ui.portfolio.exposure_view import PortfolioExposureView
 from etfray.ui.portfolio.lookthrough_view import LookthroughView
@@ -52,6 +55,8 @@ class Sidebar(Widget):
         tree: Tree[str] = Tree("", id="nav-tree")
         tree.show_root = False
         tree.root.expand()
+
+        tree.root.add_leaf("Home", data="home")
 
         research = tree.root.add("Research", expand=True)
         research.add_leaf("Search", data="research-search")
@@ -132,9 +137,16 @@ class ETFTerminalApp(App):
     Screen {
         layout: vertical;
     }
+    /* Pre-splash: hide all main screen content so the terminal is blank
+       before push_screen(SplashScreen) fires. CSS is applied before the
+       first render; everything is revealed atomically in _on_splash_dismissed. */
+    Header { display: none; }
     #app-body {
+        display: none;
         height: 1fr;
     }
+    StatusBar { display: none; }
+    Footer { display: none; }
     #content {
         width: 1fr;
         height: 1fr;
@@ -150,6 +162,7 @@ class ETFTerminalApp(App):
     }
     /* Direct page roots only — avoid stretching nested toolbars/tables */
     #content ContentSwitcher > Static,
+    #content ContentSwitcher > SnapshotView,
     #content ContentSwitcher > DiscoveryView,
     #content ContentSwitcher > OverviewView,
     #content ContentSwitcher > SeasonalsView,
@@ -233,7 +246,7 @@ class ETFTerminalApp(App):
         Binding("m", "nav('portfolio-margin')", "Margin"),
         Binding("r", "nav('research-risk')", "Risk"),
         Binding("d", "nav('research-documents')", "Documents"),
-        Binding("escape", "nav('research-search')", "Home"),
+        Binding("escape", "nav('home')", "Home"),
         Binding("w", "add_to_watchlist", "Watch"),
         Binding("ctrl+i", "connect_ibkr", "Connect IBKR"),
         Binding("s", "cycle_source", "Source"),
@@ -253,6 +266,7 @@ class ETFTerminalApp(App):
         with Horizontal(id="app-body"):
             yield Sidebar()
             with ContentSwitcher(initial="research-search", id="content"):
+                yield SnapshotView(id="home")
                 yield DiscoveryView(id="research-search")
                 yield OverviewView(id="research-overview")
                 yield SeasonalsView(id="research-seasonals")
@@ -288,8 +302,16 @@ class ETFTerminalApp(App):
         self.screen.refresh(layout=True)
 
     def _on_splash_dismissed(self, _result=None) -> None:
+        # Reveal all main screen widgets hidden by CSS pre-splash
+        self.query_one(Header).display = True
+        self.query_one("#app-body", Horizontal).display = True
+        self.query_one(StatusBar).display = True
+        self.query_one(Footer).display = True
+        # Switch to home and populate data in the same tick
         switcher = self.query_one("#content", ContentSwitcher)
-        switcher.current = "research-search"
+        switcher.current = "home"
+        snapshot = self.query_one("#home", SnapshotView)
+        snapshot.refresh_all()
         self.call_after_refresh(self._refresh_home_after_splash)
 
     def _refresh_home_after_splash(self) -> None:
@@ -353,7 +375,9 @@ class ETFTerminalApp(App):
             return
         if switcher.query(f"#{view_id}"):
             switcher.current = view_id
-            if self._current_etf and view_id.startswith("research-") and view_id != "research-search":
+            if view_id == "home":
+                self.set_timer(0.1, lambda: self.query_one("#home", SnapshotView).refresh_all())
+            elif self._current_etf and view_id.startswith("research-") and view_id != "research-search":
                 self.set_timer(0.1, lambda: self._load_view(view_id))
             if view_id == "portfolio-overview":
                 self.set_timer(0.1, lambda: self.query_one("#portfolio-overview", PortfolioOverviewView)._refresh())
@@ -400,7 +424,22 @@ class ETFTerminalApp(App):
     def navigate_to_etf(self, ticker: str) -> None:
         self._current_etf = ticker
         self.query_one(StatusBar).refresh()
+        self._update_recent_etfs(ticker)
         self.navigate_to("research-overview")
+
+    def _update_recent_etfs(self, ticker: str) -> None:
+        """Keep a capped, deduped, newest-first recent-ETF list in the notes table."""
+        from etfray.db.database import get_note, upsert_note
+
+        note = get_note("system", "recent_etfs")
+        try:
+            existing: list[str] = json.loads(note.content) if note else []
+        except (json.JSONDecodeError, AttributeError):
+            existing = []
+
+        deduped = [t for t in existing if t != ticker]
+        updated = [ticker] + deduped
+        upsert_note("system", "recent_etfs", json.dumps(updated[:5]))
 
     def action_nav(self, view_id: str) -> None:
         # Terminal graphics (sixel) can inject spurious key events (e.g. ESC, 'c').
