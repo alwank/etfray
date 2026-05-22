@@ -1,4 +1,4 @@
-"""ETF Search / Discovery view — browse by asset class, category, and geography,
+"""ETF Search / Discovery view — filter by asset class, category, and geography,
 or type a ticker/name and press Enter to search EDGAR directly.
 """
 
@@ -6,11 +6,12 @@ from __future__ import annotations
 
 import time
 
+from textual import events
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.reactive import reactive
-from textual.widgets import Button, DataTable, Input, Label, ListItem, ListView, Static
+from textual.widgets import Button, DataTable, Input, Label, Static
 
 _DOUBLE_CLICK_SECONDS = 0.45
 
@@ -44,105 +45,26 @@ _GEOGRAPHIES = [
 ]
 
 
-class _DimSection(Vertical):
-    """A titled list of filter options for one dimension."""
-
-    DEFAULT_CSS = """
-    _DimSection {
-        height: auto;
-        margin-bottom: 1;
-    }
-    _DimSection .dim-title {
-        text-style: bold;
-        color: $text-muted;
-        padding: 0 1;
-        height: 1;
-    }
-    _DimSection ListView {
-        height: auto;
-        background: transparent;
-        border: none;
-        padding: 0;
-    }
-    _DimSection ListItem {
-        padding: 0 1;
-        height: 1;
-    }
-    _DimSection ListItem:hover {
-        background: $surface-lighten-1;
-    }
-    _DimSection ListItem.-active {
-        background: $accent;
-        color: $text;
-        text-style: bold;
-    }
-    _DimSection ListItem Label {
-        width: 100%;
-    }
-    """
-
-    def __init__(self, title: str, items: list[str], dim_id: str) -> None:
-        super().__init__()
-        self._title = title
-        self._items = items
-        self._dim_id = dim_id
-
-    def compose(self) -> ComposeResult:
-        yield Label(self._title, classes="dim-title")
-        lv = ListView(id=f"lv-{self._dim_id}")
-        # "All" entry first
-        lv._pending_items = [_ALL_LABEL] + self._items
-        yield lv
-
-    def on_mount(self) -> None:
-        lv = self.query_one(ListView)
-        for label in [_ALL_LABEL] + self._items:
-            lv.append(ListItem(Label(label), name=label))
-        # Highlight "All" by default
-        if lv.children:
-            lv.index = 0
+def _pill_id(dim: str, value: str) -> str:
+    safe = value.replace(" ", "_").replace("/", "_")
+    return f"pill-{dim}-{safe}"
 
 
-class DiscoveryView(Horizontal):
-    """Home / discovery page — two-column layout with dimension browser and ETF table."""
+class DiscoveryView(Vertical):
+    """ETF search and discovery page — horizontal filter pills above a full-width table."""
 
     DEFAULT_CSS = """
     DiscoveryView {
         height: 1fr;
         min-height: 1fr;
-    }
-
-    /* Left panel */
-    DiscoveryView #discovery-left {
-        width: 30;
-        min-width: 30;
-        border-right: solid $primary-background;
-        padding: 1 0;
-        overflow-y: auto;
-        background: $surface;
-    }
-    DiscoveryView #discovery-left-title {
-        text-style: bold;
-        padding: 0 1 1 1;
-        color: $text;
-    }
-
-    /* Right panel */
-    DiscoveryView #discovery-right {
-        width: 1fr;
         padding: 1 2;
-        layout: grid;
-        grid-size: 1 3;
-        grid-rows: auto auto 1fr;
     }
-    DiscoveryView #discovery-header {
-        height: auto;
-        padding-bottom: 0;
-    }
-    DiscoveryView #discovery-filter-row {
+
+    /* Search row */
+    DiscoveryView #discovery-search-row {
         height: auto;
         min-height: 3;
-        layout: horizontal;
+        margin-bottom: 0;
     }
     DiscoveryView #discovery-filter {
         width: 1fr;
@@ -159,9 +81,45 @@ class DiscoveryView(Horizontal):
         padding: 0 1;
         color: $text-muted;
     }
+
+    /* Filter pill rows */
+    DiscoveryView .filter-row {
+        height: 1;
+        padding: 0;
+        margin-top: 1;
+    }
+    DiscoveryView .filter-label {
+        width: auto;
+        height: 1;
+        padding: 0 1 0 0;
+        color: $text-muted;
+        content-align: left middle;
+    }
+
+    /* Pills use Static — unaffected by global Button CSS */
+    DiscoveryView .filter-pill {
+        height: 1;
+        width: auto;
+        padding: 0 1;
+        margin: 0 0 0 0;
+        background: transparent;
+        color: $text-muted;
+    }
+    DiscoveryView .filter-pill:hover {
+        background: $surface-lighten-1;
+        color: $text;
+    }
+    DiscoveryView .filter-pill.-on {
+        background: steelblue;
+        color: white;
+        text-style: bold;
+    }
+
+    /* Table */
     DiscoveryView #discovery-table {
         height: 1fr;
         min-height: 0;
+        margin-top: 1;
     }
     """
 
@@ -169,7 +127,6 @@ class DiscoveryView(Horizontal):
         Binding("enter", "open_selected", "Open ETF", show=False),
     ]
 
-    # Currently selected dimension filters
     _filter_asset: reactive[str] = reactive(_ALL_LABEL)
     _filter_category: reactive[str] = reactive(_ALL_LABEL)
     _filter_geography: reactive[str] = reactive(_ALL_LABEL)
@@ -179,25 +136,42 @@ class DiscoveryView(Horizontal):
     _universe: list = []  # list[ETFUniverseEntry]
 
     def compose(self) -> ComposeResult:
-        with Vertical(id="discovery-left"):
-            yield Static("Browse", id="discovery-left-title")
-            yield _DimSection("Asset Class", _ASSET_CLASSES, "asset")
-            yield _DimSection("Category", _CATEGORIES, "cat")
-            yield _DimSection("Geography", _GEOGRAPHIES, "geo")
+        # Row 1: search input + watch button + result count
+        with Horizontal(id="discovery-search-row"):
+            yield Input(
+                placeholder="Filter by name, ticker, or issuer... (Enter to search EDGAR)",
+                id="discovery-filter",
+            )
+            yield Button("Watch", id="discovery-watch")
+            yield Static("Loading...", id="discovery-count")
 
-        with Vertical(id="discovery-right"):
-            yield Static("Search / Discover ETFs", id="discovery-header")
-            with Horizontal(id="discovery-filter-row"):
-                yield Input(placeholder="Filter by name, ticker, or issuer... (Enter to search EDGAR)", id="discovery-filter")
-                yield Button("Watch", id="discovery-watch")
-                yield Static("Loading...", id="discovery-count")
-            yield DataTable(id="discovery-table")
+        # Row 2: Asset Class pills (Static widgets — immune to global Button CSS)
+        with Horizontal(classes="filter-row", id="discovery-filter-asset"):
+            yield Label("Class:", classes="filter-label")
+            yield Static(_ALL_LABEL, classes="filter-pill -on", name="asset:All", id=_pill_id("asset", "All"))
+            for ac in _ASSET_CLASSES:
+                yield Static(ac, classes="filter-pill", name=f"asset:{ac}", id=_pill_id("asset", ac))
+
+        # Row 3: Category pills
+        with Horizontal(classes="filter-row", id="discovery-filter-cat"):
+            yield Label("Cat:", classes="filter-label")
+            yield Static(_ALL_LABEL, classes="filter-pill -on", name="cat:All", id=_pill_id("cat", "All"))
+            for cat in _CATEGORIES:
+                yield Static(cat, classes="filter-pill", name=f"cat:{cat}", id=_pill_id("cat", cat))
+
+        # Row 4: Geography pills
+        with Horizontal(classes="filter-row", id="discovery-filter-geo"):
+            yield Label("Geo:", classes="filter-label")
+            yield Static(_ALL_LABEL, classes="filter-pill -on", name="geo:All", id=_pill_id("geo", "All"))
+            for geo in _GEOGRAPHIES:
+                yield Static(geo, classes="filter-pill", name=f"geo:{geo}", id=_pill_id("geo", geo))
+
+        yield DataTable(id="discovery-table")
 
     def on_mount(self) -> None:
         table = self.query_one("#discovery-table", DataTable)
-        table.add_columns("Ticker", "Fund Name", "Issuer", "Asset Class", "Geography")
+        table.add_columns("Ticker", "Fund Name", "Issuer", "Category", "Geography")
         table.cursor_type = "row"
-        # Load universe in background
         self.run_worker(self._load_universe(), name="discovery-load", exclusive=True)
 
     # ------------------------------------------------------------------ workers
@@ -255,31 +229,68 @@ class DiscoveryView(Horizontal):
 
             table.add_row(
                 entry.ticker,
-                entry.fund_name[:45],
+                entry.fund_name[:55],
                 entry.issuer[:30],
-                entry.asset_class,
+                entry.category,
                 entry.geography,
                 key=entry.ticker,
             )
             rows_added += 1
 
-        count_widget = self.query_one("#discovery-count", Static)
-        count_widget.update(f"{rows_added:,} ETFs")
+        self._update_count(rows_added)
 
-    # ------------------------------------------------------------------ dimension selection
+    def _update_count(self, n: int) -> None:
+        active = [
+            f"[{v}]"
+            for v in (self._filter_asset, self._filter_category, self._filter_geography)
+            if v != _ALL_LABEL
+        ]
+        suffix = "  " + " ".join(active) if active else ""
+        self.query_one("#discovery-count", Static).update(f"{n:,} ETFs{suffix}")
 
-    def on_list_view_selected(self, event: ListView.Selected) -> None:
-        if event.item.name is None:
+    # ------------------------------------------------------------------ pill filter interaction
+
+    def on_click(self, event: events.Click) -> None:
+        """Handle clicks on filter pill Static widgets."""
+        widget = event.widget
+        name = getattr(widget, "name", "") or ""
+        if not name or ":" not in name:
             return
-        selected = event.item.name
-        lv_id = event.list_view.id
 
-        if lv_id == "lv-asset":
-            self._filter_asset = selected
-        elif lv_id == "lv-cat":
-            self._filter_category = selected
-        elif lv_id == "lv-geo":
-            self._filter_geography = selected
+        # Stop the event so it doesn't bubble further
+        event.stop()
+
+        dim, value = name.split(":", 1)
+
+        if dim == "asset":
+            new_val = _ALL_LABEL if (value != _ALL_LABEL and self._filter_asset == value) else value
+            self._set_pill_group("asset", new_val)
+            self._filter_asset = new_val
+        elif dim == "cat":
+            new_val = _ALL_LABEL if (value != _ALL_LABEL and self._filter_category == value) else value
+            self._set_pill_group("cat", new_val)
+            self._filter_category = new_val
+        elif dim == "geo":
+            new_val = _ALL_LABEL if (value != _ALL_LABEL and self._filter_geography == value) else value
+            self._set_pill_group("geo", new_val)
+            self._filter_geography = new_val
+
+    def _set_pill_group(self, dim: str, active_value: str) -> None:
+        """Update -on class for all pills in the given dimension group."""
+        prefix = f"pill-{dim}-"
+        for widget in self.query(Static):
+            if widget.id and widget.id.startswith(prefix):
+                pill_value = (widget.name or "").split(":", 1)[-1]
+                if pill_value == active_value:
+                    widget.add_class("-on")
+                else:
+                    widget.remove_class("-on")
+
+    # ------------------------------------------------------------------ Watch button
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "discovery-watch":
+            self._handle_watch()
 
     # ------------------------------------------------------------------ text filter
 
@@ -288,7 +299,7 @@ class DiscoveryView(Horizontal):
             self._filter_text = event.value.strip()
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
-        """On Enter, run an EDGAR search for tickers not found in the local universe."""
+        """On Enter, open the top result or fall back to an EDGAR search."""
         if event.input.id != "discovery-filter":
             return
         query = event.value.strip()
@@ -296,12 +307,10 @@ class DiscoveryView(Horizontal):
             return
 
         table = self.query_one("#discovery-table", DataTable)
-        # If the local filter already returned results, just open the top one
         if table.row_count > 0:
             self.action_open_selected()
             return
 
-        # No local results — fall through to EDGAR search
         self.run_worker(self._edgar_search_worker(query), name="edgar-search", exclusive=True)
 
     async def _edgar_search_worker(self, query: str) -> None:
@@ -314,12 +323,12 @@ class DiscoveryView(Horizontal):
         self.loading = False
 
         table = self.query_one("#discovery-table", DataTable)
-        count = self.query_one("#discovery-count", Static)
         table.clear()
 
         for r in results:
-            table.add_row(r.ticker, r.fund_name[:45], r.issuer[:30], "—", "—", key=r.ticker)
+            table.add_row(r.ticker, r.fund_name[:55], r.issuer[:30], "—", "—", key=r.ticker)
 
+        count = self.query_one("#discovery-count", Static)
         if results:
             count.update(f"{len(results)} result{'s' if len(results) != 1 else ''} (EDGAR)")
             self._update_watch_button()
@@ -329,19 +338,7 @@ class DiscoveryView(Horizontal):
 
     # ------------------------------------------------------------------ watch button
 
-    def _update_watch_button(self) -> None:
-        from etfray.db.database import is_in_watchlist
-
-        button = self.query_one("#discovery-watch", Button)
-        ticker = self._get_selected_ticker()
-        if ticker and is_in_watchlist("default", ticker):
-            button.label = "Unwatch"
-        else:
-            button.label = "Watch"
-
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id != "discovery-watch":
-            return
+    def _handle_watch(self) -> None:
         ticker = self._get_selected_ticker()
         if not ticker or ticker == "—":
             self.app.notify("Select an ETF first", severity="warning")
@@ -359,6 +356,16 @@ class DiscoveryView(Horizontal):
 
         self._update_watch_button()
 
+    def _update_watch_button(self) -> None:
+        from etfray.db.database import is_in_watchlist
+
+        button = self.query_one("#discovery-watch", Button)
+        ticker = self._get_selected_ticker()
+        if ticker and ticker != "—" and is_in_watchlist("default", ticker):
+            button.label = "Unwatch"
+        else:
+            button.label = "Watch"
+
     # ------------------------------------------------------------------ table interaction
 
     def _get_selected_ticker(self) -> str | None:
@@ -371,7 +378,7 @@ class DiscoveryView(Horizontal):
 
     def action_open_selected(self) -> None:
         ticker = self._get_selected_ticker()
-        if ticker:
+        if ticker and ticker != "—":
             self.app.navigate_to_etf(ticker)
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
