@@ -92,10 +92,15 @@ class ExposureView(VerticalScroll):
                 tickers_list = df["ticker"].dropna().astype(str).str.upper().str.strip().tolist()
                 tickers_list = [t for t in tickers_list if t]
                 from etfray.data.sector_service import get_sectors_bulk
+
                 sector_map = await to_thread(get_sectors_bulk, tickers_list)
                 df = df.copy()
                 df["sector"] = df["ticker"].apply(
-                    lambda t: sector_map.get(str(t).upper().strip(), "Unclassified") if pd.notna(t) and str(t).strip() else "Unclassified"
+                    lambda t: (
+                        sector_map.get(str(t).upper().strip(), "Unclassified")
+                        if pd.notna(t) and str(t).strip()
+                        else "Unclassified"
+                    )
                 )
                 self._sector_data = calculate_exposure(df, "sector")
             else:
@@ -106,7 +111,9 @@ class ExposureView(VerticalScroll):
                 st.add_row(e.category, f"{e.weight:.1f}%", str(e.count))
 
             # Country exposure
-            self._country_data = calculate_exposure(df, "investment_country") if "investment_country" in df.columns else []
+            self._country_data = (
+                calculate_exposure(df, "investment_country") if "investment_country" in df.columns else []
+            )
             ct.clear()
             if self._country_data:
                 for e in self._country_data:
@@ -131,5 +138,6 @@ class ExposureView(VerticalScroll):
         df = pd.DataFrame(rows)
         from etfray.data.export_service import export_dataframe_csv
         from etfray.db.database import load_settings
+
         path = export_dataframe_csv(df, f"{self._ticker}_exposure", load_settings().export_dir)
         self.app.notify(f"Exported to {path}")

@@ -46,10 +46,7 @@ MIN_CHART_HEIGHT_PX = 360
 @functools.lru_cache(maxsize=1)
 def charts_available() -> bool:
     """True when optional [charts] deps (matplotlib + textual-image) are installed."""
-    return (
-        importlib.util.find_spec("matplotlib") is not None
-        and importlib.util.find_spec("textual_image") is not None
-    )
+    return importlib.util.find_spec("matplotlib") is not None and importlib.util.find_spec("textual_image") is not None
 
 
 def chart_deps_status() -> str:

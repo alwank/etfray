@@ -59,13 +59,15 @@ def _fetch_and_parse(ticker: str) -> pd.DataFrame | None:
         except ValueError:
             week52 = 0.0
 
-        rows.append({
-            "ticker": symbol,
-            "name": name,
-            "pct_value": weight,
-            "balance": shares,
-            "week52_return": week52,
-        })
+        rows.append(
+            {
+                "ticker": symbol,
+                "name": name,
+                "pct_value": weight,
+                "balance": shares,
+                "week52_return": week52,
+            }
+        )
 
     return pd.DataFrame(rows)
 
@@ -88,5 +90,6 @@ def get_holdings_from_web(ticker: str) -> pd.DataFrame | None:
         return None
 
     from datetime import date
+
     cache_holdings(ticker, df.to_json(), date.today().isoformat(), "", source="web")
     return df

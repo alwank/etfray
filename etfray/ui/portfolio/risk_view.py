@@ -66,8 +66,7 @@ class PortfolioRiskView(VerticalScroll):
             total_value = sum(abs(p.market_value) for p in svc.positions)
             if total_value > 0:
                 positions = [
-                    {"symbol": p.symbol, "weight": abs(p.market_value) / total_value * 100}
-                    for p in svc.positions
+                    {"symbol": p.symbol, "weight": abs(p.market_value) / total_value * 100} for p in svc.positions
                 ]
 
                 holdings_cache = {}

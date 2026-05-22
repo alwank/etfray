@@ -362,9 +362,7 @@ class SeasonalsView(Vertical):
     def _chart_pixel_size(self) -> tuple[int, int, int, int]:
         """Return (cols, rows, width_px, height_px) with supersampling."""
         cols, rows = self._chart_cell_size()
-        return chart_pixel_dimensions(
-            cols, rows, cell_size=terminal_cell_size(), apply_mins=False
-        )
+        return chart_pixel_dimensions(cols, rows, cell_size=terminal_cell_size(), apply_mins=False)
 
     def _apply_chart_widget_size(self, cols: int, rows: int) -> None:
         """Pin image widget to 1:1 cell mapping to avoid upscaling a small PNG."""
@@ -426,12 +424,7 @@ class SeasonalsView(Vertical):
         table.clear(columns=True)
         for label in PERIOD_LABELS:
             table.add_column(label, key=label, width=col_w)
-        table.add_row(
-            *[
-                self._fit_return_cell(returns_by_label.get(label), col_w)
-                for label in PERIOD_LABELS
-            ]
-        )
+        table.add_row(*[self._fit_return_cell(returns_by_label.get(label), col_w) for label in PERIOD_LABELS])
 
     def _update_summary_chart_status(self) -> None:
         """Append chart backend status to the summary line."""
@@ -544,9 +537,7 @@ class SeasonalsView(Vertical):
             parts.append(f"[{hex_color}]■[/] {s.year} {_fmt_seasonal_pct(s.final_return_pct)}")
         if average is not None and average.day_of_year:
             parts.append(f"[bold white]--[/] Avg {_fmt_seasonal_pct(average.final_return_pct)}")
-        self.query_one("#perf-legend", Static).update(
-            _LEGEND_SEPARATOR.join(parts) if parts else ""
-        )
+        self.query_one("#perf-legend", Static).update(_LEGEND_SEPARATOR.join(parts) if parts else "")
 
     def _render_chart_fallback(self, series_list, average) -> None:
         width, height = self._chart_dimensions()

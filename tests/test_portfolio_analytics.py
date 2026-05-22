@@ -21,11 +21,31 @@ class TestWeightNormalization:
 
     def test_negative_values_dont_inflate_weights(self):
         """EDGAR data with negative positions should not inflate positive holdings."""
-        df = _make_edgar_df([
-            {"ticker": "AAPL", "name": "Apple Inc", "value_usd": 500_000, "asset_category": "EC", "investment_country": "US"},
-            {"ticker": "MSFT", "name": "Microsoft", "value_usd": 300_000, "asset_category": "EC", "investment_country": "US"},
-            {"ticker": "", "name": "S&P500 FUTURE JUN26", "value_usd": -200_000, "asset_category": "DFE", "investment_country": "US"},
-        ])
+        df = _make_edgar_df(
+            [
+                {
+                    "ticker": "AAPL",
+                    "name": "Apple Inc",
+                    "value_usd": 500_000,
+                    "asset_category": "EC",
+                    "investment_country": "US",
+                },
+                {
+                    "ticker": "MSFT",
+                    "name": "Microsoft",
+                    "value_usd": 300_000,
+                    "asset_category": "EC",
+                    "investment_country": "US",
+                },
+                {
+                    "ticker": "",
+                    "name": "S&P500 FUTURE JUN26",
+                    "value_usd": -200_000,
+                    "asset_category": "DFE",
+                    "investment_country": "US",
+                },
+            ]
+        )
         positions = [{"symbol": "TEST", "weight": 100.0}]
         holdings_cache = {"TEST": df}
 
@@ -38,10 +58,24 @@ class TestWeightNormalization:
 
     def test_no_holding_exceeds_portfolio_weight(self):
         """No single holding should have effective weight > its source ETF's portfolio weight."""
-        df = _make_edgar_df([
-            {"ticker": "BOND", "name": "US Treasury", "value_usd": 1_000_000, "asset_category": "STIV", "investment_country": "US"},
-            {"ticker": "", "name": "Futures Short", "value_usd": -800_000, "asset_category": "DFE", "investment_country": "US"},
-        ])
+        df = _make_edgar_df(
+            [
+                {
+                    "ticker": "BOND",
+                    "name": "US Treasury",
+                    "value_usd": 1_000_000,
+                    "asset_category": "STIV",
+                    "investment_country": "US",
+                },
+                {
+                    "ticker": "",
+                    "name": "Futures Short",
+                    "value_usd": -800_000,
+                    "asset_category": "DFE",
+                    "investment_country": "US",
+                },
+            ]
+        )
         positions = [{"symbol": "DBMF", "weight": 10.0}]
         holdings_cache = {"DBMF": df}
 
@@ -56,12 +90,16 @@ class TestAggregationKey:
 
     def test_different_names_not_merged(self):
         """Holdings with different full names should NOT be merged."""
-        df_a = _make_web_df([
-            {"ticker": "", "name": "TREASURY BILL", "pct_value": 5.0},
-        ])
-        df_b = _make_web_df([
-            {"ticker": "", "name": "TREASURY BILL DUE 2026-03-15", "pct_value": 3.0},
-        ])
+        df_a = _make_web_df(
+            [
+                {"ticker": "", "name": "TREASURY BILL", "pct_value": 5.0},
+            ]
+        )
+        df_b = _make_web_df(
+            [
+                {"ticker": "", "name": "TREASURY BILL DUE 2026-03-15", "pct_value": 3.0},
+            ]
+        )
         positions = [
             {"symbol": "ETF_A", "weight": 50.0},
             {"symbol": "ETF_B", "weight": 50.0},
@@ -77,12 +115,16 @@ class TestAggregationKey:
 
     def test_same_full_name_merged(self):
         """Holdings with identical full names across ETFs should be merged."""
-        df_a = _make_web_df([
-            {"ticker": "", "name": "State Street Navigator Securities", "pct_value": 2.0},
-        ])
-        df_b = _make_web_df([
-            {"ticker": "", "name": "State Street Navigator Securities", "pct_value": 3.0},
-        ])
+        df_a = _make_web_df(
+            [
+                {"ticker": "", "name": "State Street Navigator Securities", "pct_value": 2.0},
+            ]
+        )
+        df_b = _make_web_df(
+            [
+                {"ticker": "", "name": "State Street Navigator Securities", "pct_value": 3.0},
+            ]
+        )
         positions = [
             {"symbol": "ETF_A", "weight": 50.0},
             {"symbol": "ETF_B", "weight": 50.0},
@@ -97,12 +139,16 @@ class TestAggregationKey:
 
     def test_same_ticker_merged(self):
         """Holdings with same ticker across ETFs should be merged."""
-        df_a = _make_web_df([
-            {"ticker": "AAPL", "name": "Apple Inc", "pct_value": 10.0},
-        ])
-        df_b = _make_web_df([
-            {"ticker": "AAPL", "name": "Apple Inc.", "pct_value": 5.0},
-        ])
+        df_a = _make_web_df(
+            [
+                {"ticker": "AAPL", "name": "Apple Inc", "pct_value": 10.0},
+            ]
+        )
+        df_b = _make_web_df(
+            [
+                {"ticker": "AAPL", "name": "Apple Inc.", "pct_value": 5.0},
+            ]
+        )
         positions = [
             {"symbol": "ETF_A", "weight": 60.0},
             {"symbol": "ETF_B", "weight": 40.0},
@@ -123,11 +169,13 @@ class TestSelfDeduplication:
 
     def test_etf_excludes_itself(self):
         """If an ETF's holdings list includes its own ticker, it should be excluded."""
-        df = _make_web_df([
-            {"ticker": "AAPL", "name": "Apple Inc", "pct_value": 50.0},
-            {"ticker": "SCHD", "name": "Schwab US Dividend", "pct_value": 1.0},
-            {"ticker": "MSFT", "name": "Microsoft", "pct_value": 49.0},
-        ])
+        df = _make_web_df(
+            [
+                {"ticker": "AAPL", "name": "Apple Inc", "pct_value": 50.0},
+                {"ticker": "SCHD", "name": "Schwab US Dividend", "pct_value": 1.0},
+                {"ticker": "MSFT", "name": "Microsoft", "pct_value": 49.0},
+            ]
+        )
         positions = [{"symbol": "SCHD", "weight": 100.0}]
         holdings_cache = {"SCHD": df}
 
@@ -166,10 +214,24 @@ class TestSTIVFiltering:
 
     def test_stiv_holdings_excluded(self):
         """Holdings with asset_category STIV should not appear in results."""
-        df = _make_edgar_df([
-            {"ticker": "AAPL", "name": "Apple Inc", "value_usd": 500_000, "asset_category": "EC", "investment_country": "US"},
-            {"ticker": None, "name": "State Street Navigator Securities Lending Trust", "value_usd": 100_000, "asset_category": "STIV", "investment_country": "US"},
-        ])
+        df = _make_edgar_df(
+            [
+                {
+                    "ticker": "AAPL",
+                    "name": "Apple Inc",
+                    "value_usd": 500_000,
+                    "asset_category": "EC",
+                    "investment_country": "US",
+                },
+                {
+                    "ticker": None,
+                    "name": "State Street Navigator Securities Lending Trust",
+                    "value_usd": 100_000,
+                    "asset_category": "STIV",
+                    "investment_country": "US",
+                },
+            ]
+        )
         positions = [{"symbol": "SPY", "weight": 100.0}]
         holdings_cache = {"SPY": df}
 
@@ -182,9 +244,17 @@ class TestSTIVFiltering:
 
     def test_nan_ticker_displayed_as_empty(self):
         """Holdings with NaN ticker should have empty string ticker, not 'NAN'."""
-        df = _make_edgar_df([
-            {"ticker": float("nan"), "name": "Some Bond", "value_usd": 200_000, "asset_category": "DBT", "investment_country": "US"},
-        ])
+        df = _make_edgar_df(
+            [
+                {
+                    "ticker": float("nan"),
+                    "name": "Some Bond",
+                    "value_usd": 200_000,
+                    "asset_category": "DBT",
+                    "investment_country": "US",
+                },
+            ]
+        )
         positions = [{"symbol": "BND", "weight": 100.0}]
         holdings_cache = {"BND": df}
 

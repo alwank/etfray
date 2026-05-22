@@ -55,8 +55,7 @@ class PortfolioOverviewView(VerticalScroll):
         else:
             err = getattr(svc, "_last_error", "Unknown error")
             self.query_one("#port-content", Static).update(
-                f"Failed to connect to IBKR.\n{err}\n\n"
-                "Ensure TWS/Gateway is running and API is enabled."
+                f"Failed to connect to IBKR.\n{err}\n\nEnsure TWS/Gateway is running and API is enabled."
             )
 
     def _do_refresh_thread(self) -> None:
@@ -119,6 +118,7 @@ class PortfolioOverviewView(VerticalScroll):
 
         # Warnings
         from etfray.db.database import load_settings
+
         settings = load_settings()
         if cushion_pct / 100 < settings.margin_warning_cushion:
             lines.append("\n⚠️  WARNING: Margin cushion below threshold!")

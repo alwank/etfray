@@ -109,14 +109,43 @@ class CompareView(Vertical):
 
         table.add_row(*row("Fund Name", lambda t: (reports.get(t) and reports[t].fund_name[:20]) or "N/A"))
         table.add_row(*row("Category", lambda t: (profiles.get(t) and profiles[t].category) or "N/A"))
-        table.add_row(*row("Expense Ratio", lambda t: fmt_expense_ratio(profiles[t].expense_ratio) if profiles.get(t) else "N/A"))
+        table.add_row(
+            *row("Expense Ratio", lambda t: fmt_expense_ratio(profiles[t].expense_ratio) if profiles.get(t) else "N/A")
+        )
         table.add_row(*row("Div Yield", lambda t: fmt_pct(profiles[t].dividend_yield) if profiles.get(t) else "N/A"))
-        table.add_row(*row("YTD Return", lambda t: fmt_pct(profiles[t].ytd_return, signed=True) if profiles.get(t) and profiles[t].ytd_return is not None else "N/A"))
-        table.add_row(*row("Beta (3Y)", lambda t: f"{profiles[t].beta:.2f}" if profiles.get(t) and profiles[t].beta is not None else "N/A"))
+        table.add_row(
+            *row(
+                "YTD Return",
+                lambda t: (
+                    fmt_pct(profiles[t].ytd_return, signed=True)
+                    if profiles.get(t) and profiles[t].ytd_return is not None
+                    else "N/A"
+                ),
+            )
+        )
+        table.add_row(
+            *row(
+                "Beta (3Y)",
+                lambda t: f"{profiles[t].beta:.2f}" if profiles.get(t) and profiles[t].beta is not None else "N/A",
+            )
+        )
         table.add_row(*row("Holdings", lambda t: f"{reports[t].num_holdings:,}" if reports.get(t) else "N/A"))
-        table.add_row(*row("Total Assets", lambda t: f"${float(reports[t].total_assets)/1e9:.1f}B" if reports.get(t) and reports[t].total_assets else "N/A"))
-        table.add_row(*row("Top 10 Wt", lambda t: f"{concentrations[t].top10_weight:.1f}%" if t in concentrations else "N/A"))
-        table.add_row(*row("Effective N", lambda t: f"{concentrations[t].effective_n:.0f}" if t in concentrations else "N/A"))
+        table.add_row(
+            *row(
+                "Total Assets",
+                lambda t: (
+                    f"${float(reports[t].total_assets) / 1e9:.1f}B"
+                    if reports.get(t) and reports[t].total_assets
+                    else "N/A"
+                ),
+            )
+        )
+        table.add_row(
+            *row("Top 10 Wt", lambda t: f"{concentrations[t].top10_weight:.1f}%" if t in concentrations else "N/A")
+        )
+        table.add_row(
+            *row("Effective N", lambda t: f"{concentrations[t].effective_n:.0f}" if t in concentrations else "N/A")
+        )
         table.add_row(*row("HHI", lambda t: f"{concentrations[t].hhi:.4f}" if t in concentrations else "N/A"))
         table.add_row(*row("Verdict", lambda t: concentrations[t].verdict if t in concentrations else "N/A"))
         table.add_row(*row("Period", lambda t: reports[t].reporting_period if reports.get(t) else "N/A"))
@@ -166,6 +195,7 @@ class CompareView(Vertical):
 
         from etfray.data.export_service import export_dataframe_csv
         from etfray.db.database import load_settings
+
         cols = ["Metric"] + self._tickers
         df = pd.DataFrame(self._rows, columns=cols)
         path = export_dataframe_csv(df, "compare_" + "_".join(self._tickers), load_settings().export_dir)

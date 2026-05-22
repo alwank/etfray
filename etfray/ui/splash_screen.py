@@ -100,6 +100,7 @@ class SplashScreen(Screen):
         sleep(0.1)
         try:
             from etfray.db.database import get_db
+
             get_db().close()
             self.app.call_from_thread(self._set_status, "status-db", "ok")
         except Exception as e:
@@ -112,6 +113,7 @@ class SplashScreen(Screen):
         settings = None
         try:
             from etfray.db.database import load_settings
+
             settings = load_settings()
             warnings = []
             if not settings.edgar_identity:

@@ -42,6 +42,7 @@ class ETFReport:
 
 def _ensure_identity() -> None:
     from edgar import set_identity
+
     s = load_settings()
     if s.edgar_identity:
         set_identity(s.edgar_identity)
@@ -81,20 +82,24 @@ def search_etf(query: str) -> list[ETFSearchResult]:
                 except Exception:
                     pass
 
-                results.append(ETFSearchResult(
-                    ticker=query.upper(),
-                    fund_name=fund_name,
-                    issuer=issuer,
-                    cik=str(company.cik),
-                ))
+                results.append(
+                    ETFSearchResult(
+                        ticker=query.upper(),
+                        fund_name=fund_name,
+                        issuer=issuer,
+                        cik=str(company.cik),
+                    )
+                )
                 seen_tickers.add(query.upper())
-                cache_etf(CachedETF(
-                    ticker=query.upper(),
-                    cik=str(company.cik),
-                    fund_name=fund_name,
-                    issuer=issuer,
-                    last_updated=datetime.now().isoformat(),
-                ))
+                cache_etf(
+                    CachedETF(
+                        ticker=query.upper(),
+                        cik=str(company.cik),
+                        fund_name=fund_name,
+                        issuer=issuer,
+                        last_updated=datetime.now().isoformat(),
+                    )
+                )
                 return results
         except Exception:
             pass
@@ -103,10 +108,14 @@ def search_etf(query: str) -> list[ETFSearchResult]:
     cached = search_cached_etfs(query)
     for c in cached:
         if c.ticker not in seen_tickers:
-            results.append(ETFSearchResult(
-                ticker=c.ticker, fund_name=c.fund_name,
-                issuer=c.issuer, cik=c.cik,
-            ))
+            results.append(
+                ETFSearchResult(
+                    ticker=c.ticker,
+                    fund_name=c.fund_name,
+                    issuer=c.issuer,
+                    cik=c.cik,
+                )
+            )
             seen_tickers.add(c.ticker)
 
     # Search SEC Series & Class CSV for name/issuer matches
@@ -114,15 +123,24 @@ def search_etf(query: str) -> list[ETFSearchResult]:
         matches = _search_sec_tickers(query)
         for ticker, name, cik, issuer in matches:
             if ticker not in seen_tickers:
-                results.append(ETFSearchResult(
-                    ticker=ticker, fund_name=name,
-                    issuer=issuer, cik=cik,
-                ))
+                results.append(
+                    ETFSearchResult(
+                        ticker=ticker,
+                        fund_name=name,
+                        issuer=issuer,
+                        cik=cik,
+                    )
+                )
                 seen_tickers.add(ticker)
-                cache_etf(CachedETF(
-                    ticker=ticker, cik=cik, fund_name=name,
-                    issuer=issuer, last_updated=datetime.now().isoformat(),
-                ))
+                cache_etf(
+                    CachedETF(
+                        ticker=ticker,
+                        cik=cik,
+                        fund_name=name,
+                        issuer=issuer,
+                        last_updated=datetime.now().isoformat(),
+                    )
+                )
     except Exception:
         pass
 
@@ -146,7 +164,9 @@ def _load_series_class_csv() -> list[dict] | None:
         try:
             r = httpx.get(
                 "https://www.sec.gov/files/investment/data/other/investment-company-series-class-information/investment-company-series-class-2025.csv",
-                headers=headers, timeout=30, follow_redirects=True,
+                headers=headers,
+                timeout=30,
+                follow_redirects=True,
             )
             if r.status_code == 200:
                 csv_path.write_bytes(r.content)
@@ -164,14 +184,18 @@ def _load_series_class_csv() -> list[dict] | None:
             for row in reader:
                 ticker = (row.get("Class Ticker") or row.get("TICKER") or row.get("ticker") or "").strip()
                 if ticker:
-                    rows.append({
-                        "cik": (row.get("CIK Number") or row.get("CIK") or row.get("cik") or "").strip(),
-                        "series_id": (row.get("Series ID") or row.get("SERIES_ID") or "").strip(),
-                        "series_name": (row.get("Series Name") or row.get("SERIES_NAME") or "").strip(),
-                        "class_name": (row.get("Class Name") or row.get("CLASS_NAME") or "").strip(),
-                        "ticker": ticker,
-                        "registrant": (row.get("Entity Name") or row.get("REGISTRANT_NAME") or row.get("COMPANY_NAME") or "").strip(),
-                    })
+                    rows.append(
+                        {
+                            "cik": (row.get("CIK Number") or row.get("CIK") or row.get("cik") or "").strip(),
+                            "series_id": (row.get("Series ID") or row.get("SERIES_ID") or "").strip(),
+                            "series_name": (row.get("Series Name") or row.get("SERIES_NAME") or "").strip(),
+                            "class_name": (row.get("Class Name") or row.get("CLASS_NAME") or "").strip(),
+                            "ticker": ticker,
+                            "registrant": (
+                                row.get("Entity Name") or row.get("REGISTRANT_NAME") or row.get("COMPANY_NAME") or ""
+                            ).strip(),
+                        }
+                    )
         return rows
     except Exception:
         return None
@@ -276,14 +300,16 @@ def get_etf_report(ticker: str) -> ETFReport | None:
         filed_date = str(getattr(filing, "filing_date", "")) if filing else ""
 
         # Cache the ETF info
-        cache_etf(CachedETF(
-            ticker=ticker.upper(),
-            cik=str(company.cik),
-            series_id=series_id,
-            fund_name=fund_name or company.name,
-            issuer=issuer,
-            last_updated=datetime.now().isoformat(),
-        ))
+        cache_etf(
+            CachedETF(
+                ticker=ticker.upper(),
+                cik=str(company.cik),
+                series_id=series_id,
+                fund_name=fund_name or company.name,
+                issuer=issuer,
+                last_updated=datetime.now().isoformat(),
+            )
+        )
 
         return ETFReport(
             ticker=ticker.upper(),
@@ -343,12 +369,14 @@ def get_filings_list(ticker: str, form: str = "") -> list[dict]:
         filings = company.get_filings(form=form) if form else company.get_filings()
         results = []
         for f in filings[:20]:
-            results.append({
-                "form": getattr(f, "form", ""),
-                "filing_date": str(getattr(f, "filing_date", "")),
-                "accession_number": getattr(f, "accession_number", "") or getattr(f, "accession_no", ""),
-                "description": getattr(f, "description", "") or "",
-            })
+            results.append(
+                {
+                    "form": getattr(f, "form", ""),
+                    "filing_date": str(getattr(f, "filing_date", "")),
+                    "accession_number": getattr(f, "accession_number", "") or getattr(f, "accession_no", ""),
+                    "description": getattr(f, "description", "") or "",
+                }
+            )
         return results
     except Exception:
         return []
@@ -419,26 +447,32 @@ def get_risk_disclosures(ticker: str) -> list[RiskDisclosure]:
                 continue
 
             # Detect end of risk section (next major heading)
-            if in_risk_section and re.match(r"^(performance|fees|expense|investment\s+objective|portfolio\s+manager)", lower):
+            if in_risk_section and re.match(
+                r"^(performance|fees|expense|investment\s+objective|portfolio\s+manager)", lower
+            ):
                 if current_title:
-                    risks.append(RiskDisclosure(
-                        title=current_title,
-                        summary=" ".join(current_body)[:200],
-                        source_form=form_type,
-                        filed_date=filed_date,
-                    ))
+                    risks.append(
+                        RiskDisclosure(
+                            title=current_title,
+                            summary=" ".join(current_body)[:200],
+                            source_form=form_type,
+                            filed_date=filed_date,
+                        )
+                    )
                 break
 
             # Detect risk sub-headings (short lines ending with Risk/Risk.)
             if stripped and len(stripped) < 80 and re.search(r"risk\.?$", lower):
                 # Save previous
                 if current_title:
-                    risks.append(RiskDisclosure(
-                        title=current_title,
-                        summary=" ".join(current_body)[:200],
-                        source_form=form_type,
-                        filed_date=filed_date,
-                    ))
+                    risks.append(
+                        RiskDisclosure(
+                            title=current_title,
+                            summary=" ".join(current_body)[:200],
+                            source_form=form_type,
+                            filed_date=filed_date,
+                        )
+                    )
                 current_title = stripped.rstrip(".")
                 current_body = []
             elif stripped and current_title:
@@ -449,12 +483,14 @@ def get_risk_disclosures(ticker: str) -> list[RiskDisclosure]:
 
         # Save last one
         if current_title and len(risks) < 15:
-            risks.append(RiskDisclosure(
-                title=current_title,
-                summary=" ".join(current_body)[:200],
-                source_form=form_type,
-                filed_date=filed_date,
-            ))
+            risks.append(
+                RiskDisclosure(
+                    title=current_title,
+                    summary=" ".join(current_body)[:200],
+                    source_form=form_type,
+                    filed_date=filed_date,
+                )
+            )
 
         return risks
     except Exception:

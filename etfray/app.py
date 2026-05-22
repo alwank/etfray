@@ -104,9 +104,11 @@ class StatusBar(Static):
         freshness = ""
         if etf:
             from etfray.db.database import get_cached_holdings, load_settings
+
             cached = get_cached_holdings(etf)
             if cached and cached.get("as_of_date"):
                 from datetime import date, datetime
+
                 try:
                     s = load_settings()
                     as_of = datetime.fromisoformat(cached["as_of_date"]).date()
@@ -248,6 +250,7 @@ class ETFTerminalApp(App):
 
     def compose(self) -> ComposeResult:
         from etfray.db.database import load_settings
+
         self._data_source = load_settings().data_source or "auto"
 
         yield Header()
@@ -344,6 +347,7 @@ class ETFTerminalApp(App):
         cycle = {"auto": "edgar", "edgar": "web", "web": "auto"}
         self._data_source = cycle[self._data_source]
         from etfray.db.database import load_settings, save_settings
+
         s = load_settings()
         s.data_source = self._data_source
         save_settings(s)
@@ -351,7 +355,12 @@ class ETFTerminalApp(App):
         self.notify(f"Source: {self._data_source.capitalize()}")
         # Reload current research view with loading state
         switcher = self.query_one("#content", ContentSwitcher)
-        if self._current_etf and switcher.current and switcher.current.startswith("research-") and switcher.current != "research-search":
+        if (
+            self._current_etf
+            and switcher.current
+            and switcher.current.startswith("research-")
+            and switcher.current != "research-search"
+        ):
             self._load_view(switcher.current)
 
     def navigate_to(self, view_id: str) -> None:
@@ -427,6 +436,7 @@ class ETFTerminalApp(App):
             self.notify("No ETF selected", severity="warning")
             return
         from etfray.db.database import add_to_watchlist
+
         if add_to_watchlist("default", self._current_etf):
             self.notify(f"{self._current_etf} added to watchlist")
         else:

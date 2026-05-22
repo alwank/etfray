@@ -66,6 +66,7 @@ class IBKRService:
         self.disconnect()  # Clean up any stale connection
         try:
             from ib_async import IB
+
             self._ib = IB()
             self._ib.connect(host, port, clientId=client_id, readonly=True, timeout=4)
             self._connected = True
@@ -139,18 +140,20 @@ class IBKRService:
             self._positions = []
             for p in self._ib.portfolio():
                 contract = p.contract
-                self._positions.append(Position(
-                    symbol=contract.symbol,
-                    name=getattr(contract, "localSymbol", contract.symbol),
-                    asset_type=contract.secType,
-                    quantity=p.position,
-                    avg_cost=p.averageCost,
-                    market_price=p.marketPrice,
-                    market_value=p.marketValue,
-                    unrealized_pnl=p.unrealizedPNL,
-                    currency=contract.currency,
-                    account=p.account,
-                ))
+                self._positions.append(
+                    Position(
+                        symbol=contract.symbol,
+                        name=getattr(contract, "localSymbol", contract.symbol),
+                        asset_type=contract.secType,
+                        quantity=p.position,
+                        avg_cost=p.averageCost,
+                        market_price=p.marketPrice,
+                        market_value=p.marketValue,
+                        unrealized_pnl=p.unrealizedPNL,
+                        currency=contract.currency,
+                        account=p.account,
+                    )
+                )
         except Exception:
             pass
 

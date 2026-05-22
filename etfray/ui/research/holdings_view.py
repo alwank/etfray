@@ -100,6 +100,7 @@ class HoldingsView(VerticalScroll):
             asset_opts = [("All", "")]
             if "asset_category" in df.columns:
                 from etfray.domain.etf_analytics import ASSET_CATEGORY_MAP
+
                 for v in sorted(df["asset_category"].dropna().unique()):
                     label = ASSET_CATEGORY_MAP.get(str(v), str(v)) if v else "Unclassified"
                     asset_opts.append((label, str(v)))
@@ -145,8 +146,9 @@ class HoldingsView(VerticalScroll):
         search_text = self.query_one("#filter-search", Input).value.strip().upper()
         if search_text:
             mask = df.apply(
-                lambda r: search_text in str(r.get("ticker", "")).upper()
-                or search_text in str(r.get("name", "")).upper(),
+                lambda r: (
+                    search_text in str(r.get("ticker", "")).upper() or search_text in str(r.get("name", "")).upper()
+                ),
                 axis=1,
             )
             df = df[mask]
@@ -174,6 +176,7 @@ class HoldingsView(VerticalScroll):
             table.add_columns("Ticker", "Name", "Weight %", "Value", "Shares", "Type", "Country")
 
         from etfray.db.database import get_cached_holdings
+
         src_key = "web" if is_web else "nport"
         cached = get_cached_holdings(self._ticker, source=src_key)
         as_of = cached.get("as_of_date", "")[:10] if cached else ""
@@ -212,5 +215,6 @@ class HoldingsView(VerticalScroll):
             return
         from etfray.data.export_service import export_dataframe_csv
         from etfray.db.database import load_settings
+
         path = export_dataframe_csv(df, f"{self._ticker}_holdings", load_settings().export_dir)
         self.app.notify(f"Exported to {path}")

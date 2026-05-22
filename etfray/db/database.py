@@ -196,7 +196,9 @@ def get_cached_holdings(ticker: str, source: str | None = None) -> dict | None:
     if source:
         row = conn.execute("SELECT * FROM holdings_cache WHERE ticker = ? AND source = ?", (ticker, source)).fetchone()
     else:
-        row = conn.execute("SELECT * FROM holdings_cache WHERE ticker = ? ORDER BY cached_at DESC", (ticker,)).fetchone()
+        row = conn.execute(
+            "SELECT * FROM holdings_cache WHERE ticker = ? ORDER BY cached_at DESC", (ticker,)
+        ).fetchone()
     conn.close()
     if row:
         return dict(row)

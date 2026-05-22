@@ -42,10 +42,7 @@ class PortfolioConcentrationView(VerticalScroll):
             self.loading = False
             return
 
-        positions = [
-            {"symbol": p.symbol, "weight": abs(p.market_value) / total_value * 100}
-            for p in svc.positions
-        ]
+        positions = [{"symbol": p.symbol, "weight": abs(p.market_value) / total_value * 100} for p in svc.positions]
 
         # ETF-level concentration
         sorted_pos = sorted(positions, key=lambda x: x["weight"], reverse=True)
@@ -92,13 +89,17 @@ class PortfolioConcentrationView(VerticalScroll):
             "[bold]Portfolio Concentration[/bold]",
             "",
             "── ETF Position Level ──",
-            f"  Largest ETF:           {sorted_pos[0]['symbol']} ({sorted_pos[0]['weight']:.1f}%)" if sorted_pos else "",
+            f"  Largest ETF:           {sorted_pos[0]['symbol']} ({sorted_pos[0]['weight']:.1f}%)"
+            if sorted_pos
+            else "",
             f"  Top 5 ETF positions:   {top5_etf:.1f}%",
             f"  Number of ETFs:        {len(positions)}",
             "",
             "── Lookthrough Level ──",
             f"  Top 10 effective:      {top10_lt:.2f}%",
-            f"  Largest underlying:    {lookthrough[0].ticker} ({lookthrough[0].total_weight:.3f}%)" if lookthrough else "",
+            f"  Largest underlying:    {lookthrough[0].ticker} ({lookthrough[0].total_weight:.3f}%)"
+            if lookthrough
+            else "",
             f"  Effective holdings:    {effective_n:.0f}",
             f"  ETF overlap:           {overlap_score}",
             "",

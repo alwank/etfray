@@ -25,6 +25,7 @@ class TestWatchlistDB:
 
     def test_add_and_get_watchlist(self):
         from etfray.db.database import add_to_watchlist, get_watchlist
+
         add_to_watchlist("default", "VTI")
         add_to_watchlist("default", "SCHB")
         result = get_watchlist("default")
@@ -33,6 +34,7 @@ class TestWatchlistDB:
 
     def test_add_duplicate_is_idempotent(self):
         from etfray.db.database import add_to_watchlist, get_watchlist
+
         assert add_to_watchlist("default", "VTI") is True
         assert add_to_watchlist("default", "VTI") is False
         result = get_watchlist("default")
@@ -40,6 +42,7 @@ class TestWatchlistDB:
 
     def test_is_in_watchlist(self):
         from etfray.db.database import add_to_watchlist, is_in_watchlist
+
         assert is_in_watchlist("default", "VTI") is False
         add_to_watchlist("default", "VTI")
         assert is_in_watchlist("default", "VTI") is True
@@ -47,6 +50,7 @@ class TestWatchlistDB:
 
     def test_remove_from_watchlist(self):
         from etfray.db.database import add_to_watchlist, get_watchlist, remove_from_watchlist
+
         add_to_watchlist("default", "VTI")
         add_to_watchlist("default", "SCHB")
         remove_from_watchlist("default", "VTI")
@@ -56,6 +60,7 @@ class TestWatchlistDB:
 
     def test_empty_watchlist(self):
         from etfray.db.database import get_watchlist
+
         result = get_watchlist("default")
         assert result == []
 
@@ -64,11 +69,13 @@ class TestWatchlistMetrics:
     """Test concentration and overlap calculations used by watchlist."""
 
     def _make_df(self, tickers_weights: list[tuple[str, float]]) -> pd.DataFrame:
-        return pd.DataFrame({
-            "ticker": [t for t, _ in tickers_weights],
-            "name": [f"Company {t}" for t, _ in tickers_weights],
-            "pct_value": [w for _, w in tickers_weights],
-        })
+        return pd.DataFrame(
+            {
+                "ticker": [t for t, _ in tickers_weights],
+                "name": [f"Company {t}" for t, _ in tickers_weights],
+                "pct_value": [w for _, w in tickers_weights],
+            }
+        )
 
     def test_concentration_metrics(self):
         data = [(f"T{i}", 100 - i * 2) for i in range(20)]

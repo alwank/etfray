@@ -60,10 +60,7 @@ class PortfolioExposureView(VerticalScroll):
             self.loading = False
             return
 
-        positions = [
-            {"symbol": p.symbol, "weight": abs(p.market_value) / total_value * 100}
-            for p in svc.positions
-        ]
+        positions = [{"symbol": p.symbol, "weight": abs(p.market_value) / total_value * 100} for p in svc.positions]
 
         holdings_cache = {}
         preference = getattr(self.app, "_data_source", "auto")

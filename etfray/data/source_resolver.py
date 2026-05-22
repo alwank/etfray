@@ -28,11 +28,13 @@ def resolve_holdings(ticker: str, preference: str = "auto") -> tuple[pd.DataFram
 
     if preference == "edgar":
         from etfray.data.edgar_service import get_holdings_df
+
         df = get_holdings_df(ticker)
         return df, "edgar"
 
     if preference == "web":
         from etfray.data.web_service import get_holdings_from_web
+
         df = get_holdings_from_web(ticker)
         return df, "web"
 
@@ -44,40 +46,48 @@ def resolve_holdings(ticker: str, preference: str = "auto") -> tuple[pd.DataFram
     if edgar_date and web_date:
         if web_date >= edgar_date:
             from etfray.data.web_service import get_holdings_from_web
+
             df = get_holdings_from_web(ticker)
             if df is not None and not df.empty:
                 return df, "web"
         from etfray.data.edgar_service import get_holdings_df
+
         df = get_holdings_df(ticker)
         return df, "edgar"
 
     # If only one cached, use it; fetch the other
     if edgar_date and not web_date:
         from etfray.data.web_service import get_holdings_from_web
+
         wdf = get_holdings_from_web(ticker)
         if wdf is not None and not wdf.empty:
             web_date = _parse_date((get_cached_holdings(ticker, source="web") or {}).get("as_of_date"))
             if web_date and web_date > edgar_date:
                 return wdf, "web"
         from etfray.data.edgar_service import get_holdings_df
+
         return get_holdings_df(ticker), "edgar"
 
     if web_date and not edgar_date:
         from etfray.data.edgar_service import get_holdings_df
+
         edf = get_holdings_df(ticker)
         if edf is not None and not edf.empty:
             edgar_date = _parse_date((get_cached_holdings(ticker, source="nport") or {}).get("as_of_date"))
             if edgar_date and edgar_date > web_date:
                 return edf, "edgar"
         from etfray.data.web_service import get_holdings_from_web
+
         return get_holdings_from_web(ticker), "web"
 
     # Neither cached — try edgar first, then web
     from etfray.data.edgar_service import get_holdings_df
+
     edf = get_holdings_df(ticker)
     if edf is not None and not edf.empty:
         return edf, "edgar"
     from etfray.data.web_service import get_holdings_from_web
+
     wdf = get_holdings_from_web(ticker)
     if wdf is not None and not wdf.empty:
         return wdf, "web"

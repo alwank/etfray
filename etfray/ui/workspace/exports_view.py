@@ -90,16 +90,22 @@ class ExportsView(VerticalScroll):
     def _get_data(self, target: str, ticker: str) -> list[dict] | None:
         if target == "holdings":
             from etfray.data.edgar_service import get_holdings_df
+
             df = get_holdings_df(ticker)
             if df is not None and not df.empty:
                 return df.head(100).to_dict("records")
         elif target == "positions":
             from etfray.data.ibkr_service import get_ibkr_service
+
             svc = get_ibkr_service()
             if svc.positions:
-                return [{"symbol": p.symbol, "qty": p.quantity, "avg_cost": p.avg_cost, "value": p.market_value} for p in svc.positions]
+                return [
+                    {"symbol": p.symbol, "qty": p.quantity, "avg_cost": p.avg_cost, "value": p.market_value}
+                    for p in svc.positions
+                ]
         elif target == "margin":
             from etfray.data.ibkr_service import get_ibkr_service
+
             svc = get_ibkr_service()
             if svc.account_summary:
                 s = svc.account_summary
@@ -110,6 +116,7 @@ class ExportsView(VerticalScroll):
         if not data:
             return
         import csv
+
         with open(path, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=data[0].keys())
             writer.writeheader()

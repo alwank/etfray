@@ -452,9 +452,11 @@ class WatchlistView(VerticalScroll):
                 if sector_map:
                     df_copy = df.copy()
                     df_copy["sector"] = df_copy["ticker"].apply(
-                        lambda t: sector_map.get(str(t).upper().strip(), "Unclassified")
-                        if pd.notna(t) and str(t).strip()
-                        else "Unclassified"
+                        lambda t: (
+                            sector_map.get(str(t).upper().strip(), "Unclassified")
+                            if pd.notna(t) and str(t).strip()
+                            else "Unclassified"
+                        )
                     )
                     exposure = calculate_exposure(df_copy, "sector")
                     top3 = [f"{e.category[:4]} {e.weight:.0f}%" for e in exposure[:3]]

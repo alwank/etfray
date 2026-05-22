@@ -53,10 +53,14 @@ def calculate_exposure(df: pd.DataFrame, group_col: str) -> list[ExposureBreakdo
     if total == 0:
         return []
 
-    grouped = df.groupby(group_col).agg(
-        weight=(value_col, "sum"),
-        count=(value_col, "count"),
-    ).sort_values("weight", ascending=False)
+    grouped = (
+        df.groupby(group_col)
+        .agg(
+            weight=(value_col, "sum"),
+            count=(value_col, "count"),
+        )
+        .sort_values("weight", ascending=False)
+    )
 
     results = []
     for cat, row in grouped.iterrows():
@@ -93,7 +97,7 @@ def calculate_concentration(df: pd.DataFrame) -> ConcentrationMetrics:
 
     # HHI = sum of squared weights (as fractions)
     w_frac = weights / 100
-    hhi = float(sum(w_frac ** 2))
+    hhi = float(sum(w_frac**2))
     effective_n = 1 / hhi if hhi > 0 else n
 
     # Largest holding name
@@ -156,7 +160,7 @@ def calculate_group_concentration(df: pd.DataFrame, group_col: str) -> GroupConc
     top5_w = float(weights[:5].sum()) if n >= 5 else float(weights.sum())
 
     w_frac = weights / 100
-    hhi = float((w_frac ** 2).sum())
+    hhi = float((w_frac**2).sum())
 
     entries = [(names[i], round(float(weights[i]), 2)) for i in range(min(5, n))]
 

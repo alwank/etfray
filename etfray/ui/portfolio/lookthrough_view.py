@@ -55,10 +55,7 @@ class LookthroughView(VerticalScroll):
             self.loading = False
             return
 
-        positions = [
-            {"symbol": p.symbol, "weight": abs(p.market_value) / total_value * 100}
-            for p in svc.positions
-        ]
+        positions = [{"symbol": p.symbol, "weight": abs(p.market_value) / total_value * 100} for p in svc.positions]
 
         # Get holdings for each ETF using source resolver
         preference = getattr(self.app, "_data_source", "auto")
@@ -71,10 +68,7 @@ class LookthroughView(VerticalScroll):
 
         resolved_pct = sum(h.total_weight for h in lookthrough)
         unresolved_pct = sum(u.portfolio_weight for u in unresolved)
-        title.update(
-            f"ETF Lookthrough — Coverage: {resolved_pct:.0f}% resolved, "
-            f"{unresolved_pct:.0f}% unresolved"
-        )
+        title.update(f"ETF Lookthrough — Coverage: {resolved_pct:.0f}% resolved, {unresolved_pct:.0f}% unresolved")
 
         for h in lookthrough[:100]:
             table.add_row(

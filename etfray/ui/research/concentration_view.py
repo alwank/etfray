@@ -111,6 +111,7 @@ class ConcentrationView(VerticalScroll):
 
         from etfray.data.export_service import export_dataframe_csv
         from etfray.db.database import load_settings
+
         # Export as plain text rows
         df = pd.DataFrame({"line": [line.strip() for line in self._lines if line.strip()]})
         path = export_dataframe_csv(df, f"{self._ticker}_concentration", load_settings().export_dir)

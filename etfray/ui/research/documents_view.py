@@ -89,6 +89,7 @@ class DocumentsView(VerticalScroll):
 
         from etfray.data.export_service import export_dataframe_csv
         from etfray.db.database import load_settings
+
         df = pd.DataFrame(self._filings)
         path = export_dataframe_csv(df, f"{self._ticker}_documents", load_settings().export_dir)
         self.app.notify(f"Exported to {path}")
