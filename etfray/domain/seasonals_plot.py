@@ -178,10 +178,7 @@ def render_seasonals_figure(
         ax.spines[spine].set_visible(False)
     for spine in ("bottom", "left"):
         ax.spines[spine].set_color(MPL_AXES_EDGE)
-    ax.tick_params(colors=MPL_TICK_COLOR, labelsize=9)
-    ax.xaxis.label.set_color(MPL_LABEL_COLOR)
-    ax.yaxis.label.set_color(MPL_LABEL_COLOR)
-    ax.title.set_color(MPL_LABEL_COLOR)
+    ax.tick_params(colors=MPL_TICK_COLOR, labelsize=28)
 
     sorted_series = sorted(series_list, key=lambda s: s.year)
     for i, series in enumerate(sorted_series):
@@ -207,16 +204,13 @@ def render_seasonals_figure(
 
     ax.set_xlim(1, 366)
     ax.set_xticks(MONTH_TICKS)
-    ax.set_xticklabels(MONTH_LABELS, fontsize=9)
-    ax.set_xlabel("Month")
-    ax.set_ylabel("Cumulative return (%)")
+    ax.set_xticklabels(MONTH_LABELS, fontsize=28)
     ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:+.0f}%"))
     ymin, ymax = seasonal_ylim(series_list, average)
     ax.set_ylim(ymin, ymax)
     ax.axhline(0, color=ZERO_LINE_COLOR, linewidth=0.8, zorder=0)
     ax.grid(True, axis="y", linestyle="-", linewidth=0.5, color=MPL_GRID_COLOR, alpha=0.6)
-    ax.set_title(title, fontsize=10, pad=8)
-    fig.subplots_adjust(left=0.10, right=0.98, top=0.90, bottom=0.14)
+    fig.tight_layout(pad=0.3)
 
     buf = io.BytesIO()
     fig.savefig(
