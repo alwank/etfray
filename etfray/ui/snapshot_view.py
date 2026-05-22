@@ -43,22 +43,6 @@ class SnapshotView(VerticalScroll):
         height: auto;
         margin-bottom: 1;
     }
-    SnapshotView #snap-portfolio {
-        width: 36;
-        height: auto;
-        min-height: 10;
-        padding: 1;
-        border: solid $primary-background;
-        margin-right: 1;
-    }
-    SnapshotView #snap-portfolio-buttons {
-        height: 3;
-        margin-top: 1;
-    }
-    SnapshotView #snap-portfolio-buttons Button {
-        min-width: 16;
-        margin-right: 1;
-    }
     SnapshotView #snap-watchlist-pane {
         width: 1fr;
         height: auto;
@@ -102,15 +86,6 @@ class SnapshotView(VerticalScroll):
             yield Button("Refresh", id="snap-bench-refresh")
 
         with Horizontal(id="snap-middle"):
-            with Vertical(id="snap-portfolio"):
-                yield Static(
-                    "── Portfolio Pulse ──\n\nIBKR not connected.",
-                    id="snap-port-text",
-                )
-                with Horizontal(id="snap-portfolio-buttons"):
-                    yield Button("Connect IBKR", id="snap-connect-ibkr")
-                    yield Button("Refresh", id="snap-port-refresh")
-
             with Vertical(id="snap-watchlist-pane"):
                 yield Static("[bold]── Watchlist ──[/bold]", id="snap-watchlist-header")
                 yield DataTable(id="snap-watchlist-table")
@@ -142,7 +117,6 @@ class SnapshotView(VerticalScroll):
     def refresh_all(self) -> None:
         """Re-render all panels. Safe to call from navigate_to() and _on_splash_dismissed()."""
         self._render_benchmarks()
-        self._render_portfolio_pulse()
         self._load_watchlist()
         self._render_recent()
 
@@ -182,52 +156,6 @@ class SnapshotView(VerticalScroll):
             except Exception:
                 pass
         self.app.call_from_thread(self._render_benchmarks)
-
-    # ── Portfolio Pulse ────────────────────────────────────────────────────
-
-    def _render_portfolio_pulse(self) -> None:
-        from etfray.data.ibkr_service import get_ibkr_service
-
-        svc = get_ibkr_service()
-        port_text = self.query_one("#snap-port-text", Static)
-        btn_connect = self.query_one("#snap-connect-ibkr", Button)
-        btn_refresh = self.query_one("#snap-port-refresh", Button)
-
-        if not svc.is_connected:
-            port_text.update("── Portfolio Pulse ──\n\nIBKR not connected.")
-            btn_connect.display = True
-            btn_refresh.display = False
-            return
-
-        btn_connect.display = False
-        btn_refresh.display = True
-
-        s = svc.account_summary
-        if not s:
-            port_text.update("── Portfolio Pulse ──\n\nConnected — awaiting data.")
-            return
-
-        leverage = s.gross_position_value / s.net_liquidation if s.net_liquidation else 0
-        cushion_pct = s.cushion * 100 if s.cushion < 1 else s.cushion
-
-        lines = [
-            "── Portfolio Pulse ──",
-            "",
-            f"  NLV            ${s.net_liquidation:>12,.0f}",
-            f"  Leverage       {leverage:>13.2f}x",
-            f"  Cushion        {cushion_pct:>12.1f}%",
-            f"  Cash           ${s.total_cash_value:>12,.0f}",
-            f"  Buying Power   ${s.buying_power:>12,.0f}",
-        ]
-        port_text.update("\n".join(lines))
-
-    def _refresh_portfolio_in_thread(self) -> None:
-        """Re-fetch IBKR account summary (blocking). Call from a worker thread."""
-        from etfray.data.ibkr_service import get_ibkr_service
-
-        svc = get_ibkr_service()
-        svc.refresh()
-        self.app.call_from_thread(self._render_portfolio_pulse)
 
     # ── Watchlist Summary (async worker) ──────────────────────────────────
 
@@ -347,10 +275,6 @@ class SnapshotView(VerticalScroll):
         if bid == "snap-bench-refresh":
             threading.Thread(target=self._fetch_benchmarks_in_thread, daemon=True).start()
             self.app.notify("Refreshing benchmarks…", timeout=8)
-        elif bid == "snap-connect-ibkr":
-            self.app.action_connect_ibkr()
-        elif bid == "snap-port-refresh":
-            threading.Thread(target=self._refresh_portfolio_in_thread, daemon=True).start()
         elif bid == "snap-go-watchlist":
             self.app.navigate_to("workspace-watchlist")
 
