@@ -8,6 +8,8 @@ from textual.widgets import Button, Static
 class ConcentrationView(VerticalScroll):
     DEFAULT_CSS = """
     ConcentrationView {
+        height: 1fr;
+        min-height: 1fr;
         padding: 1 2;
     }
     ConcentrationView Horizontal {
@@ -33,9 +35,8 @@ class ConcentrationView(VerticalScroll):
 
     def load_etf(self, ticker: str) -> None:
         self._ticker = ticker
-        content = self.query_one("#conc-content", Static)
-        content.update("")
-        content.loading = True
+        self.query_one("#conc-content", Static).update("")
+        self.loading = True
         self.run_worker(self._load(ticker), exclusive=True)
 
     async def _load(self, ticker: str) -> None:
@@ -55,7 +56,7 @@ class ConcentrationView(VerticalScroll):
         df, source = await to_thread(resolve_holdings, ticker, preference)
 
         if df is None or df.empty:
-            content.loading = False
+            self.loading = False
             content.update("Holdings unavailable")
             title.update(f"Concentration — {ticker}")
             return
@@ -99,7 +100,7 @@ class ConcentrationView(VerticalScroll):
             lines.append(f"  Top 1:  {ga.top1_weight:.1f}%  │  HHI: {ga.hhi:.4f}")
 
         self._lines = lines
-        content.loading = False
+        self.loading = False
         content.update("\n".join(lines))
 
     def _export(self) -> None:

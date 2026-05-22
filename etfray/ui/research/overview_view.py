@@ -8,6 +8,8 @@ from textual.widgets import Static
 class OverviewView(VerticalScroll):
     DEFAULT_CSS = """
     OverviewView {
+        height: 1fr;
+        min-height: 1fr;
         padding: 1 2;
     }
     OverviewView .title {
@@ -25,9 +27,8 @@ class OverviewView(VerticalScroll):
         yield Static("Select an ETF from Search to view overview.", id="overview-content")
 
     def load_etf(self, ticker: str) -> None:
-        content = self.query_one("#overview-content", Static)
-        content.update("")
-        content.loading = True
+        self.query_one("#overview-content", Static).update("")
+        self.loading = True
         self.run_worker(self._load(ticker), exclusive=True)
 
     async def _load(self, ticker: str) -> None:
@@ -71,5 +72,5 @@ class OverviewView(VerticalScroll):
             acceptable_days=settings.freshness_days_acceptable,
         )
 
-        content.loading = False
+        self.loading = False
         content.update("\n".join(lines))

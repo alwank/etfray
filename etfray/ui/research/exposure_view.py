@@ -9,6 +9,8 @@ from textual.widgets import Button, DataTable, Static
 class ExposureView(VerticalScroll):
     DEFAULT_CSS = """
     ExposureView {
+        height: 1fr;
+        min-height: 1fr;
         padding: 1 2;
     }
     ExposureView Horizontal {
@@ -48,8 +50,7 @@ class ExposureView(VerticalScroll):
     def load_etf(self, ticker: str) -> None:
         self._ticker = ticker
         self._source_pref = getattr(self.app, "_data_source", "auto")
-        self.query_one("#sector-table", DataTable).loading = True
-        self.query_one("#country-table", DataTable).loading = True
+        self.loading = True
         self.run_worker(self._load(ticker), exclusive=True)
 
     async def _load(self, ticker: str) -> None:
@@ -65,7 +66,6 @@ class ExposureView(VerticalScroll):
         try:
             badge = get_freshness_comparison(ticker)
             badge_str = f" │ {badge}" if badge else ""
-            title.update(f"Exposure — {ticker} (loading...)")
 
             df, source = await to_thread(resolve_holdings, ticker, self._source_pref)
 
@@ -117,8 +117,7 @@ class ExposureView(VerticalScroll):
         except Exception as e:
             title.update(f"Exposure — {ticker} (error: {e})")
         finally:
-            st.loading = False
-            ct.loading = False
+            self.loading = False
 
     def _export(self) -> None:
         rows = []

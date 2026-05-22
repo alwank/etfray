@@ -10,6 +10,8 @@ from etfray.db.database import Settings, load_settings, save_settings
 class SettingsView(VerticalScroll):
     DEFAULT_CSS = """
     SettingsView {
+        height: 1fr;
+        min-height: 1fr;
         padding: 1 2;
     }
     SettingsView Input {

@@ -9,6 +9,8 @@ from textual.widgets import Button, DataTable, Input, Select, Static
 class HoldingsView(VerticalScroll):
     DEFAULT_CSS = """
     HoldingsView {
+        height: 1fr;
+        min-height: 1fr;
         padding: 1 2;
     }
     HoldingsView #holdings-header {
@@ -79,8 +81,7 @@ class HoldingsView(VerticalScroll):
 
     def load_etf(self, ticker: str) -> None:
         self._ticker = ticker
-        table = self.query_one("#holdings-table", DataTable)
-        table.loading = True
+        self.loading = True
         self.run_worker(self._load(ticker), exclusive=True)
 
     async def _load(self, ticker: str) -> None:
@@ -112,6 +113,7 @@ class HoldingsView(VerticalScroll):
             self.query_one("#filter-country", Select).set_options(country_opts)
 
         self._render_table()
+        self.loading = False
 
     def _get_filtered_df(self) -> pd.DataFrame | None:
         df = self._df
@@ -161,7 +163,6 @@ class HoldingsView(VerticalScroll):
         df = self._get_filtered_df()
         if df is None or (self._df is not None and self._df.empty):
             title.update(f"Holdings — {self._ticker} (unavailable)")
-            table.loading = False
             return
 
         is_web = self._source == "web"
@@ -203,8 +204,6 @@ class HoldingsView(VerticalScroll):
                         str(row.get("asset_category", "") or ""),
                         str(row.get("investment_country", "") or ""),
                     )
-
-        table.loading = False
 
     def _export(self) -> None:
         df = self._get_filtered_df()

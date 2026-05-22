@@ -8,6 +8,8 @@ from textual.widgets import Static
 class MarginView(VerticalScroll):
     DEFAULT_CSS = """
     MarginView {
+        height: 1fr;
+        min-height: 1fr;
         padding: 1 2;
     }
     """

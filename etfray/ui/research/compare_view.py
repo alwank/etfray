@@ -1,20 +1,48 @@
 """ETF Compare view - side-by-side comparison of 2-5 ETFs."""
 
 from textual.app import ComposeResult
-from textual.containers import Horizontal, VerticalScroll
+from textual.containers import Horizontal, Vertical
 from textual.widgets import Button, DataTable, Input, Static
 
 
-class CompareView(VerticalScroll):
+class CompareView(Vertical):
     DEFAULT_CSS = """
     CompareView {
+        height: 1fr;
+        min-height: 1fr;
         padding: 1 2;
+        layout: grid;
+        grid-size: 1 2;
+        grid-rows: auto 1fr;
+        grid-gutter: 0 1;
     }
-    CompareView Input {
+    CompareView #compare-toolbar {
+        height: auto;
+        width: 100%;
+        row-span: 1;
+        layout: vertical;
+    }
+    CompareView #compare-toolbar Horizontal {
+        height: auto;
+        min-height: 3;
+        width: 100%;
+    }
+    CompareView #compare-input {
+        height: 3;
+        min-height: 3;
+        width: 1fr;
         margin-bottom: 1;
     }
-    CompareView DataTable {
-        height: 1fr;
+    CompareView #export-compare {
+        height: 3;
+        min-height: 3;
+        margin-left: 1;
+    }
+    CompareView #compare-table {
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        row-span: 1;
     }
     """
 
@@ -22,10 +50,11 @@ class CompareView(VerticalScroll):
     _rows: list[list[str]] = []
 
     def compose(self) -> ComposeResult:
-        yield Static("Compare ETFs — Enter tickers separated by spaces")
-        with Horizontal():
-            yield Input(placeholder="e.g. VTI ITOT SCHB", id="compare-input")
-            yield Button("Export", id="export-compare", variant="success")
+        with Vertical(id="compare-toolbar"):
+            yield Static("Compare ETFs — Enter tickers separated by spaces")
+            with Horizontal():
+                yield Input(placeholder="e.g. VTI ITOT SCHB", id="compare-input")
+                yield Button("Export", id="export-compare", variant="success")
         yield DataTable(id="compare-table")
 
     def on_mount(self) -> None:
@@ -41,7 +70,7 @@ class CompareView(VerticalScroll):
         if event.input.id == "compare-input" and event.value.strip():
             tickers = event.value.strip().upper().split()[:5]
             self._tickers = tickers
-            self.query_one("#compare-table", DataTable).loading = True
+            self.loading = True
             self.run_worker(self._load(tickers), exclusive=True)
 
     async def _load(self, tickers: list[str]) -> None:
@@ -127,7 +156,7 @@ class CompareView(VerticalScroll):
         self._rows.append(avg_row)
         table.add_row(*avg_row)
 
-        table.loading = False
+        self.loading = False
 
     def _export(self) -> None:
         if not self._rows:

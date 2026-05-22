@@ -8,6 +8,8 @@ from textual.widgets import DataTable, Static
 class LookthroughView(VerticalScroll):
     DEFAULT_CSS = """
     LookthroughView {
+        height: 1fr;
+        min-height: 1fr;
         padding: 1 2;
     }
     LookthroughView DataTable {
@@ -25,10 +27,8 @@ class LookthroughView(VerticalScroll):
         table.cursor_type = "row"
 
     def load_data(self) -> None:
-        self.query_one("#lt-title", Static).update("ETF Lookthrough — Loading...")
-        table = self.query_one("#lt-table", DataTable)
-        table.clear()
-        table.loading = True
+        self.query_one("#lt-table", DataTable).clear()
+        self.loading = True
         self.run_worker(self._load(), exclusive=True)
 
     async def _load(self) -> None:
@@ -45,14 +45,14 @@ class LookthroughView(VerticalScroll):
 
         if not svc.is_connected or not svc.positions:
             title.update("ETF Lookthrough — IBKR not connected or no positions")
-            table.loading = False
+            self.loading = False
             return
 
         # Calculate portfolio weights
         total_value = sum(abs(p.market_value) for p in svc.positions)
         if total_value == 0:
             title.update("ETF Lookthrough — No position values")
-            table.loading = False
+            self.loading = False
             return
 
         positions = [
@@ -63,9 +63,7 @@ class LookthroughView(VerticalScroll):
         # Get holdings for each ETF using source resolver
         preference = getattr(self.app, "_data_source", "auto")
         holdings_cache = {}
-        total = len(positions)
-        for i, pos in enumerate(positions):
-            title.update(f"ETF Lookthrough — Loading {i + 1}/{total} ETFs...")
+        for pos in positions:
             df, _ = await to_thread(resolve_holdings, pos["symbol"], preference)
             holdings_cache[pos["symbol"]] = df
 
@@ -92,4 +90,4 @@ class LookthroughView(VerticalScroll):
             for u in unresolved:
                 table.add_row(u.ticker, u.reason, f"{u.portfolio_weight:.1f}%", "")
 
-        table.loading = False
+        self.loading = False

@@ -8,6 +8,8 @@ from textual.widgets import Static
 class PortfolioConcentrationView(VerticalScroll):
     DEFAULT_CSS = """
     PortfolioConcentrationView {
+        height: 1fr;
+        min-height: 1fr;
         padding: 1 2;
     }
     """
@@ -16,9 +18,8 @@ class PortfolioConcentrationView(VerticalScroll):
         yield Static("Portfolio Concentration — Connect IBKR to view", id="pconc-content")
 
     def load_data(self) -> None:
-        content = self.query_one("#pconc-content", Static)
-        content.update("")
-        content.loading = True
+        self.query_one("#pconc-content", Static).update("")
+        self.loading = True
         self.run_worker(self._load(), exclusive=True)
 
     async def _load(self) -> None:
@@ -32,13 +33,13 @@ class PortfolioConcentrationView(VerticalScroll):
         content = self.query_one("#pconc-content", Static)
 
         if not svc.is_connected or not svc.positions:
-            content.loading = False
+            self.loading = False
             content.update("Portfolio Concentration — IBKR not connected")
             return
 
         total_value = sum(abs(p.market_value) for p in svc.positions)
         if total_value == 0:
-            content.loading = False
+            self.loading = False
             return
 
         positions = [
@@ -52,10 +53,8 @@ class PortfolioConcentrationView(VerticalScroll):
 
         # Lookthrough concentration
         holdings_cache = {}
-        total = len(positions)
         preference = getattr(self.app, "_data_source", "auto")
-        for i, pos in enumerate(positions):
-            content.update(f"Portfolio Concentration — Loading {i + 1}/{total} ETFs...")
+        for pos in positions:
             df, _ = await to_thread(resolve_holdings, pos["symbol"], preference)
             holdings_cache[pos["symbol"]] = df
 
@@ -105,5 +104,5 @@ class PortfolioConcentrationView(VerticalScroll):
             "",
             f"  Unresolved exposure:   {sum(u.portfolio_weight for u in unresolved):.1f}%",
         ]
-        content.loading = False
+        self.loading = False
         content.update("\n".join(lines))

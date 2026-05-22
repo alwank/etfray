@@ -8,6 +8,8 @@ from textual.widgets import Static
 class FeesView(VerticalScroll):
     DEFAULT_CSS = """
     FeesView {
+        height: 1fr;
+        min-height: 1fr;
         padding: 1 2;
     }
     """
@@ -16,9 +18,8 @@ class FeesView(VerticalScroll):
         yield Static("Fees — Select an ETF first", id="fees-content")
 
     def load_etf(self, ticker: str) -> None:
-        content = self.query_one("#fees-content", Static)
-        content.update("")
-        content.loading = True
+        self.query_one("#fees-content", Static).update("")
+        self.loading = True
         self.run_worker(self._load(ticker), exclusive=True)
 
     async def _load(self, ticker: str) -> None:
@@ -37,7 +38,7 @@ class FeesView(VerticalScroll):
         )
 
         if not report and not profile:
-            content.loading = False
+            self.loading = False
             content.update(f"Fees — {ticker} (data unavailable)")
             return
 
@@ -86,5 +87,5 @@ class FeesView(VerticalScroll):
             lines.append(f"  AUM: N-PORT filing, period {report.reporting_period}")
         lines.append("  For official fee schedule, see Documents view (N-1A/497).")
 
-        content.loading = False
+        self.loading = False
         content.update("\n".join(lines))

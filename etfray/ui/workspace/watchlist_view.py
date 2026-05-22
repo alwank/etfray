@@ -23,6 +23,8 @@ _VERDICT_SHORT = {
 class WatchlistView(VerticalScroll):
     DEFAULT_CSS = """
     WatchlistView {
+        height: 1fr;
+        min-height: 1fr;
         padding: 1 2;
     }
     WatchlistView #wl-title {
@@ -214,8 +216,7 @@ class WatchlistView(VerticalScroll):
         self._undo_remove()
 
     def _do_search(self, query: str) -> None:
-        table = self.query_one("#wl-search-results", DataTable)
-        table.loading = True
+        self.loading = True
         self.run_worker(self._search_worker(query), name="wl-search", exclusive=True)
 
     async def _search_worker(self, query: str) -> None:
@@ -237,7 +238,7 @@ class WatchlistView(VerticalScroll):
         else:
             status.update("No results found")
 
-        self.query_one("#wl-search-results", DataTable).loading = False
+        self.loading = False
 
     def _render_search_results(self) -> None:
         from etfray.db.database import is_in_watchlist
@@ -266,7 +267,6 @@ class WatchlistView(VerticalScroll):
         if not shown:
             if self._last_search_results:
                 table.add_row("—", "No matches with current filters", "", "", key="none")
-            table.loading = False
 
     def _add_selected_search_result(self) -> None:
         table = self.query_one("#wl-search-results", DataTable)
@@ -333,8 +333,7 @@ class WatchlistView(VerticalScroll):
         self._render_search_results()
 
     def load_data(self) -> None:
-        table = self.query_one("#wl-table", DataTable)
-        table.loading = True
+        self.loading = True
         self.run_worker(self._load(), exclusive=True)
 
     async def _load(self) -> None:
@@ -345,7 +344,7 @@ class WatchlistView(VerticalScroll):
         tickers = get_watchlist(WATCHLIST_NAME)
         if not tickers:
             self._render_table()
-            self.query_one("#wl-table", DataTable).loading = False
+            self.loading = False
             return
 
         preference = getattr(self.app, "_data_source", "auto")
@@ -356,7 +355,7 @@ class WatchlistView(VerticalScroll):
             self._rows_data.append(row)
 
         self._render_table()
-        self.query_one("#wl-table", DataTable).loading = False
+        self.loading = False
 
     def _render_table(self) -> None:
         table = self.query_one("#wl-table", DataTable)

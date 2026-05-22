@@ -135,24 +135,45 @@ class ETFTerminalApp(App):
     }
     #content {
         width: 1fr;
+        height: 1fr;
     }
     #welcome {
         height: 1fr;
         padding: 2 4;
     }
-    #content VerticalScroll,
-    #content Vertical {
-        height: auto;
-    }
-    #content VerticalScroll Horizontal {
+    /* Nested toolbars only — do not collapse top-level content views */
+    #content ContentSwitcher VerticalScroll Horizontal,
+    #content ContentSwitcher Vertical Horizontal {
         height: auto;
     }
     #content ContentSwitcher {
         height: 1fr;
         width: 1fr;
     }
-    #content SeasonalsView {
+    /* Direct page roots only — avoid stretching nested toolbars/tables */
+    #content ContentSwitcher > Static,
+    #content ContentSwitcher > SearchView,
+    #content ContentSwitcher > OverviewView,
+    #content ContentSwitcher > SeasonalsView,
+    #content ContentSwitcher > HoldingsView,
+    #content ContentSwitcher > ExposureView,
+    #content ContentSwitcher > ConcentrationView,
+    #content ContentSwitcher > FeesView,
+    #content ContentSwitcher > RiskView,
+    #content ContentSwitcher > DocumentsView,
+    #content ContentSwitcher > CompareView,
+    #content ContentSwitcher > PortfolioOverviewView,
+    #content ContentSwitcher > PositionsView,
+    #content ContentSwitcher > LookthroughView,
+    #content ContentSwitcher > PortfolioExposureView,
+    #content ContentSwitcher > PortfolioConcentrationView,
+    #content ContentSwitcher > MarginView,
+    #content ContentSwitcher > PortfolioRiskView,
+    #content ContentSwitcher > ExportsView,
+    #content ContentSwitcher > WatchlistView,
+    #content ContentSwitcher > SettingsView {
         height: 1fr;
+        min-height: 1fr;
     }
     """
 

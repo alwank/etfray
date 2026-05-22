@@ -1,29 +1,64 @@
 """ETF Search view with input and results table."""
 
 from textual.app import ComposeResult
-from textual.containers import Horizontal, VerticalScroll
+from textual.containers import Horizontal, Vertical
 from textual.widgets import Button, DataTable, Input, Static
 
 
-class SearchView(VerticalScroll):
+class SearchView(Vertical):
+    """Search page — Vertical + grid (not VerticalScroll) so controls stay top and table fills below."""
+
     DEFAULT_CSS = """
     SearchView {
+        height: 1fr;
+        min-height: 1fr;
         padding: 1 2;
+        layout: grid;
+        grid-size: 1 2;
+        grid-rows: auto 1fr;
+        grid-gutter: 0 1;
     }
-    SearchView Input {
+    SearchView #search-toolbar {
+        height: auto;
+        width: 100%;
+        row-span: 1;
+        layout: vertical;
+    }
+    SearchView #search-toolbar Horizontal {
+        height: auto;
+        min-height: 3;
+        width: 100%;
+    }
+    SearchView #search-input {
+        height: 3;
+        min-height: 3;
+        width: 1fr;
         margin-bottom: 1;
     }
-    SearchView DataTable {
-        height: 1fr;
+    SearchView #search-watch {
+        height: 3;
+        min-height: 3;
+        margin-left: 1;
+    }
+    SearchView #search-status {
+        height: auto;
+        min-height: 1;
+    }
+    SearchView #search-results {
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        row-span: 1;
     }
     """
 
     def compose(self) -> ComposeResult:
-        yield Static("Search ETF / Fund / Issuer")
-        with Horizontal():
-            yield Input(placeholder="Enter ticker, fund name, or issuer...", id="search-input")
-            yield Button("Watch", id="search-watch", variant="warning")
-        yield Static("", id="search-status")
+        with Vertical(id="search-toolbar"):
+            yield Static("Search ETF / Fund / Issuer")
+            with Horizontal():
+                yield Input(placeholder="Enter ticker, fund name, or issuer...", id="search-input")
+                yield Button("Watch", id="search-watch", variant="warning")
+            yield Static("", id="search-status")
         yield DataTable(id="search-results")
 
     def on_mount(self) -> None:
@@ -36,8 +71,7 @@ class SearchView(VerticalScroll):
             self._do_search(event.value.strip())
 
     def _do_search(self, query: str) -> None:
-        table = self.query_one("#search-results", DataTable)
-        table.loading = True
+        self.loading = True
         self.run_worker(self._search_worker(query), name="search", exclusive=True)
 
     async def _search_worker(self, query: str) -> None:
@@ -60,7 +94,7 @@ class SearchView(VerticalScroll):
             table.add_row("—", "No results found", "")
             status.update("")
 
-        table.loading = False
+        self.loading = False
         self._update_watch_button()
 
     def _get_selected_ticker(self) -> str | None:

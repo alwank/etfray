@@ -8,6 +8,8 @@ from textual.widgets import Static
 class RiskView(VerticalScroll):
     DEFAULT_CSS = """
     RiskView {
+        height: 1fr;
+        min-height: 1fr;
         padding: 1 2;
     }
     """
@@ -16,9 +18,8 @@ class RiskView(VerticalScroll):
         yield Static("Risk — Select an ETF first", id="risk-content")
 
     def load_etf(self, ticker: str) -> None:
-        content = self.query_one("#risk-content", Static)
-        content.update("")
-        content.loading = True
+        self.query_one("#risk-content", Static).update("")
+        self.loading = True
         self.run_worker(self._load(ticker), exclusive=True)
 
     async def _load(self, ticker: str) -> None:
@@ -32,7 +33,7 @@ class RiskView(VerticalScroll):
 
         df = await to_thread(get_holdings_df, ticker)
         if df is None or df.empty:
-            content.loading = False
+            self.loading = False
             content.update(f"Risk — {ticker} (holdings unavailable)")
             return
 
@@ -82,5 +83,5 @@ class RiskView(VerticalScroll):
             lines.append("  Prospectus risk disclosures unavailable.")
             lines.append("  Check Documents view for latest N-1A or 497 filing.")
 
-        content.loading = False
+        self.loading = False
         content.update("\n".join(lines))

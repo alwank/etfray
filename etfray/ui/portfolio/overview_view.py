@@ -8,6 +8,8 @@ from textual.widgets import Button, Static
 class PortfolioOverviewView(VerticalScroll):
     DEFAULT_CSS = """
     PortfolioOverviewView {
+        height: 1fr;
+        min-height: 1fr;
         padding: 1 2;
     }
     PortfolioOverviewView #port-toolbar {
@@ -48,14 +50,12 @@ class PortfolioOverviewView(VerticalScroll):
             ok = svc.connect(s.ibkr_host, s.ibkr_port, s.ibkr_client_id)
             self.app.call_from_thread(self._on_connected, ok, svc)
 
-        content = self.query_one("#port-content", Static)
-        content.update("")
-        content.loading = True
+        self.query_one("#port-content", Static).update("")
+        self.loading = True
         threading.Thread(target=_connect, daemon=True).start()
 
     def _on_connected(self, ok: bool, svc) -> None:
-        content = self.query_one("#port-content", Static)
-        content.loading = False
+        self.loading = False
         if ok:
             self.app._ibkr_connected = True
             self.app.query_one("StatusBar").refresh()
@@ -73,8 +73,7 @@ class PortfolioOverviewView(VerticalScroll):
         from etfray.data.ibkr_service import get_ibkr_service
 
         svc = get_ibkr_service()
-        content = self.query_one("#port-content", Static)
-        content.loading = True
+        self.loading = True
 
         def _work():
             svc.refresh()
@@ -83,7 +82,7 @@ class PortfolioOverviewView(VerticalScroll):
         threading.Thread(target=_work, daemon=True).start()
 
     def _on_refresh_done(self) -> None:
-        self.query_one("#port-content", Static).loading = False
+        self.loading = False
         self._refresh()
 
     def _refresh(self) -> None:

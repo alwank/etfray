@@ -22,6 +22,8 @@ FORM_LABELS = {
 class DocumentsView(VerticalScroll):
     DEFAULT_CSS = """
     DocumentsView {
+        height: 1fr;
+        min-height: 1fr;
         padding: 1 2;
     }
     DocumentsView Horizontal {
@@ -48,7 +50,7 @@ class DocumentsView(VerticalScroll):
 
     def load_etf(self, ticker: str) -> None:
         self._ticker = ticker
-        self.query_one("#docs-table", DataTable).loading = True
+        self.loading = True
         self.run_worker(self._load(ticker), exclusive=True)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -69,7 +71,7 @@ class DocumentsView(VerticalScroll):
         self._filings = filings
         if not filings:
             title.update(f"Documents — {ticker} (no filings found)")
-            table.loading = False
+            self.loading = False
             return
 
         for f in filings:
@@ -77,7 +79,7 @@ class DocumentsView(VerticalScroll):
             label = FORM_LABELS.get(form, form)
             table.add_row(label, form, f["filing_date"], f["description"][:40])
 
-        table.loading = False
+        self.loading = False
 
     def _export(self) -> None:
         if not self._filings:

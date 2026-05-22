@@ -56,6 +56,7 @@ class SeasonalsView(Vertical):
     DEFAULT_CSS = """
     SeasonalsView {
         height: 1fr;
+        min-height: 1fr;
         padding: 1 1;
         layout: grid;
         grid-size: 1 4;

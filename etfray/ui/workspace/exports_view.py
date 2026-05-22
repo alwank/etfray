@@ -27,6 +27,8 @@ EXPORT_FORMATS = [
 class ExportsView(VerticalScroll):
     DEFAULT_CSS = """
     ExportsView {
+        height: 1fr;
+        min-height: 1fr;
         padding: 1 2;
     }
     """

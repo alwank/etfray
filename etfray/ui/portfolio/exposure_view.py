@@ -8,6 +8,8 @@ from textual.widgets import DataTable, Static
 class PortfolioExposureView(VerticalScroll):
     DEFAULT_CSS = """
     PortfolioExposureView {
+        height: 1fr;
+        min-height: 1fr;
         padding: 1 2;
     }
     PortfolioExposureView Horizontal {
@@ -30,13 +32,11 @@ class PortfolioExposureView(VerticalScroll):
         self.query_one("#pexp-country", DataTable).add_columns("Country", "Weight %")
 
     def load_data(self) -> None:
-        self.query_one("#pexp-title", Static).update("Portfolio Exposure — Loading...")
         sector_table = self.query_one("#pexp-sector", DataTable)
         country_table = self.query_one("#pexp-country", DataTable)
         sector_table.clear()
         country_table.clear()
-        sector_table.loading = True
-        country_table.loading = True
+        self.loading = True
         self.run_worker(self._load(), exclusive=True)
 
     async def _load(self) -> None:
@@ -52,14 +52,12 @@ class PortfolioExposureView(VerticalScroll):
 
         if not svc.is_connected or not svc.positions:
             title.update("Portfolio Exposure — IBKR not connected")
-            self.query_one("#pexp-sector", DataTable).loading = False
-            self.query_one("#pexp-country", DataTable).loading = False
+            self.loading = False
             return
 
         total_value = sum(abs(p.market_value) for p in svc.positions)
         if total_value == 0:
-            self.query_one("#pexp-sector", DataTable).loading = False
-            self.query_one("#pexp-country", DataTable).loading = False
+            self.loading = False
             return
 
         positions = [
@@ -68,10 +66,8 @@ class PortfolioExposureView(VerticalScroll):
         ]
 
         holdings_cache = {}
-        total = len(positions)
         preference = getattr(self.app, "_data_source", "auto")
-        for i, pos in enumerate(positions):
-            title.update(f"Portfolio Exposure — Loading {i + 1}/{total} ETFs...")
+        for pos in positions:
             df, _ = await to_thread(resolve_holdings, pos["symbol"], preference)
             holdings_cache[pos["symbol"]] = df
 
@@ -91,11 +87,10 @@ class PortfolioExposureView(VerticalScroll):
         sector_table.clear()
         for cat, wt in calculate_portfolio_exposure(lookthrough, "sector"):
             sector_table.add_row(cat or "Unclassified", f"{wt:.2f}%")
-        sector_table.loading = False
 
         # Country
         country_table = self.query_one("#pexp-country", DataTable)
         country_table.clear()
         for cat, wt in calculate_portfolio_exposure(lookthrough, "country"):
             country_table.add_row(cat or "Unclassified", f"{wt:.2f}%")
-        country_table.loading = False
+        self.loading = False

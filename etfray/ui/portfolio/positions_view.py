@@ -8,6 +8,8 @@ from textual.widgets import DataTable, Static
 class PositionsView(VerticalScroll):
     DEFAULT_CSS = """
     PositionsView {
+        height: 1fr;
+        min-height: 1fr;
         padding: 1 2;
     }
     PositionsView DataTable {
@@ -34,18 +36,18 @@ class PositionsView(VerticalScroll):
         svc = get_ibkr_service()
         table = self.query_one("#pos-table", DataTable)
         title = self.query_one("#pos-title", Static)
-        table.loading = True
+        self.loading = True
         table.clear()
 
         if not svc.is_connected:
             title.update("Positions — IBKR not connected")
-            table.loading = False
+            self.loading = False
             return
 
         positions = svc.positions
         if not positions:
             title.update("Positions — No positions found")
-            table.loading = False
+            self.loading = False
             return
 
         # Calculate total market value for weights
@@ -66,7 +68,7 @@ class PositionsView(VerticalScroll):
                 key=p.symbol,
             )
 
-        table.loading = False
+        self.loading = False
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         """Open ETF research for selected position."""
