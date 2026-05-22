@@ -31,6 +31,8 @@ nav:
       - Quick Start: getting-started/quickstart.md
   - User Guide:
       - ETF Research: user-guide/etf-research.md
+      - Seasonals: user-guide/seasonals.md
+      - Watchlist: user-guide/watchlist.md
       - Portfolio Analytics: user-guide/portfolio-analytics.md
       - IBKR Setup: user-guide/ibkr-setup.md
       - Keybindings: user-guide/keybindings.md

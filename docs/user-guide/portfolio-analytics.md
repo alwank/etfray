@@ -50,7 +50,7 @@ This reveals that even a "diversified" two-fund portfolio can have significant s
 !!! note "Unresolved ETFs"
     If etfray can't find holdings data for one of your positions (e.g., a non-ETF stock, or an ETF without available filings), it appears in the "unresolved" list. The lookthrough still works for your other ETFs — unresolved positions are simply excluded from the decomposition.
 
-![Portfolio Lookthrough](../assets/portfolio-lookthrough.png){ width="700" }
+![Portfolio Lookthrough](../assets/Portfolio_ETFLookthrough.png){ width="700" }
 
 ### Exposure
 
@@ -60,6 +60,8 @@ Aggregated sector and geographic exposure across all portfolio ETFs, weighted by
 
 - Unintended sector bets — Holding VTI + QQQ + SMH might give you 50%+ in Technology without realizing it
 - Geographic concentration — Multiple US ETFs means your "diversified" portfolio might be 95% US equities
+
+![Portfolio Exposure](../assets/Portfolio_Exposure.png){ width="700" }
 
 ### Concentration
 

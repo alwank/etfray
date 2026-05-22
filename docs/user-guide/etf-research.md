@@ -7,15 +7,53 @@ The Research workspace lets you look up any ETF and explore its holdings, exposu
 Navigate to **Research → Search** or press `/`. Enter a ticker symbol (e.g., `VTI`, `QQQM`, `AVUV`) to look up an ETF.
 
 !!! tip
-    Press `/` to jump straight to ETF Search — it's the fastest way to look up a fund.
+    Press `/` to jump straight to ETF Search — it's the fastest way to look up a fund. After searching, press `w` to add the ETF to your [Watchlist](watchlist.md).
 
 ## Views
 
 ### Overview
 
-Summary of the ETF: fund name, issuer, total assets, number of holdings, reporting period, and filing date.
+A rich fund profile combining data from two sources:
 
-Use this to quickly confirm you're looking at the right fund and to check how recent the data is. The filing date tells you when the fund last reported to the SEC.
+**Yahoo Finance profile** (fetched via yfinance, cached 7 days):
+
+- Category (e.g., "Large Blend", "Technology")
+- Inception date
+- Expense ratio
+- Dividend yield
+- Beta (3-year)
+- Returns: YTD, 3Y, 5Y
+- Exchange, average volume, NAV
+- Fund description
+
+**SEC N-PORT filing** (via EDGAR):
+
+- Total assets and net assets
+- Number of holdings
+- Reporting period and filing date
+- Data freshness indicator (🟢 Fresh / 🟡 Acceptable / 🔴 Stale)
+
+The Overview also shows computed **Portfolio Shape** metrics (top-10 weight, effective N, largest sector) and **Source Provenance** so you know exactly where each data point comes from and when it was fetched.
+
+!!! tip
+    If Yahoo Finance data is unavailable (rate-limited or ticker not found), the Overview still shows all EDGAR-sourced data. Reopen the ETF or wait a moment to retry.
+
+![Overview view](../assets/Overview.png){ width="700" }
+
+### Seasonals
+
+TradingView-style seasonals chart showing year-over-year cumulative returns. Each line represents one calendar year's return trajectory from January 1st.
+
+**Key features:**
+
+- Year range selection to compare specific years
+- Average line toggle across selected years
+- Period returns table (1W, 1M, 3M, 6M, YTD, 1Y, 3Y, 5Y, Max)
+- High-resolution matplotlib chart (with `[charts]` dependency) or plotext ASCII fallback
+
+Press `t` to jump directly to Seasonals from any view.
+
+See the [full Seasonals documentation](seasonals.md) for chart modes, terminal setup, and troubleshooting.
 
 ### Holdings
 

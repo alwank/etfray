@@ -16,6 +16,9 @@ etfray converts SEC fund filings and IBKR portfolio data into holdings, exposure
 ## What can etfray do?
 
 - **ETF Research** — Search thousands of ETFs, view holdings, sector/geographic exposure, concentration metrics, fees, risk, and SEC documents
+- **Fund Overview** — Rich fund profile combining SEC filings with Yahoo Finance metadata (category, expense ratio, dividend yield, beta, returns, description)
+- **Seasonals** — TradingView-style year-over-year cumulative return chart with period returns table (1W to Max) and year range selection
+- **Watchlist** — Track ETFs with at-a-glance metrics: concentration, top sectors, overlap vs portfolio, and data freshness
 - **Portfolio Analytics** — Connect to IBKR for live positions, lookthrough exposure (what your ETFs actually own), concentration analysis, and margin monitoring
 - **Side-by-side Compare** — Compare multiple ETFs across holdings, exposure, overlap, and fees
 - **Export** — Save any view to CSV or JSON for further analysis
@@ -51,6 +54,8 @@ etfray converts SEC fund filings and IBKR portfolio data into holdings, exposure
 ## Reference
 
 - [User Guide](user-guide/etf-research.md) — Detailed explanation of every view and metric
+- [Seasonals](user-guide/seasonals.md) — Year-over-year return charts and period returns
+- [Watchlist](user-guide/watchlist.md) — Track ETFs with concentration and overlap metrics
 - [Configuration](user-guide/configuration.md) — All settings with examples
 - [Keybindings](user-guide/keybindings.md) — Keyboard shortcuts and workflows
 - [Architecture](developer/architecture.md) — How etfray is built

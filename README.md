@@ -22,6 +22,9 @@ etfray converts SEC fund filings and IBKR portfolio data into holdings, exposure
 ## Features
 
 - **ETF Research** — Search ETFs, view holdings, sector/geographic exposure, concentration, fees, risk metrics, and SEC documents via EDGAR
+- **Seasonals** — TradingView-style seasonals chart with year-over-year cumulative returns, period returns table (1W to Max), and year range selection
+- **Fund Overview** — Rich fund profile combining SEC filings with Yahoo Finance metadata (category, expense ratio, dividend yield, beta, returns, description)
+- **Watchlist** — Track ETFs with at-a-glance metrics: concentration, top sectors, overlap vs portfolio, and data freshness
 - **Portfolio Analytics** — Connect to IBKR TWS/Gateway for live positions, lookthrough exposure, concentration analysis, and margin/leverage monitoring
 - **Side-by-side Compare** — Compare multiple ETFs across holdings, exposure, and fees in a single view
 - **Export** — Save any view to CSV or JSON for further analysis
@@ -32,15 +35,30 @@ etfray converts SEC fund filings and IBKR portfolio data into holdings, exposure
   <img src="assets/holdings.png" alt="Holdings view" width="800">
 </p>
 
+<p align="center">
+  <img src="assets/Seasonals.png" alt="Seasonals view" width="800">
+</p>
+
+<p align="center">
+  <img src="assets/SS_Compare.png" alt="Side-by-side Compare" width="800">
+</p>
+
+<p align="center">
+  <img src="assets/Portfolio_ETFLookthrough.png" alt="Portfolio ETF Lookthrough" width="800">
+</p>
+
 ## Key Capabilities
 
 | Capability | Details |
 |---|---|
 | ETF coverage | Thousands of ETFs via SEC EDGAR N-PORT filings |
-| Data sources | EDGAR (official), alternative web scraper, IBKR TWS |
+| Data sources | EDGAR (official), alternative web scraper, Yahoo Finance (metadata & price history), IBKR TWS |
 | Holdings analysis | Full position-level breakdown with weight, value, shares |
+| Fund metadata | Category, expense ratio, dividend yield, beta, inception date, returns via yfinance |
+| Seasonals | Year-over-year cumulative return chart with matplotlib or plotext rendering |
 | Exposure | Sector and geographic exposure from underlying holdings |
 | Concentration | Top-N analysis (top 10, 25, 50) with cumulative weight |
+| Watchlist | Track ETFs with concentration metrics, sector breakdown, and portfolio overlap |
 | Portfolio | Real-time positions, lookthrough exposure, margin & leverage |
 | Storage | Local SQLite — no cloud, no external databases |
 | Freshness | Configurable staleness thresholds (default: 30 days fresh, 90 days acceptable) |
@@ -51,8 +69,22 @@ etfray converts SEC fund filings and IBKR portfolio data into holdings, exposure
 
 1. Launch `etfray` and navigate to **Research → Search** in the sidebar
 2. Press `/` to open ETF Search, type a ticker (e.g., `VTI`), and press Enter
-3. Browse tabs: **Holdings** → **Exposure** → **Concentration** → **Risk**
-4. Click the **Export** button to save the current view to CSV
+3. Browse tabs: **Overview** → **Seasonals** → **Holdings** → **Exposure** → **Concentration** → **Risk**
+4. Press `w` to add the ETF to your watchlist
+
+### View seasonals
+
+1. Search for an ETF (e.g., `SPY`)
+2. Press `t` to jump to the Seasonals view
+3. Select year range to compare seasonal patterns across years
+4. Review the period returns table for standard return intervals
+
+### Manage your watchlist
+
+1. Navigate to **Workspace → Watchlist** in the sidebar
+2. Click **Add ticker** to search and add ETFs
+3. View concentration, sector, and overlap metrics at a glance
+4. Double-click any row to open that ETF's research view
 
 ### Monitor your portfolio
 
@@ -68,6 +100,7 @@ etfray converts SEC fund filings and IBKR portfolio data into holdings, exposure
 graph LR
     A[SEC EDGAR API] --> C[Data Services]
     B[Web Scraper] --> C
+    Y[Yahoo Finance] --> C
     D[IBKR TWS API] --> C
     C --> E[(SQLite Cache)]
     E --> F[Domain Analytics]
@@ -142,6 +175,8 @@ Full documentation at [etfray.readthedocs.io](https://etfray.readthedocs.io/en/l
 
 - [Installation](https://etfray.readthedocs.io/en/latest/getting-started/installation/)
 - [User Guide](https://etfray.readthedocs.io/en/latest/user-guide/etf-research/)
+- [Seasonals](https://etfray.readthedocs.io/en/latest/user-guide/seasonals/)
+- [Watchlist](https://etfray.readthedocs.io/en/latest/user-guide/watchlist/)
 - [IBKR Setup](https://etfray.readthedocs.io/en/latest/user-guide/ibkr-setup/)
 - [Developer Guide](https://etfray.readthedocs.io/en/latest/developer/architecture/)
 
