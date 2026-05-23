@@ -1,8 +1,8 @@
 """ETF Risk view - derived risk metrics + prospectus risk disclosures."""
 
 from textual.app import ComposeResult
-from textual.containers import VerticalScroll
-from textual.widgets import Static
+from textual.containers import Vertical, VerticalScroll
+from textual.widgets import Button, Static
 
 
 class RiskView(VerticalScroll):
@@ -12,13 +12,28 @@ class RiskView(VerticalScroll):
         min-height: 1fr;
         padding: 1 2;
     }
+    RiskView #risk-body {
+        display: none;
+    }
+    RiskView #risk-empty Button {
+        margin-top: 1;
+    }
     """
 
     def compose(self) -> ComposeResult:
-        yield Static("Risk — Select an ETF first", id="risk-content")
+        with Vertical(id="risk-empty"):
+            yield Static("Risk — Select an ETF first")
+            yield Button("Open Search to select an ETF →", id="risk-open-search", variant="primary")
+        with Vertical(id="risk-body"):
+            yield Static("", id="risk-content")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "risk-open-search":
+            self.app.navigate_to("research-search")
 
     def load_etf(self, ticker: str) -> None:
-        self.query_one("#risk-content", Static).update("")
+        self.query_one("#risk-empty").display = False
+        self.query_one("#risk-body").display = True
         self.loading = True
         self.run_worker(self._load(ticker), exclusive=True)
 

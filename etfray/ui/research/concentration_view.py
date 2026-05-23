@@ -1,7 +1,7 @@
 """ETF Concentration view - top N weights, HHI, effective holdings, group concentration."""
 
 from textual.app import ComposeResult
-from textual.containers import Horizontal, VerticalScroll
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Button, Static
 
 
@@ -12,7 +12,13 @@ class ConcentrationView(VerticalScroll):
         min-height: 1fr;
         padding: 1 2;
     }
-    ConcentrationView Horizontal {
+    ConcentrationView #conc-body {
+        display: none;
+    }
+    ConcentrationView #conc-empty Button {
+        margin-top: 1;
+    }
+    ConcentrationView #conc-body Horizontal {
         height: auto;
     }
     ConcentrationView #conc-content {
@@ -24,18 +30,25 @@ class ConcentrationView(VerticalScroll):
     _lines: list[str] = []
 
     def compose(self) -> ComposeResult:
-        with Horizontal():
-            yield Static("Concentration — Select an ETF first", id="conc-title")
-            yield Button("Export", id="export-conc")
-        yield Static("", id="conc-content")
+        with Vertical(id="conc-empty"):
+            yield Static("Concentration — Select an ETF first")
+            yield Button("Open Search to select an ETF →", id="conc-open-search", variant="primary")
+        with Vertical(id="conc-body"):
+            with Horizontal():
+                yield Static("", id="conc-title")
+                yield Button("Export", id="export-conc")
+            yield Static("", id="conc-content")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "export-conc":
+        if event.button.id == "conc-open-search":
+            self.app.navigate_to("research-search")
+        elif event.button.id == "export-conc":
             self._export()
 
     def load_etf(self, ticker: str) -> None:
         self._ticker = ticker
-        self.query_one("#conc-content", Static).update("")
+        self.query_one("#conc-empty").display = False
+        self.query_one("#conc-body").display = True
         self.loading = True
         self.run_worker(self._load(ticker), exclusive=True)
 

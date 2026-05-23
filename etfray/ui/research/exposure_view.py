@@ -2,7 +2,7 @@
 
 import pandas as pd
 from textual.app import ComposeResult
-from textual.containers import Horizontal, VerticalScroll
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Button, DataTable, Static
 
 
@@ -13,7 +13,13 @@ class ExposureView(VerticalScroll):
         min-height: 1fr;
         padding: 1 2;
     }
-    ExposureView Horizontal {
+    ExposureView #exposure-body {
+        display: none;
+    }
+    ExposureView #exposure-empty Button {
+        margin-top: 1;
+    }
+    ExposureView #exposure-body Horizontal {
         height: auto;
     }
     ExposureView .exposure-table {
@@ -27,12 +33,16 @@ class ExposureView(VerticalScroll):
     _country_data: list = []
 
     def compose(self) -> ComposeResult:
-        with Horizontal():
-            yield Static("Exposure — Select an ETF first", id="exposure-title")
-            yield Button("Export", id="export-exposure")
-        with Horizontal():
-            yield DataTable(id="sector-table", classes="exposure-table")
-            yield DataTable(id="country-table", classes="exposure-table")
+        with Vertical(id="exposure-empty"):
+            yield Static("Exposure — Select an ETF first")
+            yield Button("Open Search to select an ETF →", id="exposure-open-search", variant="primary")
+        with Vertical(id="exposure-body"):
+            with Horizontal():
+                yield Static("", id="exposure-title")
+                yield Button("Export", id="export-exposure")
+            with Horizontal():
+                yield DataTable(id="sector-table", classes="exposure-table")
+                yield DataTable(id="country-table", classes="exposure-table")
 
     def on_mount(self) -> None:
         st = self.query_one("#sector-table", DataTable)
@@ -44,12 +54,16 @@ class ExposureView(VerticalScroll):
         ct.cursor_type = "row"
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "export-exposure":
+        if event.button.id == "exposure-open-search":
+            self.app.navigate_to("research-search")
+        elif event.button.id == "export-exposure":
             self._export()
 
     def load_etf(self, ticker: str) -> None:
         self._ticker = ticker
         self._source_pref = getattr(self.app, "_data_source", "auto")
+        self.query_one("#exposure-empty").display = False
+        self.query_one("#exposure-body").display = True
         self.loading = True
         self.run_worker(self._load(ticker), exclusive=True)
 

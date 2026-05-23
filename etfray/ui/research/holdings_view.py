@@ -2,7 +2,7 @@
 
 import pandas as pd
 from textual.app import ComposeResult
-from textual.containers import Horizontal, VerticalScroll
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Button, DataTable, Input, Select, Static
 
 
@@ -12,6 +12,12 @@ class HoldingsView(VerticalScroll):
         height: 1fr;
         min-height: 1fr;
         padding: 1 2;
+    }
+    HoldingsView #holdings-body {
+        display: none;
+    }
+    HoldingsView #holdings-empty Button {
+        margin-top: 1;
     }
     HoldingsView #holdings-header {
         height: 3;
@@ -40,25 +46,32 @@ class HoldingsView(VerticalScroll):
     _ticker: str = ""
 
     def compose(self) -> ComposeResult:
-        with Horizontal(id="holdings-header"):
-            yield Static("Holdings — Select an ETF first", id="holdings-title")
-            yield Button("Top 10", id="top10")
-            yield Button("Top 25", id="top25")
-            yield Button("All", id="all")
-            yield Button("Export", id="export-holdings")
-        with Horizontal(id="holdings-filters"):
-            yield Input(placeholder="Search...", id="filter-search")
-            yield Select([], prompt="Asset Type", id="filter-asset", allow_blank=True)
-            yield Select([], prompt="Country", id="filter-country", allow_blank=True)
-            yield Input(placeholder="Min wt%", id="filter-weight")
-        yield DataTable(id="holdings-table")
+        with Vertical(id="holdings-empty"):
+            yield Static("Holdings — Select an ETF first")
+            yield Button("Open Search to select an ETF →", id="holdings-open-search", variant="primary")
+        with Vertical(id="holdings-body"):
+            with Horizontal(id="holdings-header"):
+                yield Static("", id="holdings-title")
+                yield Button("Top 10", id="top10")
+                yield Button("Top 25", id="top25")
+                yield Button("All", id="all")
+                yield Button("Export", id="export-holdings")
+            with Horizontal(id="holdings-filters"):
+                yield Input(placeholder="Search...", id="filter-search")
+                yield Select([], prompt="Asset Type", id="filter-asset", allow_blank=True)
+                yield Select([], prompt="Country", id="filter-country", allow_blank=True)
+                yield Input(placeholder="Min wt%", id="filter-weight")
+            yield DataTable(id="holdings-table")
 
     def on_mount(self) -> None:
         table = self.query_one("#holdings-table", DataTable)
         table.cursor_type = "row"
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "top10":
+        if event.button.id == "holdings-open-search":
+            self.app.navigate_to("research-search")
+            return
+        elif event.button.id == "top10":
             self._top_n = 10
         elif event.button.id == "top25":
             self._top_n = 25
@@ -81,6 +94,8 @@ class HoldingsView(VerticalScroll):
 
     def load_etf(self, ticker: str) -> None:
         self._ticker = ticker
+        self.query_one("#holdings-empty").display = False
+        self.query_one("#holdings-body").display = True
         self.loading = True
         self.run_worker(self._load(ticker), exclusive=True)
 

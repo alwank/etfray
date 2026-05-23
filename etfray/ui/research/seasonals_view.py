@@ -58,6 +58,13 @@ class SeasonalsView(Vertical):
         height: 1fr;
         min-height: 1fr;
         padding: 1 1;
+    }
+    SeasonalsView #perf-empty Button {
+        margin-top: 1;
+    }
+    SeasonalsView #perf-body {
+        display: none;
+        height: 1fr;
         layout: grid;
         grid-size: 1 3;
         grid-gutter: 0 1;
@@ -196,41 +203,45 @@ class SeasonalsView(Vertical):
         """Block app-level nav shortcuts while this view is focused."""
 
     def compose(self) -> ComposeResult:
-        with Horizontal(id="perf-header"):
-            yield Static("Seasonals — Select an ETF first", id="perf-title")
-            yield Button("Export", id="perf-export")
-        with Horizontal(id="perf-controls"):
-            yield Select(
-                _PLACEHOLDER_YEAR_OPTS,
-                prompt="Start year",
-                id="perf-year-start",
-                allow_blank=True,
-            )
-            yield Select(
-                _PLACEHOLDER_YEAR_OPTS,
-                prompt="End year",
-                id="perf-year-end",
-                allow_blank=True,
-            )
-            yield Button("Average", id="perf-average-btn")
-        with TabbedContent(id="perf-tabs"):
-            with TabPane("Chart", id="tab-chart"):
-                with Vertical(id="perf-chart-area"):
-                    with Horizontal(id="perf-chart-container"):
-                        self._has_chart_image_widget = _TERMINAL_IMAGE_CLASS is not None
-                        if _TERMINAL_IMAGE_CLASS is not None:
-                            yield _TERMINAL_IMAGE_CLASS(id="perf-chart-image")
-                        yield Static(
-                            "Select an ETF to view seasonals chart.",
-                            id="perf-chart-fallback",
-                            markup=False,
-                        )
-                with Vertical(id="perf-footer"):
-                    yield Static("", id="perf-legend")
-                    yield DataTable(id="perf-table")
-                    yield Static("", id="perf-summary")
-            with TabPane("Table", id="tab-table"):
-                yield DataTable(id="perf-monthly-table")
+        with Vertical(id="perf-empty"):
+            yield Static("Seasonals — Select an ETF first")
+            yield Button("Open Search to select an ETF →", id="perf-open-search", variant="primary")
+        with Vertical(id="perf-body"):
+            with Horizontal(id="perf-header"):
+                yield Static("", id="perf-title")
+                yield Button("Export", id="perf-export")
+            with Horizontal(id="perf-controls"):
+                yield Select(
+                    _PLACEHOLDER_YEAR_OPTS,
+                    prompt="Start year",
+                    id="perf-year-start",
+                    allow_blank=True,
+                )
+                yield Select(
+                    _PLACEHOLDER_YEAR_OPTS,
+                    prompt="End year",
+                    id="perf-year-end",
+                    allow_blank=True,
+                )
+                yield Button("Average", id="perf-average-btn")
+            with TabbedContent(id="perf-tabs"):
+                with TabPane("Chart", id="tab-chart"):
+                    with Vertical(id="perf-chart-area"):
+                        with Horizontal(id="perf-chart-container"):
+                            self._has_chart_image_widget = _TERMINAL_IMAGE_CLASS is not None
+                            if _TERMINAL_IMAGE_CLASS is not None:
+                                yield _TERMINAL_IMAGE_CLASS(id="perf-chart-image")
+                            yield Static(
+                                "Select an ETF to view seasonals chart.",
+                                id="perf-chart-fallback",
+                                markup=False,
+                            )
+                    with Vertical(id="perf-footer"):
+                        yield Static("", id="perf-legend")
+                        yield DataTable(id="perf-table")
+                        yield Static("", id="perf-summary")
+                with TabPane("Table", id="tab-table"):
+                    yield DataTable(id="perf-monthly-table")
 
     def on_mount(self) -> None:
         table = self.query_one("#perf-table", DataTable)
@@ -265,7 +276,9 @@ class SeasonalsView(Vertical):
             self._render_chart()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "perf-export":
+        if event.button.id == "perf-open-search":
+            self.app.navigate_to("research-search")
+        elif event.button.id == "perf-export":
             self._export()
         elif event.button.id == "perf-average-btn":
             self._show_average = not self._show_average
@@ -312,6 +325,8 @@ class SeasonalsView(Vertical):
 
     def load_etf(self, ticker: str) -> None:
         self._ticker = ticker.upper()
+        self.query_one("#perf-empty").display = False
+        self.query_one("#perf-body").display = True
         self.query_one("#perf-title", Static).update(f"{self._ticker} — Seasonals")
         self.loading = True
         self.run_worker(self._load(self._ticker), exclusive=True)
