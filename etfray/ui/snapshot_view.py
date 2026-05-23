@@ -7,12 +7,64 @@ import threading
 import time
 from datetime import date, datetime
 
+from rich.text import Text
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.widget import Widget
 from textual.widgets import Button, DataTable, Label, Static
 
 BENCHMARK_TICKERS = ["SPY", "QQQ", "AGG", "GLD"]
 _DOUBLE_CLICK_SECONDS = 0.45
+
+
+class BenchmarkTicker(Widget):
+    """Horizontally scrolling marquee for benchmark YTD returns."""
+
+    _text_loop: Text | None = None  # one loop unit as a Rich Text (span-aware)
+    _loop_len: int = 0              # visible character length of one loop
+    _offset: int = 0
+
+    _SPEED: int = 1          # visible characters to advance per tick
+    _INTERVAL: float = 0.08  # seconds per tick (~12 fps)
+    _SEP: str = "     ★     "
+
+    DEFAULT_CSS = """
+    BenchmarkTicker {
+        height: 1;
+    }
+    """
+
+    def on_mount(self) -> None:
+        self.set_interval(self._INTERVAL, self._tick)
+
+    def set_content(self, markup: str) -> None:
+        """Set the marquee text. Accepts Rich markup."""
+        self._text_loop = Text.from_markup(markup + self._SEP)
+        self._loop_len = len(self._text_loop)
+        self._offset = 0
+        self.refresh()
+
+    def _tick(self) -> None:
+        if not self._loop_len:
+            return
+        self._offset = (self._offset + self._SPEED) % self._loop_len
+        self.refresh()
+
+    def render(self) -> Text:
+        if self._text_loop is None or self._loop_len == 0:
+            return Text("Benchmarks: loading…")
+
+        width = self.size.width or 80
+
+        # Repeat the loop unit enough times so we can always slice `width` chars
+        # starting from any offset without running out of text.
+        reps = width // self._loop_len + 3
+        full = Text()
+        for _ in range(reps):
+            full.append_text(self._text_loop)
+
+        # Rich Text slicing correctly adjusts all style spans — no MarkupError risk.
+        return full[self._offset : self._offset + width]
 
 
 class SnapshotView(VerticalScroll):
@@ -32,6 +84,7 @@ class SnapshotView(VerticalScroll):
     }
     SnapshotView #snap-bench-text {
         width: 1fr;
+        overflow: hidden;
     }
     SnapshotView #snap-bench-refresh {
         min-width: 11;
@@ -95,7 +148,7 @@ class SnapshotView(VerticalScroll):
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="snap-benchmarks"):
-            yield Static("Benchmarks: loading…", id="snap-bench-text")
+            yield BenchmarkTicker(id="snap-bench-text")
             yield Button("Refresh", id="snap-bench-refresh")
 
         with Horizontal(id="snap-middle"):
@@ -155,11 +208,11 @@ class SnapshotView(VerticalScroll):
                     pass
 
         if parts:
-            text = "Benchmarks:  " + "   ".join(parts) + "  [dim](cached)[/dim]"
+            text = "  ".join(parts)
         else:
-            text = "Benchmarks: — [dim](open any ETF to populate cache)[/dim]"
+            text = "SPY · QQQ · AGG · GLD — open any ETF to populate cache"
 
-        self.query_one("#snap-bench-text", Static).update(text)
+        self.query_one("#snap-bench-text", BenchmarkTicker).set_content(text)
 
     def _fetch_benchmarks_in_thread(self) -> None:
         """Fetch each benchmark profile from Yahoo (blocking). Call from a worker thread."""
