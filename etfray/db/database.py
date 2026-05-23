@@ -1,5 +1,7 @@
 """SQLite database layer for ETF Terminal."""
 
+from __future__ import annotations
+
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime
@@ -105,6 +107,11 @@ def _init_tables(conn: sqlite3.Connection) -> None:
             history_json TEXT NOT NULL,
             fetched_at TEXT NOT NULL,
             PRIMARY KEY (ticker, period)
+        );
+        CREATE TABLE IF NOT EXISTS screener_cache (
+            query_key  TEXT PRIMARY KEY,
+            result_json TEXT NOT NULL,
+            fetched_at  TEXT NOT NULL
         );
     """)
     # Migration: add source column if missing
@@ -420,6 +427,29 @@ def get_cached_price_history(ticker: str, period: str) -> dict | None:
     row = conn.execute(
         "SELECT * FROM price_history_cache WHERE ticker = ? AND period = ?",
         (ticker.upper(), period),
+    ).fetchone()
+    conn.close()
+    if row:
+        return dict(row)
+    return None
+
+
+# Screener cache (Yahoo Finance yf.screen results)
+def cache_screener_result(query_key: str, result_json: str, fetched_at: str) -> None:
+    conn = get_db()
+    conn.execute(
+        "INSERT OR REPLACE INTO screener_cache (query_key, result_json, fetched_at) VALUES (?, ?, ?)",
+        (query_key, result_json, fetched_at),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_cached_screener_result(query_key: str) -> dict | None:
+    conn = get_db()
+    row = conn.execute(
+        "SELECT * FROM screener_cache WHERE query_key = ?",
+        (query_key,),
     ).fetchone()
     conn.close()
     if row:

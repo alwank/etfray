@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import threading
 import time
+from datetime import datetime, timezone
 
 from rich.text import Text
 from textual.app import ComposeResult
@@ -74,6 +75,33 @@ class BenchmarkTicker(Widget):
         return full[self._offset : self._offset + width]
 
 
+def _fmt_pct(value: float | None, *, width: int = 7) -> str:
+    """Format a decimal fraction as a coloured Rich percent string, or '—'."""
+    if value is None:
+        return "—"
+    pct = value * 100
+    sign = "+" if pct >= 0 else ""
+    color = "green" if pct >= 0 else "red"
+    return f"[{color}]{sign}{pct:.1f}%[/{color}]"
+
+
+def _age_label(ts: int | None) -> str:
+    """Return a human-readable age string from a Unix epoch timestamp."""
+    if ts is None:
+        return ""
+    try:
+        now = datetime.now(tz=timezone.utc).timestamp()
+        mins = int((now - ts) / 60)
+        if mins < 60:
+            return f"{mins}m ago"
+        hrs = mins // 60
+        if hrs < 24:
+            return f"{hrs}h ago"
+        return f"{hrs // 24}d ago"
+    except Exception:
+        return ""
+
+
 class SnapshotView(VerticalScroll):
     DEFAULT_CSS = """
     SnapshotView {
@@ -104,7 +132,7 @@ class SnapshotView(VerticalScroll):
         margin-bottom: 1;
     }
     SnapshotView #snap-watchlist-pane {
-        width: 1fr;
+        width: 2fr;
         height: auto;
         min-height: 10;
         border: solid $primary-background;
@@ -125,6 +153,35 @@ class SnapshotView(VerticalScroll):
     }
     SnapshotView #snap-watchlist-footer Button {
         min-width: 18;
+    }
+    SnapshotView #snap-movers-pane {
+        width: 1fr;
+        height: auto;
+        min-height: 10;
+        border: solid $primary-background;
+        padding: 1;
+        margin-left: 1;
+    }
+    SnapshotView #snap-movers-table {
+        height: auto;
+        min-height: 10;
+        max-height: 14;
+    }
+    SnapshotView #snap-movers-header {
+        height: 1;
+        margin-bottom: 1;
+    }
+    SnapshotView #snap-movers-footer {
+        height: 3;
+        margin-top: 1;
+    }
+    SnapshotView #snap-movers-footer Button {
+        min-width: 11;
+    }
+    SnapshotView #snap-seasonal-strip {
+        height: auto;
+        margin-bottom: 1;
+        padding: 0 1;
     }
     SnapshotView #snap-recent {
         height: auto;
@@ -152,6 +209,7 @@ class SnapshotView(VerticalScroll):
     """
 
     _last_watchlist_click: tuple[str, float] | None = None
+    _last_movers_click: tuple[str, float] | None = None
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="snap-benchmarks"):
@@ -165,6 +223,15 @@ class SnapshotView(VerticalScroll):
                 with Horizontal(id="snap-watchlist-footer"):
                     yield Button("Go to Watchlist →", id="snap-go-watchlist")
 
+            with Vertical(id="snap-movers-pane"):
+                yield Static("[bold]── ETF Movers ──[/bold]", id="snap-movers-header")
+                yield DataTable(id="snap-movers-table")
+                with Horizontal(id="snap-movers-footer"):
+                    yield Button("Refresh", id="snap-movers-refresh")
+                    yield Static("", id="snap-movers-status")
+
+        yield Static("", id="snap-seasonal-strip")
+
         with Vertical(id="snap-recent"):
             yield Label("── Recent / Quick Jump ──", id="snap-recent-label")
             yield Horizontal(id="snap-recent-pills")
@@ -176,28 +243,39 @@ class SnapshotView(VerticalScroll):
         )
 
     def on_mount(self) -> None:
-        table = self.query_one("#snap-watchlist-table", DataTable)
-        table.add_column("Ticker", width=7)
-        table.add_column("Fund Name", width=22)
-        table.add_column("YTD", width=8)
-        table.add_column("Top-10 Wt", width=10)
-        table.add_column("Eff N", width=6)
-        table.cursor_type = "row"
-        # display starts as none via CSS — first paint never shows this widget.
-        # ContentSwitcher restores display=True when current="home" is set.
+        # Watchlist table
+        wl = self.query_one("#snap-watchlist-table", DataTable)
+        wl.add_column("Ticker", width=7)
+        wl.add_column("Fund Name", width=22)
+        wl.add_column("YTD", width=8)
+        wl.add_column("Top-10 Wt", width=10)
+        wl.add_column("Eff N", width=6)
+        wl.add_column("HHI", width=8)
+        wl.add_column("Top Sector", width=18)
+        wl.cursor_type = "row"
+
+        # Movers table — gainers section header + 5 rows, losers section header + 5 rows
+        mv = self.query_one("#snap-movers-table", DataTable)
+        mv.add_column("Symbol", width=7)
+        mv.add_column("Chg %", width=8)
+        mv.add_column("Name", width=20)
+        mv.cursor_type = "row"
 
     # ── Public refresh entry point ─────────────────────────────────────────
 
     def refresh_all(self) -> None:
         """Re-render all panels. Safe to call from navigate_to() and _on_splash_dismissed()."""
-        self._render_benchmarks()
+        self._load_benchmarks()
         self._load_watchlist()
+        self._load_movers()
         self.run_worker(self._render_recent(), exclusive=True, group="snap-recent", name="snap-recent")
 
-    # ── Benchmark Strip ────────────────────────────────────────────────────
+    # ── Benchmark Marquee ─────────────────────────────────────────────────
+
+    def _load_benchmarks(self) -> None:
+        threading.Thread(target=self._fetch_benchmarks_in_thread, daemon=True).start()
 
     def _render_benchmarks(self) -> None:
-        from etfray.db.database import get_cached_etf_profile
         from etfray.data.market_data_service import get_etf_profile
 
         parts: list[str] = []
@@ -227,6 +305,60 @@ class SnapshotView(VerticalScroll):
                 pass
         self.app.call_from_thread(self._render_benchmarks)
 
+    # ── ETF Movers Panel ──────────────────────────────────────────────────
+
+    def _load_movers(self, force_refresh: bool = False) -> None:
+        self.run_worker(
+            self._movers_worker(force_refresh=force_refresh),
+            exclusive=True,
+            group="snap-movers",
+            name="snap-movers",
+        )
+
+    async def _movers_worker(self, *, force_refresh: bool = False) -> None:
+        from asyncio import to_thread
+        from etfray.data.screener_service import get_etf_movers
+
+        mv = self.query_one("#snap-movers-table", DataTable)
+        status = self.query_one("#snap-movers-status", Static)
+        mv.clear()
+
+        movers = await to_thread(get_etf_movers, force_refresh=force_refresh)
+
+        if movers is None:
+            mv.add_row("—", "—", "Error fetching movers")
+            status.update("[red]fetch error[/red]")
+            return
+
+        # Gainers section
+        mv.add_row("[bold]▲ Gainers[/bold]", "", "", key="_gainers_hdr")
+        for m in movers.gainers:
+            mv.add_row(
+                m.symbol,
+                _fmt_pct(m.change_pct),
+                m.name[:20],
+                key=f"g_{m.symbol}",
+            )
+
+        # Losers section
+        mv.add_row("[bold]▼ Losers[/bold]", "", "", key="_losers_hdr")
+        for m in movers.losers:
+            mv.add_row(
+                m.symbol,
+                _fmt_pct(m.change_pct),
+                m.name[:20],
+                key=f"l_{m.symbol}",
+            )
+
+        # Status / stale banner
+        all_movers = movers.gainers + movers.losers
+        ts = next((m.last_trade_ts for m in all_movers if m.last_trade_ts), None)
+        age = _age_label(ts)
+        if movers.is_stale:
+            status.update(f"[yellow]Last session ({age})[/yellow]")
+        else:
+            status.update(f"[dim]{age}[/dim]" if age else "")
+
     # ── Watchlist Summary (async worker) ──────────────────────────────────
 
     def _load_watchlist(self) -> None:
@@ -245,14 +377,14 @@ class SnapshotView(VerticalScroll):
             get_watchlist,
         )
         from etfray.data.market_data_service import get_etf_profile
-        from etfray.domain.etf_analytics import calculate_concentration
+        from etfray.domain.etf_analytics import calculate_concentration, calculate_group_concentration
 
         tickers = get_watchlist("default")
         table = self.query_one("#snap-watchlist-table", DataTable)
         table.clear()
 
         if not tickers:
-            table.add_row("—", "No tickers in watchlist — open Search and press W", "—", "—", "—", key="none")
+            table.add_row("—", "No tickers in watchlist — open Search and press W", "—", "—", "—", "—", "—", key="none")
             return
 
         for ticker in tickers:
@@ -260,8 +392,10 @@ class SnapshotView(VerticalScroll):
                 "fund_name": "—",
                 "ytd": "—",
                 "top10": "—",
-            "eff_n": "—",
-        }
+                "eff_n": "—",
+                "hhi": "—",
+                "top_sector": "—",
+            }
 
             cached_etf = await to_thread(get_cached_etf, ticker)
             if cached_etf:
@@ -282,6 +416,15 @@ class SnapshotView(VerticalScroll):
                         conc = calculate_concentration(df)
                         row_data["top10"] = f"{conc.top10_weight:.1f}%"
                         row_data["eff_n"] = f"{conc.effective_n:.0f}"
+                        row_data["hhi"] = f"{conc.hhi:.4f}"
+
+                        # Try common sector column names
+                        for sector_col in ("lei_sector", "sector", "gics_sector"):
+                            gc = calculate_group_concentration(df, sector_col)
+                            if gc is not None and gc.top1_name:
+                                top = gc.top1_name[:18]
+                                row_data["top_sector"] = top
+                                break
                 except Exception:
                     pass
 
@@ -291,8 +434,52 @@ class SnapshotView(VerticalScroll):
                 row_data["ytd"],
                 row_data["top10"],
                 row_data["eff_n"],
+                row_data["hhi"],
+                row_data["top_sector"],
                 key=ticker,
             )
+
+    # ── Seasonal Spotlight ────────────────────────────────────────────────
+
+    async def _load_seasonal_spotlight(self) -> None:
+        from asyncio import to_thread
+        from etfray.db.database import get_watchlist
+        from etfray.data.price_history_service import get_price_history
+        from etfray.domain.seasonals_analytics import compute_monthly_returns_table
+
+        tickers = get_watchlist("default")
+        if not tickers:
+            return
+
+        current_month = datetime.now().month
+        month_name = datetime(2000, current_month, 1).strftime("%b")
+        parts: list[str] = []
+
+        for ticker in tickers:
+            df = await to_thread(get_price_history, ticker, "max")
+            if df is None:
+                continue
+            from etfray.domain.seasonals_analytics import _adj_close_series
+            prices = _adj_close_series(df)
+            if prices.empty:
+                continue
+            table = compute_monthly_returns_table(prices)
+            rises = table.rises.get(current_month, 0)
+            falls = table.falls.get(current_month, 0)
+            total = rises + falls
+            if total == 0:
+                continue
+            win_rate = rises / total
+            pct = int(round(win_rate * 100))
+            direction = "rises" if win_rate > 0.5 else ("falls" if win_rate < 0.5 else "neutral")
+            color = "green" if win_rate > 0.5 else ("red" if win_rate < 0.5 else "dim")
+            parts.append(f"[bold]{ticker}[/bold] [{color}]{direction} {pct}%[/{color}]")
+
+        strip = self.query_one("#snap-seasonal-strip", Static)
+        if parts:
+            strip.update(f"[dim]{month_name} seasonals:[/dim]  " + "   ".join(parts))
+        else:
+            strip.update("")
 
     # ── Recent ETFs ────────────────────────────────────────────────────────
 
@@ -308,7 +495,6 @@ class SnapshotView(VerticalScroll):
                 pass
 
         pills = self.query_one("#snap-recent-pills", Horizontal)
-        # Await removal so the node list is cleared before we mount new buttons
         await pills.query(Button).remove()
 
         if tickers:
@@ -316,13 +502,24 @@ class SnapshotView(VerticalScroll):
                 await pills.mount(Button(t, id=f"snap-recent-btn-{t}", variant="default"))
         await pills.mount(Button("Search →", id="snap-recent-search", variant="primary"))
 
+        # Seasonal spotlight depends on watchlist — kick it off after recent is loaded
+        self.run_worker(
+            self._load_seasonal_spotlight(),
+            exclusive=True,
+            group="snap-seasonal",
+            name="snap-seasonal",
+        )
+
     # ── Event handlers ─────────────────────────────────────────────────────
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         bid = event.button.id
         if bid == "snap-bench-refresh":
-            threading.Thread(target=self._fetch_benchmarks_in_thread, daemon=True).start()
+            self._load_benchmarks()
             self.app.notify("Refreshing benchmarks…", timeout=8)
+        elif bid == "snap-movers-refresh":
+            self._load_movers(force_refresh=True)
+            self.app.notify("Refreshing ETF movers…", timeout=8)
         elif bid == "snap-go-watchlist":
             self.app.navigate_to("workspace-watchlist")
         elif bid and bid.startswith("snap-recent-btn-"):
@@ -332,6 +529,23 @@ class SnapshotView(VerticalScroll):
             self.app.navigate_to("research-search")
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+        if event.control.id == "snap-movers-table" and event.row_key:
+            key = str(event.row_key.value)
+            if not key.startswith(("g_", "l_")):
+                return  # section header row
+            ticker = key[2:]
+            now = time.monotonic()
+            if (
+                self._last_movers_click
+                and self._last_movers_click[0] == ticker
+                and now - self._last_movers_click[1] < _DOUBLE_CLICK_SECONDS
+            ):
+                self._last_movers_click = None
+                self.app.navigate_to_etf(ticker)
+            else:
+                self._last_movers_click = (ticker, now)
+            return
+
         if event.control.id != "snap-watchlist-table" or not event.row_key:
             return
         ticker = str(event.row_key.value)
