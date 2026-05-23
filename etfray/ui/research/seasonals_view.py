@@ -525,6 +525,20 @@ class SeasonalsView(Vertical):
         self._history_df = df
         self._prices = _adj_close_series(df)
         self._period_rows = compute_period_returns(df)
+
+        # Override YTD with Yahoo's ytdReturn so it matches Home/Overview/Compare.
+        # compute_period_returns uses auto-adjusted closes (total return incl. dividends)
+        # which diverges from Yahoo's price-only ytdReturn convention.
+        try:
+            from etfray.data.market_data_service import get_etf_profile
+            _profile = await to_thread(get_etf_profile, ticker)
+            if _profile and _profile.ytd_return is not None:
+                self._period_rows = [
+                    (label, _profile.ytd_return if label == "YTD" else ret)
+                    for label, ret in self._period_rows
+                ]
+        except Exception:
+            pass
         self._available_years = available_years(self._prices)
         self._populate_year_selects()
         perf_summary = compute_summary(df)

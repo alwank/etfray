@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import threading
 import time
-from datetime import date, datetime
 
 from rich.text import Text
 from textual.app import ComposeResult
@@ -23,14 +22,16 @@ class BenchmarkTicker(Widget):
     _text_loop: Text | None = None  # one loop unit as a Rich Text (span-aware)
     _loop_len: int = 0              # visible character length of one loop
     _offset: int = 0
+    _paused: bool = False
 
     _SPEED: int = 1          # visible characters to advance per tick
-    _INTERVAL: float = 0.08  # seconds per tick (~12 fps)
+    _INTERVAL: float = 0.18  # seconds per tick (~5 fps)
     _SEP: str = "     ★     "
 
     DEFAULT_CSS = """
     BenchmarkTicker {
-        height: 1;
+        height: 1fr;
+        content-align: left middle;
     }
     """
 
@@ -45,10 +46,16 @@ class BenchmarkTicker(Widget):
         self.refresh()
 
     def _tick(self) -> None:
-        if not self._loop_len:
+        if not self._loop_len or self._paused:
             return
         self._offset = (self._offset + self._SPEED) % self._loop_len
         self.refresh()
+
+    def on_enter(self) -> None:
+        self._paused = True
+
+    def on_leave(self) -> None:
+        self._paused = False
 
     def render(self) -> Text:
         if self._text_loop is None or self._loop_len == 0:
@@ -76,11 +83,11 @@ class SnapshotView(VerticalScroll):
         padding: 1 2;
     }
     SnapshotView #snap-benchmarks {
-        height: auto;
+        height: 3;
         margin-bottom: 1;
         padding: 0 1;
         background: $surface;
-        border: solid $primary-background;
+        align: left middle;
     }
     SnapshotView #snap-bench-text {
         width: 1fr;
@@ -89,7 +96,7 @@ class SnapshotView(VerticalScroll):
     SnapshotView #snap-bench-refresh {
         min-width: 11;
         max-width: 11;
-        height: 1;
+        height: 3;
         margin-left: 1;
     }
     SnapshotView #snap-middle {
@@ -175,7 +182,6 @@ class SnapshotView(VerticalScroll):
         table.add_column("YTD", width=8)
         table.add_column("Top-10 Wt", width=10)
         table.add_column("Eff N", width=6)
-        table.add_column("Fresh", width=6)
         table.cursor_type = "row"
         # display starts as none via CSS — first paint never shows this widget.
         # ContentSwitcher restores display=True when current="home" is set.
@@ -192,20 +198,16 @@ class SnapshotView(VerticalScroll):
 
     def _render_benchmarks(self) -> None:
         from etfray.db.database import get_cached_etf_profile
+        from etfray.data.market_data_service import get_etf_profile
 
         parts: list[str] = []
         for ticker in BENCHMARK_TICKERS:
-            row = get_cached_etf_profile(ticker)
-            if row:
-                try:
-                    profile = json.loads(row["profile_json"])
-                    ytd = profile.get("ytd_return")
-                    if ytd is not None:
-                        sign = "+" if ytd >= 0 else ""
-                        color = "green" if ytd >= 0 else "red"
-                        parts.append(f"{ticker} [{color}]{sign}{ytd * 100:.1f}%[/{color}] YTD")
-                except (json.JSONDecodeError, KeyError, TypeError):
-                    pass
+            profile = get_etf_profile(ticker)
+            if profile and profile.ytd_return is not None:
+                ytd = profile.ytd_return
+                sign = "+" if ytd >= 0 else ""
+                color = "green" if ytd >= 0 else "red"
+                parts.append(f"{ticker} [{color}]{sign}{ytd * 100:.1f}%[/{color}] YTD")
 
         if parts:
             text = "  ".join(parts)
@@ -239,10 +241,10 @@ class SnapshotView(VerticalScroll):
 
         from etfray.db.database import (
             get_cached_etf,
-            get_cached_etf_profile,
             get_cached_holdings,
             get_watchlist,
         )
+        from etfray.data.market_data_service import get_etf_profile
         from etfray.domain.etf_analytics import calculate_concentration
 
         tickers = get_watchlist("default")
@@ -250,7 +252,7 @@ class SnapshotView(VerticalScroll):
         table.clear()
 
         if not tickers:
-            table.add_row("—", "No tickers in watchlist — open Search and press W", "—", "—", "—", "—", key="none")
+            table.add_row("—", "No tickers in watchlist — open Search and press W", "—", "—", "—", key="none")
             return
 
         for ticker in tickers:
@@ -258,25 +260,19 @@ class SnapshotView(VerticalScroll):
                 "fund_name": "—",
                 "ytd": "—",
                 "top10": "—",
-                "eff_n": "—",
-                "fresh": "—",
-            }
+            "eff_n": "—",
+        }
 
             cached_etf = await to_thread(get_cached_etf, ticker)
             if cached_etf:
                 row_data["fund_name"] = cached_etf.fund_name[:25]
 
-            profile_row = await to_thread(get_cached_etf_profile, ticker)
-            if profile_row:
-                try:
-                    profile = json.loads(profile_row["profile_json"])
-                    ytd = profile.get("ytd_return")
-                    if ytd is not None:
-                        sign = "+" if ytd >= 0 else ""
-                        color = "green" if ytd >= 0 else "red"
-                        row_data["ytd"] = f"[{color}]{sign}{ytd * 100:.1f}%[/{color}]"
-                except (json.JSONDecodeError, KeyError, TypeError):
-                    pass
+            profile = await to_thread(get_etf_profile, ticker)
+            if profile and profile.ytd_return is not None:
+                ytd = profile.ytd_return
+                sign = "+" if ytd >= 0 else ""
+                color = "green" if ytd >= 0 else "red"
+                row_data["ytd"] = f"[{color}]{sign}{ytd * 100:.1f}%[/{color}]"
 
             cached_h = await to_thread(get_cached_holdings, ticker)
             if cached_h and cached_h.get("holdings_json"):
@@ -289,26 +285,12 @@ class SnapshotView(VerticalScroll):
                 except Exception:
                     pass
 
-                if cached_h.get("as_of_date"):
-                    try:
-                        as_of = datetime.fromisoformat(cached_h["as_of_date"]).date()
-                        days = (date.today() - as_of).days
-                        if days < 60:
-                            row_data["fresh"] = f"{days}d"
-                        elif days < 150:
-                            row_data["fresh"] = f"~{days}d"
-                        else:
-                            row_data["fresh"] = f"!{days}d"
-                    except (ValueError, TypeError):
-                        pass
-
             table.add_row(
                 ticker,
                 row_data["fund_name"],
                 row_data["ytd"],
                 row_data["top10"],
                 row_data["eff_n"],
-                row_data["fresh"],
                 key=ticker,
             )
 

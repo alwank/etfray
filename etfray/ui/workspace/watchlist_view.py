@@ -133,7 +133,6 @@ class WatchlistView(VerticalScroll):
         table.add_column("Verdict", width=10)
         table.add_column("Top Sectors", width=24)
         table.add_column("Overlap", width=7)
-        table.add_column("Fresh", width=6)
         table.cursor_type = "row"
 
         issuers = get_cached_issuers()
@@ -377,13 +376,10 @@ class WatchlistView(VerticalScroll):
                 row["verdict"],
                 row["sectors"],
                 row["overlap"],
-                row["fresh"],
                 key=row["ticker"],
             )
 
     async def _build_row(self, ticker: str, preference: str, portfolio_df) -> dict:
-        from datetime import date, datetime
-
         from etfray.db.database import get_cached_etf, get_cached_holdings
         from etfray.domain.etf_analytics import (
             calculate_concentration,
@@ -401,7 +397,6 @@ class WatchlistView(VerticalScroll):
             "verdict": "—",
             "sectors": "—",
             "overlap": "—",
-            "fresh": "—",
         }
 
         cached_etf = get_cached_etf(ticker)
@@ -428,19 +423,6 @@ class WatchlistView(VerticalScroll):
         row["top10"] = f"{conc.top10_weight:.1f}%"
         row["eff_n"] = f"{conc.effective_n:.0f}"
         row["verdict"] = _VERDICT_SHORT.get(conc.verdict, conc.verdict[:10])
-
-        if cached.get("as_of_date"):
-            try:
-                as_of = datetime.fromisoformat(cached["as_of_date"]).date()
-                days = (date.today() - as_of).days
-                if days < 60:
-                    row["fresh"] = f"{days}d"
-                elif days < 150:
-                    row["fresh"] = f"~{days}d"
-                else:
-                    row["fresh"] = f"!{days}d"
-            except (ValueError, TypeError):
-                pass
 
         if "ticker" in df.columns:
             try:
