@@ -45,12 +45,13 @@ def _cache_is_fresh(fetched_at: str, *, now: datetime | None = None) -> bool:
 def _normalize_history_df(df: pd.DataFrame) -> pd.DataFrame | None:
     if df is None or df.empty:
         return None
-    price_col = "Adj Close" if "Adj Close" in df.columns else "Close"
+    # auto_adjust=True: Yahoo returns adjusted prices in 'Close'; 'Adj Close' is not present.
+    price_col = "Close"
     if price_col not in df.columns:
         return None
     out = df.copy()
     if out.index.tz is not None:
-        out.index = out.index.tz_localize(None)
+        out.index = out.index.tz_convert("UTC").tz_localize(None)
     out = out.sort_index()
     if out[price_col].dropna().empty:
         return None

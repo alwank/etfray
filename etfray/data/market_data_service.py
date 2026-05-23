@@ -80,8 +80,9 @@ def _normalize_expense_ratio(value) -> float | None:
     v = _safe_float(value)
     if v is None:
         return None
-    # Yahoo returns either 0.0003 (decimal) or 0.06 (meaning 0.06%).
-    if v >= 0.005:
+    # Yahoo almost always returns a decimal fraction (0.0075 = 0.75%).
+    # Only divide by 100 when the value is clearly a whole-percent number (>= 1).
+    if v >= 1:
         return v / 100
     return v
 
@@ -252,11 +253,6 @@ def _parse_yahoo_info(ticker: str, info: dict, fetched_at: str) -> ETFProfile | 
 def _profile_from_cache(cached: dict) -> ETFProfile | None:
     try:
         data = json.loads(cached["profile_json"])
-        # Re-normalize return fields in case the cache was written before
-        # _normalize_return was applied (stale entries may store whole-percent values).
-        for field in ("ytd_return", "return_3y", "return_5y"):
-            if field in data and data[field] is not None:
-                data[field] = _normalize_return(data[field])
         return ETFProfile(**data)
     except (json.JSONDecodeError, TypeError, KeyError):
         return None

@@ -61,7 +61,7 @@ def calculate_lookthrough(
             if hticker == symbol:
                 continue
             hname = str(row.get("name", "") or "")
-            h_weight = (float(row[value_col]) / total * 100) if value_col == "value_usd" else float(row[value_col])
+            h_weight = (abs(float(row[value_col])) / total * 100) if value_col == "value_usd" else abs(float(row[value_col]))
             effective = port_weight * h_weight / 100
 
             key = hticker if hticker else hname

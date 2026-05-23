@@ -61,7 +61,10 @@ class RiskView(VerticalScroll):
 
         country_risk = "Unknown"
         if "investment_country" in df.columns:
-            top_country_pct = float(df.groupby("investment_country")["pct_value"].sum().max())
+            value_col = "pct_value" if "pct_value" in df.columns else "value_usd"
+            grouped = df.groupby("investment_country")[value_col].sum()
+            total_val = grouped.sum()
+            top_country_pct = float(grouped.max() / total_val * 100) if total_val > 0 else 0.0
             country_risk = "High" if top_country_pct > 80 else "Medium" if top_country_pct > 50 else "Low"
 
         currency_risk = "Unknown"

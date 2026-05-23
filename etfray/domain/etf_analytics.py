@@ -67,7 +67,7 @@ def calculate_exposure(df: pd.DataFrame, group_col: str) -> list[ExposureBreakdo
         label = str(cat) if cat else "Unclassified"
         if group_col == "asset_category":
             label = ASSET_CATEGORY_MAP.get(str(cat), str(cat))
-        pct = (float(row["weight"]) / total * 100) if value_col == "value_usd" else float(row["weight"])
+        pct = float(row["weight"]) / total * 100
         results.append(ExposureBreakdown(category=label, weight=round(pct, 2), count=int(row["count"])))
 
     return results
@@ -187,7 +187,7 @@ def calculate_weight_overlap(df_a: pd.DataFrame, df_b: pd.DataFrame) -> float:
     if "ticker" not in df_a.columns or "ticker" not in df_b.columns:
         return 0.0
 
-    value_col = "pct_value"
+    value_col = "pct_value" if "pct_value" in df_a.columns else "value_usd"
 
     # Normalize weights to sum to 100
     a = df_a[["ticker", value_col]].copy()

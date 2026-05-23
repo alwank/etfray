@@ -163,7 +163,7 @@ def _load_series_class_csv() -> list[dict] | None:
     if not csv_path.exists() or (time.time() - csv_path.stat().st_mtime) > 7 * 86400:
         try:
             r = httpx.get(
-                "https://www.sec.gov/files/investment/data/other/investment-company-series-class-information/investment-company-series-class-2025.csv",
+                f"https://www.sec.gov/files/investment/data/other/investment-company-series-class-information/investment-company-series-class-{str(datetime.now().year)}.csv",
                 headers=headers,
                 timeout=30,
                 follow_redirects=True,

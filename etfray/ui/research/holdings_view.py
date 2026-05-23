@@ -136,7 +136,8 @@ class HoldingsView(VerticalScroll):
         if df is None or df.empty:
             return df
 
-        df = df.sort_values("pct_value", ascending=False)
+        sort_col = "pct_value" if "pct_value" in df.columns else "value_usd"
+        df = df.sort_values(sort_col, ascending=False)
 
         # Asset type filter
         asset_val = self.query_one("#filter-asset", Select).value
@@ -153,7 +154,7 @@ class HoldingsView(VerticalScroll):
         if wt_text:
             try:
                 min_wt = float(wt_text)
-                df = df[df["pct_value"].astype(float) >= min_wt]
+                df = df[df[sort_col].astype(float) >= min_wt]
             except ValueError:
                 pass
 

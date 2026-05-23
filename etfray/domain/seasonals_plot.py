@@ -8,7 +8,9 @@ import io
 
 from etfray.domain.seasonals_analytics import SeasonalYearSeries
 
-# Approximate day-of-year for the 1st of each month (non-leap year).
+# Day-of-year for the 1st of each month in a non-leap year.
+# In leap years, March–December ticks are off by 1 day (~0.5 day average across years).
+# This is acceptable for a multi-year seasonals chart where years are overlaid.
 MONTH_TICKS = [1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335]
 MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 

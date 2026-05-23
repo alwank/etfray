@@ -45,7 +45,7 @@ def _adj_close_series(df: pd.DataFrame) -> pd.Series:
         return pd.Series(dtype=float)
     s = df[col].dropna().copy()
     if s.index.tz is not None:
-        s.index = s.index.tz_localize(None)
+        s.index = s.index.tz_convert("UTC").tz_localize(None)
     return s.sort_index()
 
 
@@ -74,7 +74,9 @@ def _return_between(
 
 def _period_start(end_ts: pd.Timestamp, label: str) -> pd.Timestamp:
     if label == "YTD":
-        return pd.Timestamp(datetime(end_ts.year, 1, 1))
+        # Use prior year-end (Dec 31) as the base so the first trading day of January
+        # is treated as a return from the prior year's last close, matching industry convention.
+        return pd.Timestamp(end_ts.year - 1, 12, 31)
     if label == "Max":
         return end_ts  # placeholder; caller uses first price
     offsets = {
@@ -292,10 +294,13 @@ def compute_monthly_returns_table(prices: pd.Series) -> MonthlyReturnsTable:
             else:
                 ret = (cur_price / prev_price) - 1
                 monthly_returns[year][month] = ret
-                if ret > 0:
-                    rises[month] += 1
-                elif ret < 0:
-                    falls[month] += 1
+                # Only count fully-closed months in rises/falls tallies
+                month_end = pd.Timestamp(year, month, 1) + pd.offsets.MonthEnd(0)
+                if month_end < today:
+                    if ret > 0:
+                        rises[month] += 1
+                    elif ret < 0:
+                        falls[month] += 1
 
         # Annual return: base is last close of prior December, else first price of year
         prior_dec = monthly_last.get((year - 1, 12))
