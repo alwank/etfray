@@ -138,7 +138,7 @@ class SnapshotView(VerticalScroll):
         """Re-render all panels. Safe to call from navigate_to() and _on_splash_dismissed()."""
         self._render_benchmarks()
         self._load_watchlist()
-        self.run_worker(self._render_recent(), exclusive=True, name="snap-recent")
+        self.run_worker(self._render_recent(), exclusive=True, group="snap-recent", name="snap-recent")
 
     # ── Benchmark Strip ────────────────────────────────────────────────────
 
@@ -180,7 +180,7 @@ class SnapshotView(VerticalScroll):
     # ── Watchlist Summary (async worker) ──────────────────────────────────
 
     def _load_watchlist(self) -> None:
-        self.run_worker(self._watchlist_worker(), exclusive=True, name="snap-watchlist")
+        self.run_worker(self._watchlist_worker(), exclusive=True, group="snap-watchlist", name="snap-watchlist")
 
     async def _watchlist_worker(self) -> None:
         from asyncio import to_thread
