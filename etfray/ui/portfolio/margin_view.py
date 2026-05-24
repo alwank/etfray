@@ -35,8 +35,8 @@ class MarginView(VerticalScroll):
         settings = load_settings()
 
         leverage = s.gross_position_value / s.net_liquidation if s.net_liquidation else 0
-        cushion_frac = s.cushion          # always decimal from IBKR
-        cushion_pct  = cushion_frac * 100 # for display only
+        cushion_frac = s.cushion  # always decimal from IBKR
+        cushion_pct = cushion_frac * 100  # for display only
 
         # Stress scenarios
         def stress_cushion(shock_pct: float) -> float:

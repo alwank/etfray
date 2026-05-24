@@ -155,8 +155,8 @@ class IBKRService:
                         unrealized_pnl=p.unrealizedPNL,
                         currency=contract.currency,
                         account=p.account,
+                    )
                 )
-            )
             self._positions = new_positions
         except Exception as exc:
             _log.warning("IBKR positions refresh failed: %s", exc)

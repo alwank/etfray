@@ -10,11 +10,10 @@ from textual.widgets import ContentSwitcher, Footer, Header, Static, Tree
 try:
     import textual_image  # noqa: F401 — register terminal graphics before App.run
     from textual_image.widget import Image as TermImage
+
     _HAS_IMAGE = True
 except ImportError:
     _HAS_IMAGE = False
-
-_LOGO_PATH = Path(__file__).parent / "assets" / "logo.png"
 
 from etfray.ui.commands import ETFCommands
 from etfray.ui.portfolio.concentration_view import PortfolioConcentrationView
@@ -39,6 +38,8 @@ from etfray.ui.splash_screen import LOGO_SMALL, SplashScreen
 from etfray.ui.workspace.exports_view import ExportsView
 from etfray.ui.workspace.settings_view import SettingsView
 from etfray.ui.workspace.watchlist_view import WatchlistView
+
+_LOGO_PATH = Path(__file__).parent / "assets" / "logo.png"
 
 
 class Sidebar(Widget):

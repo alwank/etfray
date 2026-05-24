@@ -35,6 +35,7 @@ _LEGEND_SEPARATOR = "    ·    "
 
 def _fmt_seasonal_pct(value: float) -> str:
     from etfray.domain.overview_format import fmt_pct
+
     return fmt_pct(value, signed=True)
 
 
@@ -551,6 +552,7 @@ class SeasonalsView(Vertical):
         perf_summary = compute_summary(df)
 
         from etfray.domain.seasonals_analytics import compute_monthly_returns_table
+
         self._monthly_table = compute_monthly_returns_table(self._prices)
 
         self._populate_returns_table()
@@ -718,8 +720,7 @@ class SeasonalsView(Vertical):
         else:
             self._render_chart_fallback(series_list, average)
 
-    _MONTH_ABBR = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+    _MONTH_ABBR = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
     def _populate_monthly_table(self) -> None:
         """Render the monthly returns heatmap into #perf-monthly-table."""

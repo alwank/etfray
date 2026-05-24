@@ -15,6 +15,7 @@ SOURCE = "yahoo"
 _FETCH_RETRIES = 3
 _FETCH_RETRY_DELAY_SEC = 0.75
 
+
 @dataclass
 class ETFProfile:
     ticker: str

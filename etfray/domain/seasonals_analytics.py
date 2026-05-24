@@ -23,17 +23,17 @@ class SeasonalsSummary:
 class SeasonalYearSeries:
     year: int
     day_of_year: list[int]
-    cumulative: list[float]       # decimal fractions (e.g. 0.123 = +12.3%)
-    final_return: float           # decimal fraction (e.g. 0.123 = +12.3%)
+    cumulative: list[float]  # decimal fractions (e.g. 0.123 = +12.3%)
+    final_return: float  # decimal fraction (e.g. 0.123 = +12.3%)
 
 
 @dataclass
 class MonthlyReturnsTable:
-    years: list[int]                                    # descending order
+    years: list[int]  # descending order
     monthly: dict[int, dict[int, float | None]] = field(default_factory=dict)  # year → {1..12 → pct or None}
-    annual: dict[int, float | None] = field(default_factory=dict)              # year → full-year pct or None
-    rises: dict[int, int] = field(default_factory=dict)                        # month → count of positive years
-    falls: dict[int, int] = field(default_factory=dict)                        # month → count of negative years
+    annual: dict[int, float | None] = field(default_factory=dict)  # year → full-year pct or None
+    rises: dict[int, int] = field(default_factory=dict)  # month → count of positive years
+    falls: dict[int, int] = field(default_factory=dict)  # month → count of negative years
 
 
 def adj_close_series(df: pd.DataFrame) -> pd.Series:

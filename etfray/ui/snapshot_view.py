@@ -21,11 +21,11 @@ class BenchmarkTicker(Widget):
     """Horizontally scrolling marquee for benchmark YTD returns."""
 
     _text_loop: Text | None = None  # one loop unit as a Rich Text (span-aware)
-    _loop_len: int = 0              # visible character length of one loop
+    _loop_len: int = 0  # visible character length of one loop
     _offset: int = 0
     _paused: bool = False
 
-    _SPEED: int = 1          # visible characters to advance per tick
+    _SPEED: int = 1  # visible characters to advance per tick
     _INTERVAL: float = 0.18  # seconds per tick (~5 fps)
     _SEP: str = "     ★     "
 
@@ -117,7 +117,7 @@ def _date_label(ts: int | None) -> str:
             return "today"
         if d.year == today.year:
             return dt.strftime("%a %b %-d")  # e.g. "Fri May 23"
-        return dt.strftime("%b %-d %Y")      # e.g. "May 23 2024"
+        return dt.strftime("%b %-d %Y")  # e.g. "May 23 2024"
     except Exception:
         return ""
 
@@ -306,6 +306,7 @@ class SnapshotView(VerticalScroll):
                 ytd = profile.ytd_return
                 color = "green" if ytd >= 0 else "red"
                 from etfray.domain.overview_format import fmt_pct
+
                 parts.append(f"{ticker} [{color}]{fmt_pct(ytd, signed=True)}[/{color}] YTD")
 
         if parts:
@@ -433,6 +434,7 @@ class SnapshotView(VerticalScroll):
                 ytd = profile.ytd_return
                 color = "green" if ytd >= 0 else "red"
                 from etfray.domain.overview_format import fmt_pct
+
                 row_data["ytd"] = f"[{color}]{fmt_pct(ytd, signed=True)}[/{color}]"
 
             cached_h = await to_thread(get_cached_holdings, ticker)
@@ -489,6 +491,7 @@ class SnapshotView(VerticalScroll):
             if df is None:
                 continue
             from etfray.domain.seasonals_analytics import adj_close_series
+
             prices = adj_close_series(df)
             if prices.empty:
                 continue

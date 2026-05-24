@@ -11,10 +11,10 @@ from etfray.db.database import cache_screener_result, get_cached_screener_result
 
 SCREENER_CACHE_TTL_HOURS = 1
 _CACHE_KEY_MOVERS = "etf_movers"
-_FETCH_SIZE = 50          # quotes to request per screener query
-_TOP_N = 5                # gainers / losers to surface in the UI
-_STALE_HOURS = 24         # if regularMarketTime is older than this, data is stale
-_SEED_MIN = _TOP_N * 2   # minimum ETF pool size before triggering seed fallback
+_FETCH_SIZE = 50  # quotes to request per screener query
+_TOP_N = 5  # gainers / losers to surface in the UI
+_STALE_HOURS = 24  # if regularMarketTime is older than this, data is stale
+_SEED_MIN = _TOP_N * 2  # minimum ETF pool size before triggering seed fallback
 
 # Market-wide screeners that reliably include high-volume ETFs (SPY, QQQ, sector ETFs, etc.)
 _SCREENER_QUERIES = ["most_actives", "gainers", "losers"]
@@ -24,19 +24,51 @@ _SCREENER_QUERIES = ["most_actives", "gainers", "losers"]
 # pool contains too few ETFs (e.g. outside market hours or API changes).
 _SEED_TICKERS = [
     # Broad equity
-    "SPY", "QQQ", "IWM", "DIA", "VTI", "IVV", "VOO",
+    "SPY",
+    "QQQ",
+    "IWM",
+    "DIA",
+    "VTI",
+    "IVV",
+    "VOO",
     # Factor / style
-    "VUG", "VTV", "IJR", "MTUM",
+    "VUG",
+    "VTV",
+    "IJR",
+    "MTUM",
     # Fixed income
-    "TLT", "AGG", "HYG", "LQD", "SHY", "BND",
+    "TLT",
+    "AGG",
+    "HYG",
+    "LQD",
+    "SHY",
+    "BND",
     # Commodities
-    "GLD", "SLV", "USO", "IAU",
+    "GLD",
+    "SLV",
+    "USO",
+    "IAU",
     # International
-    "EEM", "EFA", "VEA", "VWO",
+    "EEM",
+    "EFA",
+    "VEA",
+    "VWO",
     # Sectors
-    "XLF", "XLK", "XLE", "XLV", "XLI", "XLY", "XLB", "XLU", "XLC", "XLRE",
+    "XLF",
+    "XLK",
+    "XLE",
+    "XLV",
+    "XLI",
+    "XLY",
+    "XLB",
+    "XLU",
+    "XLC",
+    "XLRE",
     # Leveraged (high day-change, makes movers interesting)
-    "TQQQ", "SQQQ", "UPRO", "SPXU",
+    "TQQQ",
+    "SQQQ",
+    "UPRO",
+    "SPXU",
 ]
 
 _last_screener_error: str = ""
@@ -46,7 +78,7 @@ _last_screener_error: str = ""
 class ETFMover:
     symbol: str
     name: str
-    change_pct: float | None   # decimal fraction (0.042 = +4.2 %); None when data is missing
+    change_pct: float | None  # decimal fraction (0.042 = +4.2 %); None when data is missing
     last_trade_ts: int | None  # Unix epoch seconds from regularMarketTime
 
 
@@ -54,8 +86,8 @@ class ETFMover:
 class ETFMovers:
     gainers: list[ETFMover]
     losers: list[ETFMover]
-    fetched_at: str            # ISO datetime
-    is_stale: bool             # True when the most recent trade is > _STALE_HOURS old
+    fetched_at: str  # ISO datetime
+    is_stale: bool  # True when the most recent trade is > _STALE_HOURS old
 
 
 def get_screener_last_error() -> str:
@@ -128,7 +160,6 @@ def _fetch_seed_universe(yf) -> list[dict]:
     is low even for ~40 tickers.  Returns an empty list on any error.
     """
     try:
-
         df = yf.download(
             tickers=_SEED_TICKERS,
             period="5d",
@@ -174,13 +205,15 @@ def _fetch_seed_universe(yf) -> list[dict]:
             if prev_f == 0:
                 continue
             day_pct = (last_f - prev_f) / prev_f * 100
-            quotes.append({
-                "symbol": ticker,
-                "longName": ticker,
-                "quoteType": "ETF",
-                "regularMarketChangePercent": day_pct,
-                "regularMarketTime": ts,
-            })
+            quotes.append(
+                {
+                    "symbol": ticker,
+                    "longName": ticker,
+                    "quoteType": "ETF",
+                    "regularMarketChangePercent": day_pct,
+                    "regularMarketTime": ts,
+                }
+            )
         return quotes
     except Exception:
         return []
@@ -224,10 +257,7 @@ def _fetch_from_yahoo() -> ETFMovers | None:
             unique_quotes.append(q)
 
     # Filter to ETFs only — quoteType == "ETF" for exchange-traded funds
-    etf_quotes = [
-        q for q in unique_quotes
-        if str(q.get("quoteType") or "").upper() == "ETF"
-    ]
+    etf_quotes = [q for q in unique_quotes if str(q.get("quoteType") or "").upper() == "ETF"]
 
     # ── Tier 2: seed-universe fallback ────────────────────────────────────
     # When the screener returns fewer than _SEED_MIN ETFs (e.g. outside market

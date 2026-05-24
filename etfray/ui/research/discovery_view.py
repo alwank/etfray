@@ -221,9 +221,7 @@ class DiscoveryView(Vertical):
             if self._filter_geography != _ALL_LABEL and entry.geography != self._filter_geography:
                 continue
             if text and not (
-                text in entry.ticker.lower()
-                or text in entry.fund_name.lower()
-                or text in entry.issuer.lower()
+                text in entry.ticker.lower() or text in entry.fund_name.lower() or text in entry.issuer.lower()
             ):
                 continue
 
@@ -241,9 +239,7 @@ class DiscoveryView(Vertical):
 
     def _update_count(self, n: int) -> None:
         active = [
-            f"[{v}]"
-            for v in (self._filter_asset, self._filter_category, self._filter_geography)
-            if v != _ALL_LABEL
+            f"[{v}]" for v in (self._filter_asset, self._filter_category, self._filter_geography) if v != _ALL_LABEL
         ]
         suffix = "  " + " ".join(active) if active else ""
         self.query_one("#discovery-count", Static).update(f"{n:,} ETFs{suffix}")

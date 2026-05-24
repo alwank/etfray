@@ -76,7 +76,9 @@ def _fetch_from_yahoo(ticker: str, period: str) -> tuple[pd.DataFrame | None, st
     return None, last_error or "Yahoo returned no price history"
 
 
-def get_price_history(ticker: str, period: str = "max", *, force_refresh: bool = False) -> tuple[pd.DataFrame | None, str]:
+def get_price_history(
+    ticker: str, period: str = "max", *, force_refresh: bool = False
+) -> tuple[pd.DataFrame | None, str]:
     """Get adjusted price history from cache or Yahoo Finance.
 
     Returns a ``(dataframe, error)`` tuple.  On success the error string is empty.

@@ -218,7 +218,9 @@ def get_cached_holdings(ticker: str, source: str | None = None) -> dict | None:
     conn = get_db()
     try:
         if source:
-            row = conn.execute("SELECT * FROM holdings_cache WHERE ticker = ? AND source = ?", (ticker, source)).fetchone()
+            row = conn.execute(
+                "SELECT * FROM holdings_cache WHERE ticker = ? AND source = ?", (ticker, source)
+            ).fetchone()
         else:
             row = conn.execute(
                 "SELECT * FROM holdings_cache WHERE ticker = ? ORDER BY cached_at DESC", (ticker,)
@@ -279,9 +281,7 @@ def get_watchlist(name: str) -> list[str]:
 def get_all_watchlists() -> dict[str, list[str]]:
     conn = get_db()
     try:
-        rows = conn.execute(
-            "SELECT name, ticker FROM watchlists ORDER BY name, added_at"
-        ).fetchall()
+        rows = conn.execute("SELECT name, ticker FROM watchlists ORDER BY name, added_at").fetchall()
     finally:
         conn.close()
     result: dict[str, list[str]] = {}
@@ -419,6 +419,7 @@ def cache_sector(ticker: str, sector: str) -> None:
 
 def get_cached_sector(ticker: str, ttl_days: int = 90) -> str | None:
     from datetime import timedelta
+
     conn = get_db()
     cutoff = (datetime.now() - timedelta(days=ttl_days)).isoformat()
     try:
@@ -435,6 +436,7 @@ def get_cached_sectors_bulk(tickers: list[str], ttl_days: int = 90) -> dict[str,
     if not tickers:
         return {}
     from datetime import timedelta
+
     conn = get_db()
     cutoff = (datetime.now() - timedelta(days=ttl_days)).isoformat()
     placeholders = ",".join("?" * len(tickers))

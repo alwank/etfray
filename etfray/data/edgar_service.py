@@ -239,11 +239,43 @@ def _classify_etf(series_name: str, registrant: str) -> tuple[str, str, str]:
     name = (series_name + " " + registrant).lower()
 
     # Asset class
-    if any(k in name for k in ("bond", "treasury", "fixed income", "tips", "credit", "note", "debt", "municipal", "muni", "yield", "income fund", "aggregate")):
+    if any(
+        k in name
+        for k in (
+            "bond",
+            "treasury",
+            "fixed income",
+            "tips",
+            "credit",
+            "note",
+            "debt",
+            "municipal",
+            "muni",
+            "yield",
+            "income fund",
+            "aggregate",
+        )
+    ):
         asset_class = "Fixed Income"
-    elif any(k in name for k in ("gold", "silver", "oil", "commodity", "commodities", "metal", "copper", "natural gas", "energy fund", "agriculture")):
+    elif any(
+        k in name
+        for k in (
+            "gold",
+            "silver",
+            "oil",
+            "commodity",
+            "commodities",
+            "metal",
+            "copper",
+            "natural gas",
+            "energy fund",
+            "agriculture",
+        )
+    ):
         asset_class = "Commodity"
-    elif any(k in name for k in ("multi-asset", "allocation", "balanced", "managed futures", "real return", "inflation")):
+    elif any(
+        k in name for k in ("multi-asset", "allocation", "balanced", "managed futures", "real return", "inflation")
+    ):
         asset_class = "Multi-Asset"
     elif any(k in name for k in ("real estate", "reit", "property", "mortgage")):
         asset_class = "Real Estate"
@@ -251,8 +283,47 @@ def _classify_etf(series_name: str, registrant: str) -> tuple[str, str, str]:
         asset_class = "Equity"
 
     # Category
-    _sector_keywords = ("technology", "tech", "health", "healthcare", "energy", "financials", "financial", "utilities", "industrial", "consumer", "materials", "communication", "semiconductor", "biotech", "bank", "insurance", "retail", "aerospace", "defense", "clean energy", "solar", "cyber", "cloud", "ai ", "artificial intelligence")
-    _factor_keywords = ("dividend", "growth", "value", "quality", "momentum", "low volatility", "min vol", "multifactor", "factor", "esg", "sustainable", "responsible")
+    _sector_keywords = (
+        "technology",
+        "tech",
+        "health",
+        "healthcare",
+        "energy",
+        "financials",
+        "financial",
+        "utilities",
+        "industrial",
+        "consumer",
+        "materials",
+        "communication",
+        "semiconductor",
+        "biotech",
+        "bank",
+        "insurance",
+        "retail",
+        "aerospace",
+        "defense",
+        "clean energy",
+        "solar",
+        "cyber",
+        "cloud",
+        "ai ",
+        "artificial intelligence",
+    )
+    _factor_keywords = (
+        "dividend",
+        "growth",
+        "value",
+        "quality",
+        "momentum",
+        "low volatility",
+        "min vol",
+        "multifactor",
+        "factor",
+        "esg",
+        "sustainable",
+        "responsible",
+    )
 
     if asset_class == "Fixed Income":
         category = "Fixed Income"
@@ -266,7 +337,23 @@ def _classify_etf(series_name: str, registrant: str) -> tuple[str, str, str]:
         category = "Sector / Thematic"
     elif any(k in name for k in _factor_keywords):
         category = "Factor / Smart Beta"
-    elif any(k in name for k in ("s&p 500", "total market", "total stock", "broad market", "all cap", "large cap", "mid cap", "small cap", "extended market", "russell", "nasdaq", "dow")):
+    elif any(
+        k in name
+        for k in (
+            "s&p 500",
+            "total market",
+            "total stock",
+            "broad market",
+            "all cap",
+            "large cap",
+            "mid cap",
+            "small cap",
+            "extended market",
+            "russell",
+            "nasdaq",
+            "dow",
+        )
+    ):
         category = "Broad Market"
     elif any(k in name for k in ("leveraged", "2x", "3x", "ultra", "inverse", "short ")):
         category = "Leveraged / Inverse"
@@ -276,9 +363,51 @@ def _classify_etf(series_name: str, registrant: str) -> tuple[str, str, str]:
         category = "Broad Market"
 
     # Geography
-    _intl_keywords = ("international", "world", "global", "developed markets", "msci eafe", "eafe", "europe", "pacific", "acwi", "acwx")
-    _em_keywords = ("emerging", "emerging markets", "em ", "bric", "latin america", "asia", "china", "india", "brazil", "korea", "taiwan", "mexico", "africa", "frontier")
-    _single_country = ("germany", "japan", "uk ", "united kingdom", "australia", "canada", "france", "switzerland", "israel", "indonesia", "vietnam", "poland", "hungary", "turkey", "greece")
+    _intl_keywords = (
+        "international",
+        "world",
+        "global",
+        "developed markets",
+        "msci eafe",
+        "eafe",
+        "europe",
+        "pacific",
+        "acwi",
+        "acwx",
+    )
+    _em_keywords = (
+        "emerging",
+        "emerging markets",
+        "em ",
+        "bric",
+        "latin america",
+        "asia",
+        "china",
+        "india",
+        "brazil",
+        "korea",
+        "taiwan",
+        "mexico",
+        "africa",
+        "frontier",
+    )
+    _single_country = (
+        "germany",
+        "japan",
+        "uk ",
+        "united kingdom",
+        "australia",
+        "canada",
+        "france",
+        "switzerland",
+        "israel",
+        "indonesia",
+        "vietnam",
+        "poland",
+        "hungary",
+        "turkey",
+        "greece",
+    )
 
     if any(k in name for k in _em_keywords):
         geography = "Emerging Markets"
