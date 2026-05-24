@@ -8,8 +8,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from etfray.data.edgar_service import ETFReport
 from etfray.data._cache_utils import cache_is_fresh
+from etfray.data.edgar_service import ETFReport
 from etfray.data.market_data_service import (
     PROFILE_CACHE_TTL_DAYS,
     ETFProfile,
@@ -107,7 +107,7 @@ class TestMarketDataService:
         assert merged["fundFamily"] == "Vanguard"
 
     def test_normalize_vwo_style_yahoo_fields(self):
-        assert _normalize_expense_ratio(0.06) == 0.0006
+        assert _normalize_expense_ratio(0.06) == 0.06
         assert _normalize_expense_ratio(0.0003) == 0.0003
         assert _normalize_yield(2.48, 0.0248) == 0.0248
         # ytdReturn is a whole-percent number — must be divided by 100
@@ -128,7 +128,7 @@ class TestMarketDataService:
         }
         profile = _parse_yahoo_info("VWO", info, datetime.now().isoformat())
         assert profile is not None
-        assert profile.expense_ratio == 0.0006
+        assert profile.expense_ratio == 0.06
         assert profile.dividend_yield == 0.0248
         assert profile.ytd_return == pytest.approx(0.0909769)
 

@@ -50,7 +50,8 @@ def calculate_lookthrough(
         value_col = "pct_value" if "pct_value" in df.columns else "value_usd"
         # Exclude cash-equivalent (STIV) rows before computing the denominator so
         # effective weights are not understated by a cash-inclusive total.
-        df_active = df[~df.get("asset_category", pd.Series(dtype=str)).str.upper().str.strip().eq("STIV")]
+        _cat_fallback = pd.Series("", index=df.index, dtype=str)
+        df_active = df[~df.get("asset_category", _cat_fallback).str.upper().str.strip().eq("STIV")]
         total = float(df_active[value_col].abs().sum())
         if total == 0:
             unresolved.append(UnresolvedETF(ticker=symbol, portfolio_weight=port_weight))

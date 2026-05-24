@@ -12,7 +12,6 @@ except ImportError:
     pass
 
 from etfray.ui.commands import ETFCommands
-from etfray.ui.snapshot_view import SnapshotView
 from etfray.ui.portfolio.concentration_view import PortfolioConcentrationView
 from etfray.ui.portfolio.exposure_view import PortfolioExposureView
 from etfray.ui.portfolio.lookthrough_view import LookthroughView
@@ -30,6 +29,7 @@ from etfray.ui.research.holdings_view import HoldingsView
 from etfray.ui.research.overview_view import OverviewView
 from etfray.ui.research.risk_view import RiskView
 from etfray.ui.research.seasonals_view import SeasonalsView
+from etfray.ui.snapshot_view import SnapshotView
 from etfray.ui.splash_screen import SplashScreen
 from etfray.ui.workspace.exports_view import ExportsView
 from etfray.ui.workspace.settings_view import SettingsView

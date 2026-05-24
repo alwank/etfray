@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 
 from etfray.domain.seasonals_analytics import (
-    _adj_close_series,
+    adj_close_series,
     available_years,
     compute_seasonal_series,
     compute_seasonals,
@@ -36,13 +36,13 @@ def _make_multi_year_history() -> pd.DataFrame:
 class TestSeasonalsAnalytics:
     def test_split_prices_by_year(self):
         df = _make_multi_year_history()
-        prices = _adj_close_series(df)
+        prices = adj_close_series(df)
         by_year = split_prices_by_year(prices)
         assert set(by_year.keys()) == {2023, 2024, 2025}
 
     def test_seasonal_series_starts_at_zero(self):
         df = _make_multi_year_history()
-        prices = _adj_close_series(df)
+        prices = adj_close_series(df)
         by_year = split_prices_by_year(prices)
         series = compute_seasonal_series(by_year[2024], 2024)
         assert series.cumulative[0] == pytest.approx(0.0)
@@ -50,7 +50,7 @@ class TestSeasonalsAnalytics:
 
     def test_partial_current_year(self):
         df = _make_multi_year_history()
-        prices = _adj_close_series(df)
+        prices = adj_close_series(df)
         by_year = split_prices_by_year(prices)
         series = compute_seasonal_series(by_year[2025], 2025)
         assert len(series.day_of_year) == len(by_year[2025])
@@ -58,14 +58,14 @@ class TestSeasonalsAnalytics:
 
     def test_year_range_filter(self):
         df = _make_multi_year_history()
-        prices = _adj_close_series(df)
+        prices = adj_close_series(df)
         series_list, _ = compute_seasonals(prices, 2024, 2025)
         years = {s.year for s in series_list}
         assert years == {2024, 2025}
 
     def test_average_line_day_100(self):
         df = _make_multi_year_history()
-        prices = _adj_close_series(df)
+        prices = adj_close_series(df)
         series_list, average = compute_seasonals(prices, 2023, 2025, include_average=True)
         assert average is not None
         assert average.year == 0
@@ -81,12 +81,13 @@ class TestSeasonalsAnalytics:
 
     def test_available_years(self):
         df = _make_multi_year_history()
-        prices = _adj_close_series(df)
+        prices = adj_close_series(df)
         assert available_years(prices) == [2023, 2024, 2025]
 
     def test_render_seasonals_chart_smoke(self):
+        pytest.importorskip("plotext")
         df = _make_multi_year_history()
-        prices = _adj_close_series(df)
+        prices = adj_close_series(df)
         series_list, average = compute_seasonals(prices, 2023, 2025, include_average=True)
         output = render_seasonals_chart(series_list, average, width=80, height=18)
         assert len(output) > 100
@@ -95,7 +96,7 @@ class TestSeasonalsAnalytics:
 
     def test_seasonal_ylim_padding(self):
         df = _make_multi_year_history()
-        prices = _adj_close_series(df)
+        prices = adj_close_series(df)
         series_list, average = compute_seasonals(prices, 2023, 2025, include_average=True)
         ymin, ymax = seasonal_ylim(series_list, average)
         assert ymin < ymax
@@ -110,7 +111,7 @@ class TestSeasonalsAnalytics:
     def test_render_seasonals_figure_smoke(self):
         pytest.importorskip("matplotlib")
         df = _make_multi_year_history()
-        prices = _adj_close_series(df)
+        prices = adj_close_series(df)
         series_list, average = compute_seasonals(prices, 2023, 2025, include_average=True)
         png = render_seasonals_figure(
             series_list,

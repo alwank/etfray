@@ -9,8 +9,6 @@ from datetime import datetime
 
 import pandas as pd
 
-_log = logging.getLogger(__name__)
-
 from etfray.db.database import (
     CachedETF,
     cache_etf,
@@ -18,6 +16,8 @@ from etfray.db.database import (
     get_cached_holdings,
     load_settings,
 )
+
+_log = logging.getLogger(__name__)
 
 
 @dataclass

@@ -128,7 +128,6 @@ def _fetch_seed_universe(yf) -> list[dict]:
     is low even for ~40 tickers.  Returns an empty list on any error.
     """
     try:
-        import pandas as pd
 
         df = yf.download(
             tickers=_SEED_TICKERS,

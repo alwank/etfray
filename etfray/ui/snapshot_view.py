@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import threading
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from rich.text import Text
 from textual.app import ComposeResult
@@ -338,6 +338,7 @@ class SnapshotView(VerticalScroll):
 
     async def _movers_worker(self, *, force_refresh: bool = False) -> None:
         from asyncio import to_thread
+
         from etfray.data.screener_service import get_etf_movers
 
         mv = self.query_one("#snap-movers-table", DataTable)
@@ -392,18 +393,17 @@ class SnapshotView(VerticalScroll):
         self.run_worker(self._watchlist_worker(), exclusive=True, group="snap-watchlist", name="snap-watchlist")
 
     async def _watchlist_worker(self) -> None:
-        from asyncio import to_thread
-
         import io
+        from asyncio import to_thread
 
         import pandas as pd
 
+        from etfray.data.market_data_service import get_etf_profile
         from etfray.db.database import (
             get_cached_etf,
             get_cached_holdings,
             get_watchlist,
         )
-        from etfray.data.market_data_service import get_etf_profile
         from etfray.domain.etf_analytics import calculate_concentration, calculate_group_concentration
 
         tickers = get_watchlist("default")
@@ -470,8 +470,9 @@ class SnapshotView(VerticalScroll):
 
     async def _load_seasonal_spotlight(self) -> None:
         from asyncio import to_thread
-        from etfray.db.database import get_watchlist
+
         from etfray.data.price_history_service import get_price_history
+        from etfray.db.database import get_watchlist
         from etfray.domain.seasonals_analytics import compute_monthly_returns_table
 
         tickers = get_watchlist("default")
