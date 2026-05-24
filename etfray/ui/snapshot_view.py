@@ -304,9 +304,9 @@ class SnapshotView(VerticalScroll):
             profile, _ = get_etf_profile(ticker)
             if profile and profile.ytd_return is not None:
                 ytd = profile.ytd_return
-                sign = "+" if ytd >= 0 else ""
                 color = "green" if ytd >= 0 else "red"
-                parts.append(f"{ticker} [{color}]{sign}{ytd * 100:.1f}%[/{color}] YTD")
+                from etfray.domain.overview_format import fmt_pct
+                parts.append(f"{ticker} [{color}]{fmt_pct(ytd, signed=True)}[/{color}] YTD")
 
         if parts:
             text = "  ".join(parts)
@@ -431,9 +431,9 @@ class SnapshotView(VerticalScroll):
             profile, _ = await to_thread(get_etf_profile, ticker)
             if profile and profile.ytd_return is not None:
                 ytd = profile.ytd_return
-                sign = "+" if ytd >= 0 else ""
                 color = "green" if ytd >= 0 else "red"
-                row_data["ytd"] = f"[{color}]{sign}{ytd * 100:.1f}%[/{color}]"
+                from etfray.domain.overview_format import fmt_pct
+                row_data["ytd"] = f"[{color}]{fmt_pct(ytd, signed=True)}[/{color}]"
 
             cached_h = await to_thread(get_cached_holdings, ticker)
             if cached_h and cached_h.get("holdings_json"):
@@ -478,7 +478,8 @@ class SnapshotView(VerticalScroll):
         if not tickers:
             return
 
-        current_month = datetime.now().month
+        now = datetime.now()
+        current_month = now.month
         month_name = datetime(2000, current_month, 1).strftime("%b")
         parts: list[str] = []
 
@@ -486,8 +487,8 @@ class SnapshotView(VerticalScroll):
             df, _ = await to_thread(get_price_history, ticker, "max")
             if df is None:
                 continue
-            from etfray.domain.seasonals_analytics import _adj_close_series
-            prices = _adj_close_series(df)
+            from etfray.domain.seasonals_analytics import adj_close_series
+            prices = adj_close_series(df)
             if prices.empty:
                 continue
             table = compute_monthly_returns_table(prices)
@@ -501,7 +502,7 @@ class SnapshotView(VerticalScroll):
             # Historical frequency label: "↑6/15" instead of ambiguous "falls 40%"
             freq_label = f"[{color}]↑{rises}/{total} yrs[/{color}]"
             # Current MTD return for this month (may be partial if month in progress)
-            cur_ret = table.monthly.get(datetime.now().year, {}).get(current_month)
+            cur_ret = table.monthly.get(now.year, {}).get(current_month)
             if cur_ret is not None:
                 mtd_sign = "+" if cur_ret >= 0 else ""
                 mtd_color = "green" if cur_ret > 0 else ("red" if cur_ret < 0 else "dim")

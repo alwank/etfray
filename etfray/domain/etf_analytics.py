@@ -44,7 +44,12 @@ class ConcentrationMetrics:
 
 
 def calculate_exposure(df: pd.DataFrame, group_col: str) -> list[ExposureBreakdown]:
-    """Aggregate holdings into exposure categories by a given column."""
+    """Aggregate holdings into exposure categories by a given column.
+
+    Note: when ``pct_value`` is used as the value column, it may not sum to
+    100 (partial N-PORT filing).  Weights are always renormalized against the
+    column sum so group percentages sum to 100.
+    """
     if df.empty or group_col not in df.columns:
         return []
 
@@ -68,14 +73,19 @@ def calculate_exposure(df: pd.DataFrame, group_col: str) -> list[ExposureBreakdo
         if group_col == "asset_category":
             label = ASSET_CATEGORY_MAP.get(str(cat), str(cat))
         raw = float(row["weight"])
-        pct = raw if value_col == "pct_value" else raw / total * 100
+        pct = raw / total * 100
         results.append(ExposureBreakdown(category=label, weight=round(pct, 2), count=int(row["count"])))
 
     return results
 
 
 def calculate_concentration(df: pd.DataFrame) -> ConcentrationMetrics:
-    """Calculate concentration metrics from holdings DataFrame."""
+    """Calculate concentration metrics from holdings DataFrame.
+
+    Note: when ``pct_value`` is used as the value column, it may not sum to
+    100 (partial N-PORT filing).  Weights are always renormalized against the
+    column sum before computing HHI and top-N metrics.
+    """
     if df.empty:
         return ConcentrationMetrics(0, 0, 0, 0, 0, 0, "", 0, 0, "No data")
 
@@ -86,8 +96,9 @@ def calculate_concentration(df: pd.DataFrame) -> ConcentrationMetrics:
     if total == 0:
         return ConcentrationMetrics(0, 0, 0, 0, 0, 0, "", 0, 0, "No data")
 
-    # Normalize weights
-    weights = (sorted_df[value_col].astype(float) / total * 100).values
+    # Normalize weights: divide by (total/100) so the result is already in percent.
+    # For pct_value, total may not equal 100; this renormalizes to the actual sum.
+    weights = (sorted_df[value_col].astype(float) / (total / 100)).values
 
     n = len(weights)
     top1 = float(weights[0]) if n >= 1 else 0
@@ -203,8 +214,13 @@ def calculate_weight_overlap(df_a: pd.DataFrame, df_b: pd.DataFrame) -> float:
     if total_a == 0 or total_b == 0:
         return 0.0
 
-    a["w"] = a[value_col] if value_col == "pct_value" else a[value_col] / total_a * 100
-    b["w"] = b[value_col] if value_col == "pct_value" else b[value_col] / total_b * 100
+    # Always renormalize against the column sum so weights sum to 100,
+    # matching the behaviour of calculate_exposure / calculate_concentration.
+    # For partial N-PORT filings pct_value may not sum to 100, so dividing by
+    # total_a/total_b (rather than treating the raw values as already-normalized)
+    # ensures the overlap calculation is on a consistent 0-100 scale.
+    a["w"] = a[value_col] / total_a * 100
+    b["w"] = b[value_col] / total_b * 100
 
     # Group by ticker (sum duplicates)
     a = a.groupby("ticker")["w"].sum()

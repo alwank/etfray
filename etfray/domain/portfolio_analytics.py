@@ -48,20 +48,26 @@ def calculate_lookthrough(
 
         df = holdings_cache[symbol]
         value_col = "pct_value" if "pct_value" in df.columns else "value_usd"
-        total = float(df[value_col].abs().sum())
+        # Exclude cash-equivalent (STIV) rows before computing the denominator so
+        # effective weights are not understated by a cash-inclusive total.
+        df_active = df[~df.get("asset_category", pd.Series(dtype=str)).str.upper().str.strip().eq("STIV")]
+        total = float(df_active[value_col].abs().sum())
         if total == 0:
             unresolved.append(UnresolvedETF(ticker=symbol, portfolio_weight=port_weight))
             continue
 
-        for _, row in df.iterrows():
-            if str(row.get("asset_category", "") or "").strip().upper() == "STIV":
-                continue
+        for _, row in df_active.iterrows():
             raw_ticker = row.get("ticker", "")
             hticker = "" if pd.isna(raw_ticker) else str(raw_ticker).strip().upper()
             if hticker == symbol:
                 continue
             hname = str(row.get("name", "") or "")
-            h_weight = (abs(float(row[value_col])) / total * 100) if value_col == "value_usd" else abs(float(row[value_col]))
+            # Always renormalize against the column sum so h_weight is on a
+            # consistent 0-100 scale.  For partial N-PORT filings pct_value may
+            # not sum to 100; dividing by total re-bases each holding to its
+            # true share of the reported portfolio, matching calculate_exposure
+            # and calculate_concentration behaviour.
+            h_weight = abs(float(row[value_col])) / total * 100
             effective = port_weight * h_weight / 100
 
             key = hticker if hticker else hname

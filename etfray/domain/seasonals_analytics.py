@@ -37,7 +37,7 @@ class MonthlyReturnsTable:
     falls: dict[int, int] = field(default_factory=dict)                        # month → count of negative years
 
 
-def _adj_close_series(df: pd.DataFrame) -> pd.Series:
+def adj_close_series(df: pd.DataFrame) -> pd.Series:
     if df is None or df.empty:
         return pd.Series(dtype=float)
     col = "Adj Close" if "Adj Close" in df.columns else "Close"
@@ -93,7 +93,7 @@ def _period_start(end_ts: pd.Timestamp, label: str) -> pd.Timestamp:
 
 def compute_period_returns(df: pd.DataFrame) -> list[tuple[str, float | None]]:
     """Compute total returns for standard period labels."""
-    prices = _adj_close_series(df)
+    prices = adj_close_series(df)
     if prices.empty:
         return [(label, None) for label in PERIOD_LABELS]
 
@@ -113,7 +113,7 @@ def compute_period_returns(df: pd.DataFrame) -> list[tuple[str, float | None]]:
 
 def compute_cumulative_index(df: pd.DataFrame) -> list[float]:
     """Normalize adjusted close to growth index starting at 100."""
-    prices = _adj_close_series(df)
+    prices = adj_close_series(df)
     if prices.empty:
         return []
     base = float(prices.iloc[0])
@@ -125,7 +125,7 @@ def compute_cumulative_index(df: pd.DataFrame) -> list[float]:
 
 def compute_summary(df: pd.DataFrame) -> SeasonalsSummary:
     """Summary stats for the loaded history slice."""
-    prices = _adj_close_series(df)
+    prices = adj_close_series(df)
     if prices.empty:
         return SeasonalsSummary("", "", None, None)
 
@@ -302,10 +302,14 @@ def compute_monthly_returns_table(prices: pd.Series) -> MonthlyReturnsTable:
                     elif ret < 0:
                         falls[month] += 1
 
-        # Annual return: base is last close of prior December, else first price of year
+        # Annual return: base is last close of prior December, else first price of year.
+        # For the inception year, mark as None when the first trade is after Jan 31
+        # (a partial year produces a misleading "annual" figure).
         prior_dec = monthly_last.get((year - 1, 12))
         year_prices = prices[prices.index.year == year]
         if year_prices.empty:
+            annual_returns[year] = None
+        elif year == all_years[0] and year_prices.index[0] > pd.Timestamp(year, 1, 31):
             annual_returns[year] = None
         else:
             last_price = float(year_prices.iloc[-1])

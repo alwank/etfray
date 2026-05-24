@@ -12,11 +12,13 @@ from etfray.domain.etf_analytics import ConcentrationMetrics, ExposureBreakdown
 
 def fmt_dollars(v) -> str:
     v = float(v)
+    sign = "-" if v < 0 else ""
+    v = abs(v)
     if v >= 1_000_000_000:
-        return f"${v / 1_000_000_000:.1f}B"
+        return f"{sign}${v / 1_000_000_000:.1f}B"
     if v >= 1_000_000:
-        return f"${v / 1_000_000:.0f}M"
-    return f"${v:,.0f}"
+        return f"{sign}${v / 1_000_000:.0f}M"
+    return f"{sign}${v:,.0f}"
 
 
 def fmt_pct(v, *, signed: bool = False, decimals: int = 2) -> str:

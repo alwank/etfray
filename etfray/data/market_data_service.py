@@ -64,8 +64,9 @@ def _normalize_expense_ratio(value) -> float | None:
     if v is None:
         return None
     # Yahoo almost always returns a decimal fraction (0.0075 = 0.75%).
-    # Only divide by 100 when the value is clearly a whole-percent number (>= 0.01).
-    if v >= 0.01:
+    # Only divide by 100 when the value is clearly a whole-percent number (>= 1),
+    # e.g. Yahoo returns 75 meaning 0.75% — needs /100.
+    if v >= 1:
         return v / 100
     return v
 

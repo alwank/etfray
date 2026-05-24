@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from datetime import datetime, timedelta
 from typing import Callable, TypeVar
+
+_log = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
@@ -37,8 +40,8 @@ def retry_fetch(
             if result is not None:
                 return result
             last_result = result
-        except Exception:
-            pass
+        except Exception as exc:
+            _log.warning("retry_fetch attempt %d failed: %s", attempt + 1, exc)
         if attempt < retries - 1:
             time.sleep(delay_sec * (attempt + 1))
     return last_result

@@ -514,7 +514,7 @@ class SeasonalsView(Vertical):
         from etfray.data.price_history_service import get_price_history
         from etfray.domain.overview_format import fmt_pct
         from etfray.domain.seasonals_analytics import (
-            _adj_close_series,
+            adj_close_series,
             available_years,
             compute_period_returns,
             compute_summary,
@@ -539,7 +539,7 @@ class SeasonalsView(Vertical):
             return
 
         self._history_df = df
-        self._prices = _adj_close_series(df)
+        self._prices = adj_close_series(df)
         self._period_rows = compute_period_returns(df)
 
         # YTD is computed from adjusted price history (total return incl. dividends)

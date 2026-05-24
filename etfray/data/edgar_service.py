@@ -182,6 +182,10 @@ def _load_series_class_csv() -> list[dict] | None:
         except Exception:
             if not csv_path.exists():
                 return None
+            _log.warning(
+                "_load_series_class_csv: GET failed; falling back to stale cached file at %s",
+                csv_path,
+            )
 
     try:
         rows = []
@@ -219,6 +223,12 @@ class ETFUniverseEntry:
 
 
 _universe_cache: list[ETFUniverseEntry] | None = None
+
+
+def invalidate_universe_cache() -> None:
+    """Clear the in-memory ETF universe cache so the next call re-parses from disk."""
+    global _universe_cache
+    _universe_cache = None
 
 
 def _classify_etf(series_name: str, registrant: str) -> tuple[str, str, str]:
@@ -282,15 +292,18 @@ def _classify_etf(series_name: str, registrant: str) -> tuple[str, str, str]:
     return asset_class, category, geography
 
 
-def get_etf_universe() -> list[ETFUniverseEntry]:
+def get_etf_universe(*, force_refresh: bool = False) -> list[ETFUniverseEntry]:
     """Return the full ETF universe from the cached SEC Series & Class CSV.
 
     Results are classified by asset class, category, and geography using
     keyword heuristics on the fund name. The parsed list is cached in memory
     for the lifetime of the process.
+
+    Pass ``force_refresh=True`` to discard the in-memory cache and re-parse
+    from disk (or re-download from SEC) before returning.
     """
     global _universe_cache
-    if _universe_cache is not None:
+    if _universe_cache is not None and not force_refresh:
         return _universe_cache
 
     data = _load_series_class_csv()
@@ -380,6 +393,10 @@ def _find_nport_for_ticker(ticker: str):
             return f, r
 
     # Fallback: return first filing
+    _log.warning(
+        "_find_nport_for_ticker: no filing matched ticker %s in head(150); falling back to first filing",
+        ticker,
+    )
     return first_filing, report
 
 
@@ -431,6 +448,7 @@ def get_etf_report(ticker: str) -> ETFReport | None:
                 last_updated=datetime.now().isoformat(),
             )
         )
+        invalidate_universe_cache()
 
         return ETFReport(
             ticker=ticker.upper(),
@@ -475,6 +493,7 @@ def get_holdings_df(ticker: str) -> pd.DataFrame | None:
         as_of = str(getattr(report, "reporting_period", ""))
         filed = str(getattr(filing, "filing_date", ""))
         cache_holdings(ticker, df.to_json(), as_of, filed, source="nport")
+        invalidate_universe_cache()
         return df
     except Exception:
         return None

@@ -140,10 +140,10 @@ class IBKRService:
 
         # Positions from portfolio() - includes market price and PnL
         try:
-            self._positions = []
+            new_positions: list[Position] = []
             for p in self._ib.portfolio():
                 contract = p.contract
-                self._positions.append(
+                new_positions.append(
                     Position(
                         symbol=contract.symbol,
                         name=getattr(contract, "localSymbol", contract.symbol),
@@ -157,6 +157,7 @@ class IBKRService:
                         account=p.account,
                 )
             )
+            self._positions = new_positions
         except Exception as exc:
             _log.warning("IBKR positions refresh failed: %s", exc)
 

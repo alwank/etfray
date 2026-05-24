@@ -46,8 +46,8 @@ class CompareView(Vertical):
     }
     """
 
-    _tickers: list[str] = []
-    _rows: list[list[str]] = []
+    _tickers: list[str]
+    _rows: list[list[str]]
 
     def compose(self) -> ComposeResult:
         with Vertical(id="compare-toolbar"):
@@ -58,6 +58,8 @@ class CompareView(Vertical):
         yield DataTable(id="compare-table")
 
     def on_mount(self) -> None:
+        self._tickers = []
+        self._rows = []
         table = self.query_one("#compare-table", DataTable)
         table.add_column("Metric", key="metric")
         table.cursor_type = "row"
@@ -178,7 +180,8 @@ class CompareView(Vertical):
             total_w = zdf["pct_value"].sum()
             if total_w == 0:
                 return "N/A"
-            avg = (zdf["pct_value"] * zdf["week52_return"]).sum() / total_w
+            normed_w = zdf["pct_value"] / total_w  # sums to 1.0
+            avg = (normed_w * zdf["week52_return"]).sum()
             return fmt_pct(avg, signed=True)
 
         avg_row = ["Avg 52wk Ret"] + [await _avg_52wk(t) for t in tickers]
