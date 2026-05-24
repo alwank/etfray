@@ -4,6 +4,8 @@ The Home screen is the first thing you see when etfray starts. It gives you a li
 
 Press `Esc` at any time to return to the Home screen from any view.
 
+![Home Dashboard](../assets/Home.png){ width="700" }
+
 ---
 
 ## Benchmark Marquee

@@ -23,7 +23,7 @@ The app opens with a splash screen that runs startup checks (database, settings,
 5. Use `h`, `x`, `c` to jump between Holdings, Exposure, and Concentration
 6. Press `w` to add the ETF to your **Watchlist**
 
-![ETF Search](../assets/search-etf.png){ width="700" }
+![ETF Search](../assets/Search.png){ width="700" }
 
 ## Watchlist
 

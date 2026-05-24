@@ -68,7 +68,43 @@ Use the **Year Start** and **Year End** dropdowns to select which years to displ
 - Include the current year to see how this year compares to historical patterns
 - The **Average** toggle shows the mean cumulative return across all selected years
 
-## Period Returns Table
+## Monthly Returns Table
+
+Switch to the **Table** tab (next to "Chart" in the tab bar) to see a full year-by-month heatmap of historical returns.
+
+**Columns:**
+
+| Column | Description |
+|--------|-------------|
+| Date | Calendar year |
+| Jan–Dec | That month's total return, color-coded green (positive) or red (negative) |
+| Year | Full-year calendar year return |
+
+Each cell shows the return as `+2.34%` or `-1.20%` in bold bright green or bold bright red respectively. Future months in the current year show `—`.
+
+**Rises/Falls footer:** The bottom row of the table shows a count for every month across all available years:
+
+- `▲N` (green) — number of years that month closed higher
+- `▼N` (red) — number of years that month closed lower
+
+This gives you an at-a-glance win-rate for each calendar month across the full history (e.g., `▲9 ▼6` means the month closed up in 9 of 15 years).
+
+!!! tip
+    The monthly table covers **all available years** in the price history, regardless of the year range selected in the Chart tab. It is the most complete view of seasonality and is useful for spotting months that consistently perform well or poorly across decades.
+
+![Seasonals Table](../assets/Seasonals_Table.png){ width="700" }
+
+## Export
+
+Click the **Export** button in the top-right of the Seasonals view to save the seasonal data for the currently selected year range to CSV. The file is written to your configured export directory (`~/.etfray/exports/` by default) with the filename:
+
+```
+{TICKER}_seasonals_{startYear}_{endYear}.csv
+```
+
+The export contains one row per trading day per selected year, with columns for date, year, day-of-year index, and that year's cumulative return up to that day. This is useful for building custom charts or running further analysis in a spreadsheet or notebook.
+
+
 
 The table below the chart shows total returns for standard periods:
 

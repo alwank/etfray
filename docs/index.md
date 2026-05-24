@@ -28,19 +28,27 @@ etfray converts SEC fund filings and IBKR portfolio data into holdings, exposure
 
 <div class="grid cards" markdown>
 
-- :material-home: **[Home Dashboard](user-guide/home-dashboard.md)**
+-   :material-home: **[Home Dashboard](user-guide/home-dashboard.md)**
+
+    ---
 
     Live benchmarks, ETF movers, and your watchlist — right from startup
 
-- :material-download: **[Installation](getting-started/installation.md)**
+-   :material-download: **[Installation](getting-started/installation.md)**
+
+    ---
 
     Install etfray from PyPI in one command
 
-- :material-rocket-launch: **[Quick Start](getting-started/quickstart.md)**
+-   :material-rocket-launch: **[Quick Start](getting-started/quickstart.md)**
+
+    ---
 
     Launch the app and explore your first ETF in 2 minutes
 
-- :material-connection: **[IBKR Setup](user-guide/ibkr-setup.md)**
+-   :material-connection: **[IBKR Setup](user-guide/ibkr-setup.md)**
+
+    ---
 
     Connect to your IBKR account for portfolio analytics
 

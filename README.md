@@ -33,19 +33,23 @@ etfray converts SEC fund filings and IBKR portfolio data into holdings, exposure
 - **Local & private** — All data cached locally in SQLite; no cloud accounts required
 
 <p align="center">
-  <img src="assets/holdings.png" alt="Holdings view" width="800">
+  <img src="assets/Home.png" alt="Home Dashboard" width="800">
 </p>
 
 <p align="center">
-  <img src="assets/Seasonals.png" alt="Seasonals view" width="800">
+  <img src="assets/Holdings.png" alt="Holdings view" width="800">
 </p>
 
 <p align="center">
-  <img src="assets/SS_Compare.png" alt="Side-by-side Compare" width="800">
+  <img src="assets/Seasonals.png" alt="Seasonals chart" width="800">
 </p>
 
 <p align="center">
-  <img src="assets/Portfolio_ETFLookthrough.png" alt="Portfolio ETF Lookthrough" width="800">
+  <img src="assets/Watchlist.png" alt="Watchlist" width="800">
+</p>
+
+<p align="center">
+  <img src="assets/Portfolio_Lookthrough.png" alt="Portfolio ETF Lookthrough" width="800">
 </p>
 
 ## Key Capabilities

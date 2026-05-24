@@ -4,6 +4,8 @@ The Watchlist lets you track ETFs with at-a-glance metrics — concentration, to
 
 **Access:** Navigate to **Workspace → Watchlist** in the sidebar.
 
+![Watchlist](../assets/Watchlist.png){ width="700" }
+
 ## Overview
 
 The Watchlist table shows one row per tracked ETF with these columns:

@@ -39,7 +39,7 @@ Press `/`, type `QQQ`, and press Enter. QQQ has ~100 holdings, also cap-weighted
 
 Navigate to the **Compare** view. Add both VTI and QQQ to see them side by side. The overlap percentage is displayed directly.
 
-![Compare view](../assets/compare.png){ width="700" }
+![Compare view](../assets/Compare.png){ width="700" }
 
 ### 4. Interpret the results
 
