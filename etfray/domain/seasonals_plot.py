@@ -134,12 +134,12 @@ def seasonal_ylim(
     series_list: list[SeasonalYearSeries],
     average: SeasonalYearSeries | None,
 ) -> tuple[float, float]:
-    """Y-axis limits with padding for seasonals cumulative %."""
+    """Y-axis limits with padding for seasonals cumulative % (values in percent for display)."""
     values: list[float] = []
     for series in series_list:
-        values.extend(series.cumulative_pct)
+        values.extend(v * 100 for v in series.cumulative)
     if average is not None:
-        values.extend(average.cumulative_pct)
+        values.extend(v * 100 for v in average.cumulative)
     if not values:
         return (-5.0, 5.0)
     ymin, ymax = min(values), max(values)
@@ -185,7 +185,7 @@ def render_seasonals_figure(
             continue
         ax.plot(
             series.day_of_year,
-            series.cumulative_pct,
+            [v * 100 for v in series.cumulative],
             color=color_for_series_index(i),
             linewidth=1.8,
             solid_capstyle="round",
@@ -194,7 +194,7 @@ def render_seasonals_figure(
     if average is not None and average.day_of_year:
         ax.plot(
             average.day_of_year,
-            average.cumulative_pct,
+            [v * 100 for v in average.cumulative],
             color=AVERAGE_COLOR,
             linewidth=2.0,
             linestyle="--",
@@ -243,10 +243,10 @@ def render_seasonals_chart(
     for series in series_list:
         if not series.day_of_year:
             continue
-        plt.plot(series.day_of_year, series.cumulative_pct)
+        plt.plot(series.day_of_year, [v * 100 for v in series.cumulative])
 
     if average is not None and average.day_of_year:
-        plt.plot(average.day_of_year, average.cumulative_pct, style="dashed")
+        plt.plot(average.day_of_year, [v * 100 for v in average.cumulative], style="dashed")
 
     plt.xticks(MONTH_TICKS, MONTH_LABELS)
     plt.xlim(1, 366)

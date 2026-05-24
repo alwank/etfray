@@ -34,7 +34,8 @@ _LEGEND_SEPARATOR = "    ·    "
 
 
 def _fmt_seasonal_pct(value: float) -> str:
-    return f"{value:+.2f}%"
+    from etfray.domain.overview_format import fmt_pct
+    return fmt_pct(value, signed=True)
 
 
 class SeasonalsView(Vertical):
@@ -610,9 +611,9 @@ class SeasonalsView(Vertical):
         for s in sorted(series_list, key=lambda s: s.year, reverse=True):
             idx = next(i for i, x in enumerate(sorted_asc) if x.year == s.year)
             hex_color = color_for_series_index(idx)
-            parts.append(f"[{hex_color}]■[/] {s.year} {_fmt_seasonal_pct(s.final_return_pct)}")
+            parts.append(f"[{hex_color}]■[/] {s.year} {_fmt_seasonal_pct(s.final_return)}")
         if average is not None and average.day_of_year:
-            parts.append(f"[bold white]--[/] Avg {_fmt_seasonal_pct(average.final_return_pct)}")
+            parts.append(f"[bold white]--[/] Avg {_fmt_seasonal_pct(average.final_return)}")
         self.query_one("#perf-legend", Static).update(_LEGEND_SEPARATOR.join(parts) if parts else "")
 
     def _render_chart_fallback(self, series_list, average) -> None:

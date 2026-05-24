@@ -210,7 +210,7 @@ class HoldingsView(VerticalScroll):
                         str(row.get("name", "") or "")[:30],
                         f"{pct:.2f}%" if pct else "—",
                         f"{balance:,.0f}" if balance else "—",
-                        f"{w52:.2f}%" if w52 else "—",
+                        f"{w52 * 100:.2f}%" if w52 else "—",
                     )
                 else:
                     value = float(row.get("value_usd", 0) or 0)

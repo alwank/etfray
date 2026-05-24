@@ -179,7 +179,7 @@ class CompareView(Vertical):
             if total_w == 0:
                 return "N/A"
             avg = (zdf["pct_value"] * zdf["week52_return"]).sum() / total_w
-            return f"{avg:+.2f}%"
+            return fmt_pct(avg, signed=True)
 
         avg_row = ["Avg 52wk Ret"] + [await _avg_52wk(t) for t in tickers]
         self._rows.append(avg_row)

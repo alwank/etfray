@@ -22,7 +22,7 @@ _last_screener_error: str = ""
 class ETFMover:
     symbol: str
     name: str
-    change_pct: float          # decimal fraction (0.042 = +4.2 %)
+    change_pct: float | None   # decimal fraction (0.042 = +4.2 %); None when data is missing
     last_trade_ts: int | None  # Unix epoch seconds from regularMarketTime
 
 
@@ -84,9 +84,9 @@ def _quotes_to_movers(quotes: list[dict]) -> list[ETFMover]:
         name = str(q.get("longName") or q.get("shortName") or symbol).strip()
         pct_raw = q.get("regularMarketChangePercent")
         try:
-            change_pct = float(pct_raw) / 100 if pct_raw is not None else 0.0
+            change_pct: float | None = float(pct_raw) / 100 if pct_raw is not None else None
         except (TypeError, ValueError):
-            change_pct = 0.0
+            change_pct = None
         ts_raw = q.get("regularMarketTime")
         try:
             last_trade_ts = int(ts_raw) if ts_raw is not None else None
@@ -154,6 +154,20 @@ def _fetch_from_yahoo() -> ETFMovers | None:
         # Fallback: accept any fund-type quote when the pool is too small
         etf_quotes = unique_quotes
 
+    # Exclude quotes with missing regularMarketChangePercent before sorting
+    def _has_pct(q: dict) -> bool:
+        try:
+            v = q.get("regularMarketChangePercent")
+            if v is None:
+                return False
+            float(v)
+            return True
+        except (TypeError, ValueError):
+            return False
+
+    etf_quotes_with_pct = [q for q in etf_quotes if _has_pct(q)]
+    sortable = etf_quotes_with_pct if etf_quotes_with_pct else etf_quotes
+
     # Sort by day change to find gainers (desc) and losers (asc)
     def _pct(q: dict) -> float:
         try:
@@ -161,8 +175,8 @@ def _fetch_from_yahoo() -> ETFMovers | None:
         except (TypeError, ValueError):
             return 0.0
 
-    sorted_desc = sorted(etf_quotes, key=_pct, reverse=True)
-    sorted_asc = sorted(etf_quotes, key=_pct)
+    sorted_desc = sorted(sortable, key=_pct, reverse=True)
+    sorted_asc = sorted(sortable, key=_pct)
 
     gainers = _quotes_to_movers(sorted_desc[:_TOP_N])
     losers = _quotes_to_movers(sorted_asc[:_TOP_N])

@@ -88,26 +88,42 @@ def _normalize_expense_ratio(value) -> float | None:
 
 
 def _normalize_yield(dividend_yield, yield_value) -> float | None:
-    """Normalize dividend yield to decimal fraction."""
+    """Normalize dividend yield to decimal fraction.
+
+    Yahoo's ``yield`` (key ``"yield"``) and ``dividendYield`` are both returned
+    as decimal fractions (e.g. 0.0045 = 0.45%).  No division is needed.  We
+    prefer ``yield_value`` (the ``"yield"`` key) and fall back to
+    ``dividend_yield`` (the ``"dividendYield"`` key).
+    """
     y = _safe_float(yield_value)
     if y is not None:
-        return y / 100 if y >= 0.5 else y
+        return y
 
     d = _safe_float(dividend_yield)
-    if d is None:
-        return None
-    return d / 100 if d >= 0.5 else d
+    return d  # None or already a decimal fraction
 
 
-def _normalize_return(value) -> float | None:
-    """Normalize return fields to decimal fraction."""
+def _normalize_return_whole_pct(value) -> float | None:
+    """Convert a whole-percent return value to a decimal fraction.
+
+    Use for Yahoo's ``ytdReturn`` field, which is returned as a whole-percent
+    number (e.g. 9.09 means +9.09%) and must be divided by 100.
+    """
     v = _safe_float(value)
     if v is None:
         return None
-    # ytdReturn is often whole-percent (9.09); multi-year returns are often decimal (0.17).
-    if abs(v) > 1:
-        return v / 100
-    return v
+    return v / 100
+
+
+def _normalize_return_decimal(value) -> float | None:
+    """Pass through a return value that is already a decimal fraction.
+
+    Use for Yahoo's ``threeYearAverageReturn`` and ``fiveYearAverageReturn``
+    fields, which are returned as decimal fractions (e.g. 0.17 = +17%).
+    Dividing by 100 would silently destroy legitimate values such as 1.05
+    (+105% over 5 years).
+    """
+    return _safe_float(value)
 
 
 def _has_profile_fields(info: dict) -> bool:
@@ -237,9 +253,9 @@ def _parse_yahoo_info(ticker: str, info: dict, fetched_at: str) -> ETFProfile | 
         expense_ratio=expense,
         dividend_yield=_normalize_yield(info.get("dividendYield"), info.get("yield")),
         beta=_safe_float(info.get("beta3Year")),
-        ytd_return=_normalize_return(info.get("ytdReturn")),
-        return_3y=_normalize_return(info.get("threeYearAverageReturn")),
-        return_5y=_normalize_return(info.get("fiveYearAverageReturn")),
+        ytd_return=_normalize_return_whole_pct(info.get("ytdReturn")),
+        return_3y=_normalize_return_decimal(info.get("threeYearAverageReturn")),
+        return_5y=_normalize_return_decimal(info.get("fiveYearAverageReturn")),
         total_assets=_safe_float(info.get("totalAssets")),
         exchange=exchange,
         avg_volume=_safe_float(info.get("averageVolume")),

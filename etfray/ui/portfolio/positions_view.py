@@ -63,7 +63,7 @@ class PositionsView(VerticalScroll):
                 f"${p.avg_cost:,.2f}",
                 f"${p.market_value:,.0f}",
                 f"{weight:.1f}%",
-                f"${pnl:+,.0f}" if pnl else "—",
+                f"${pnl:+,.0f}" if pnl is not None else "—",
                 p.currency,
                 key=p.symbol,
             )

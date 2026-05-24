@@ -24,8 +24,8 @@ class SeasonalsSummary:
 class SeasonalYearSeries:
     year: int
     day_of_year: list[int]
-    cumulative_pct: list[float]
-    final_return_pct: float
+    cumulative: list[float]       # decimal fractions (e.g. 0.123 = +12.3%)
+    final_return: float           # decimal fraction (e.g. 0.123 = +12.3%)
 
 
 @dataclass
@@ -158,12 +158,12 @@ def split_prices_by_year(prices: pd.Series) -> dict[int, pd.Series]:
 
 
 def compute_seasonal_series(year_prices: pd.Series, year: int) -> SeasonalYearSeries:
-    """Cumulative % return from the year's first trading day (0% baseline)."""
+    """Cumulative return from the year's first trading day (0 baseline), as decimal fraction."""
     first_price = float(year_prices.iloc[0])
     if first_price == 0:
         return SeasonalYearSeries(year, [], [], 0.0)
 
-    cumulative = ((year_prices / first_price) - 1) * 100
+    cumulative = (year_prices / first_price) - 1
     days = [int(ts.dayofyear) for ts in year_prices.index]
     values = [float(v) for v in cumulative.tolist()]
     final_return = values[-1] if values else 0.0
@@ -199,10 +199,10 @@ def compute_seasonals(
 
 
 def _compute_average_seasonal(series_list: list[SeasonalYearSeries]) -> SeasonalYearSeries:
-    """Mean cumulative % return per day-of-year across selected years."""
+    """Mean cumulative return per day-of-year across selected years (decimal fractions)."""
     buckets: dict[int, list[float]] = {}
     for series in series_list:
-        for day, value in zip(series.day_of_year, series.cumulative_pct, strict=True):
+        for day, value in zip(series.day_of_year, series.cumulative, strict=True):
             buckets.setdefault(day, []).append(value)
 
     days = sorted(buckets.keys())
@@ -221,7 +221,7 @@ def seasonals_to_export_rows(series_list: list[SeasonalYearSeries], prices: pd.S
         year_prices = by_year.get(series.year)
         if year_prices is None:
             continue
-        for day, pct in zip(series.day_of_year, series.cumulative_pct, strict=True):
+        for day, ret in zip(series.day_of_year, series.cumulative, strict=True):
             date_str = ""
             matches = year_prices.index[year_prices.index.dayofyear == day]
             if len(matches) > 0:
@@ -231,7 +231,7 @@ def seasonals_to_export_rows(series_list: list[SeasonalYearSeries], prices: pd.S
                     "year": series.year,
                     "day_of_year": day,
                     "date": date_str,
-                    "cumulative_pct": round(pct, 4),
+                    "cumulative_pct": round(ret * 100, 4),
                 }
             )
     return pd.DataFrame(rows)
