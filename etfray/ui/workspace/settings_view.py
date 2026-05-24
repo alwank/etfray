@@ -64,6 +64,10 @@ class SettingsView(VerticalScroll):
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "save-settings":
+            data_source = self.query_one("#data-source", Input).value or "auto"
+            if data_source not in {"auto", "edgar", "web"}:
+                self.notify("data_source must be 'auto', 'edgar', or 'web'", severity="error")
+                return
             s = Settings(
                 edgar_identity=self.query_one("#edgar-identity", Input).value,
                 ibkr_host=self.query_one("#ibkr-host", Input).value,
@@ -73,7 +77,7 @@ class SettingsView(VerticalScroll):
                 freshness_days_acceptable=int(self.query_one("#freshness-acceptable", Input).value or "90"),
                 margin_warning_cushion=float(self.query_one("#margin-warning", Input).value or "0.15"),
                 leverage_warning=float(self.query_one("#leverage-warning", Input).value or "2.0"),
-                data_source=self.query_one("#data-source", Input).value or "auto",
+                data_source=data_source,
                 cache_dir=self.query_one("#cache-dir", Input).value,
                 export_dir=self.query_one("#export-dir", Input).value,
             )

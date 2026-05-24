@@ -70,7 +70,13 @@ class PortfolioConcentrationView(VerticalScroll):
         for pos in positions:
             df = holdings_cache.get(pos["symbol"])
             if df is not None and not df.empty and "ticker" in df.columns:
-                etf_holdings[pos["symbol"]] = set(df["ticker"].dropna().astype(str).str.upper())
+                tickers = df["ticker"].dropna().astype(str).str.upper()
+                # Normalize ticker format: strip spaces and slash separators so that
+                # "BRK B" and "BRK/B" both compare as "BRKB".
+                # Note: this is a best-effort heuristic and may over-merge distinct
+                # share classes that happen to share the same stem after stripping.
+                tickers = tickers.str.replace(r"[\s/]", "", regex=True)
+                etf_holdings[pos["symbol"]] = set(tickers)
 
         overlap_score = "Low"
         if len(etf_holdings) >= 2:

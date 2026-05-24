@@ -2,7 +2,7 @@
 
 import pandas as pd
 from textual.app import ComposeResult
-from textual.containers import Horizontal, VerticalScroll
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Button, DataTable, Input, Select, Static
 
 
@@ -12,6 +12,12 @@ class HoldingsView(VerticalScroll):
         height: 1fr;
         min-height: 1fr;
         padding: 1 2;
+    }
+    HoldingsView #holdings-body {
+        display: none;
+    }
+    HoldingsView #holdings-empty Button {
+        margin-top: 1;
     }
     HoldingsView #holdings-header {
         height: 3;
@@ -40,25 +46,32 @@ class HoldingsView(VerticalScroll):
     _ticker: str = ""
 
     def compose(self) -> ComposeResult:
-        with Horizontal(id="holdings-header"):
-            yield Static("Holdings — Select an ETF first", id="holdings-title")
-            yield Button("Top 10", id="top10")
-            yield Button("Top 25", id="top25")
-            yield Button("All", id="all")
-            yield Button("Export", id="export-holdings")
-        with Horizontal(id="holdings-filters"):
-            yield Input(placeholder="Search...", id="filter-search")
-            yield Select([], prompt="Asset Type", id="filter-asset", allow_blank=True)
-            yield Select([], prompt="Country", id="filter-country", allow_blank=True)
-            yield Input(placeholder="Min wt%", id="filter-weight")
-        yield DataTable(id="holdings-table")
+        with Vertical(id="holdings-empty"):
+            yield Static("Holdings — Select an ETF first")
+            yield Button("Open Search to select an ETF →", id="holdings-open-search", variant="primary")
+        with Vertical(id="holdings-body"):
+            with Horizontal(id="holdings-header"):
+                yield Static("", id="holdings-title")
+                yield Button("Top 10", id="top10")
+                yield Button("Top 25", id="top25")
+                yield Button("All", id="all")
+                yield Button("Export", id="export-holdings")
+            with Horizontal(id="holdings-filters"):
+                yield Input(placeholder="Search...", id="filter-search")
+                yield Select([], prompt="Asset Type", id="filter-asset", allow_blank=True)
+                yield Select([], prompt="Country", id="filter-country", allow_blank=True)
+                yield Input(placeholder="Min wt%", id="filter-weight")
+            yield DataTable(id="holdings-table")
 
     def on_mount(self) -> None:
         table = self.query_one("#holdings-table", DataTable)
         table.cursor_type = "row"
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "top10":
+        if event.button.id == "holdings-open-search":
+            self.app.navigate_to("research-search")
+            return
+        elif event.button.id == "top10":
             self._top_n = 10
         elif event.button.id == "top25":
             self._top_n = 25
@@ -81,6 +94,8 @@ class HoldingsView(VerticalScroll):
 
     def load_etf(self, ticker: str) -> None:
         self._ticker = ticker
+        self.query_one("#holdings-empty").display = False
+        self.query_one("#holdings-body").display = True
         self.loading = True
         self.run_worker(self._load(ticker), exclusive=True)
 
@@ -121,7 +136,8 @@ class HoldingsView(VerticalScroll):
         if df is None or df.empty:
             return df
 
-        df = df.sort_values("pct_value", ascending=False)
+        sort_col = "pct_value" if "pct_value" in df.columns else "value_usd"
+        df = df.sort_values(sort_col, ascending=False)
 
         # Asset type filter
         asset_val = self.query_one("#filter-asset", Select).value
@@ -138,7 +154,7 @@ class HoldingsView(VerticalScroll):
         if wt_text:
             try:
                 min_wt = float(wt_text)
-                df = df[df["pct_value"].astype(float) >= min_wt]
+                df = df[df[sort_col].astype(float) >= min_wt]
             except ValueError:
                 pass
 
@@ -194,7 +210,7 @@ class HoldingsView(VerticalScroll):
                         str(row.get("name", "") or "")[:30],
                         f"{pct:.2f}%" if pct else "—",
                         f"{balance:,.0f}" if balance else "—",
-                        f"{w52:.2f}%" if w52 else "—",
+                        f"{w52 * 100:.2f}%" if w52 else "—",
                     )
                 else:
                     value = float(row.get("value_usd", 0) or 0)

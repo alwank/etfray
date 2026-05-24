@@ -35,7 +35,8 @@ class MarginView(VerticalScroll):
         settings = load_settings()
 
         leverage = s.gross_position_value / s.net_liquidation if s.net_liquidation else 0
-        cushion_pct = s.cushion * 100 if s.cushion < 1 else s.cushion
+        cushion_frac = s.cushion          # always decimal from IBKR
+        cushion_pct  = cushion_frac * 100 # for display only
 
         # Stress scenarios
         def stress_cushion(shock_pct: float) -> float:
@@ -51,7 +52,7 @@ class MarginView(VerticalScroll):
 
         # Warnings
         warnings = []
-        if cushion_pct / 100 < settings.margin_warning_cushion:
+        if cushion_frac < settings.margin_warning_cushion:
             warnings.append("⚠️  Cushion below warning threshold!")
         if leverage > settings.leverage_warning:
             warnings.append("⚠️  Leverage above warning threshold!")

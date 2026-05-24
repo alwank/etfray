@@ -1,8 +1,8 @@
 """ETF Fees view - expense ratio and fee information."""
 
 from textual.app import ComposeResult
-from textual.containers import VerticalScroll
-from textual.widgets import Static
+from textual.containers import Vertical, VerticalScroll
+from textual.widgets import Button, Static
 
 
 class FeesView(VerticalScroll):
@@ -12,13 +12,28 @@ class FeesView(VerticalScroll):
         min-height: 1fr;
         padding: 1 2;
     }
+    FeesView #fees-body {
+        display: none;
+    }
+    FeesView #fees-empty Button {
+        margin-top: 1;
+    }
     """
 
     def compose(self) -> ComposeResult:
-        yield Static("Fees — Select an ETF first", id="fees-content")
+        with Vertical(id="fees-empty"):
+            yield Static("Fees — Select an ETF first")
+            yield Button("Open Search to select an ETF →", id="fees-open-search", variant="primary")
+        with Vertical(id="fees-body"):
+            yield Static("", id="fees-content")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "fees-open-search":
+            self.app.navigate_to("research-search")
 
     def load_etf(self, ticker: str) -> None:
-        self.query_one("#fees-content", Static).update("")
+        self.query_one("#fees-empty").display = False
+        self.query_one("#fees-body").display = True
         self.loading = True
         self.run_worker(self._load(ticker), exclusive=True)
 
@@ -32,10 +47,11 @@ class FeesView(VerticalScroll):
 
         content = self.query_one("#fees-content", Static)
 
-        report, profile = await asyncio.gather(
+        report, profile_result = await asyncio.gather(
             to_thread(get_etf_report, ticker),
             to_thread(get_etf_profile, ticker),
         )
+        profile, _ = profile_result
 
         if not report and not profile:
             self.loading = False

@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime
+from dataclasses import dataclass, field
 
 import pandas as pd
 from pandas import DateOffset
@@ -24,11 +23,20 @@ class SeasonalsSummary:
 class SeasonalYearSeries:
     year: int
     day_of_year: list[int]
-    cumulative_pct: list[float]
-    final_return_pct: float
+    cumulative: list[float]       # decimal fractions (e.g. 0.123 = +12.3%)
+    final_return: float           # decimal fraction (e.g. 0.123 = +12.3%)
 
 
-def _adj_close_series(df: pd.DataFrame) -> pd.Series:
+@dataclass
+class MonthlyReturnsTable:
+    years: list[int]                                    # descending order
+    monthly: dict[int, dict[int, float | None]] = field(default_factory=dict)  # year → {1..12 → pct or None}
+    annual: dict[int, float | None] = field(default_factory=dict)              # year → full-year pct or None
+    rises: dict[int, int] = field(default_factory=dict)                        # month → count of positive years
+    falls: dict[int, int] = field(default_factory=dict)                        # month → count of negative years
+
+
+def adj_close_series(df: pd.DataFrame) -> pd.Series:
     if df is None or df.empty:
         return pd.Series(dtype=float)
     col = "Adj Close" if "Adj Close" in df.columns else "Close"
@@ -36,7 +44,7 @@ def _adj_close_series(df: pd.DataFrame) -> pd.Series:
         return pd.Series(dtype=float)
     s = df[col].dropna().copy()
     if s.index.tz is not None:
-        s.index = s.index.tz_localize(None)
+        s.index = s.index.tz_convert("UTC").tz_localize(None)
     return s.sort_index()
 
 
@@ -65,7 +73,9 @@ def _return_between(
 
 def _period_start(end_ts: pd.Timestamp, label: str) -> pd.Timestamp:
     if label == "YTD":
-        return pd.Timestamp(datetime(end_ts.year, 1, 1))
+        # Use prior year-end (Dec 31) as the base so the first trading day of January
+        # is treated as a return from the prior year's last close, matching industry convention.
+        return pd.Timestamp(end_ts.year - 1, 12, 31)
     if label == "Max":
         return end_ts  # placeholder; caller uses first price
     offsets = {
@@ -82,7 +92,7 @@ def _period_start(end_ts: pd.Timestamp, label: str) -> pd.Timestamp:
 
 def compute_period_returns(df: pd.DataFrame) -> list[tuple[str, float | None]]:
     """Compute total returns for standard period labels."""
-    prices = _adj_close_series(df)
+    prices = adj_close_series(df)
     if prices.empty:
         return [(label, None) for label in PERIOD_LABELS]
 
@@ -102,7 +112,7 @@ def compute_period_returns(df: pd.DataFrame) -> list[tuple[str, float | None]]:
 
 def compute_cumulative_index(df: pd.DataFrame) -> list[float]:
     """Normalize adjusted close to growth index starting at 100."""
-    prices = _adj_close_series(df)
+    prices = adj_close_series(df)
     if prices.empty:
         return []
     base = float(prices.iloc[0])
@@ -114,7 +124,7 @@ def compute_cumulative_index(df: pd.DataFrame) -> list[float]:
 
 def compute_summary(df: pd.DataFrame) -> SeasonalsSummary:
     """Summary stats for the loaded history slice."""
-    prices = _adj_close_series(df)
+    prices = adj_close_series(df)
     if prices.empty:
         return SeasonalsSummary("", "", None, None)
 
@@ -147,12 +157,12 @@ def split_prices_by_year(prices: pd.Series) -> dict[int, pd.Series]:
 
 
 def compute_seasonal_series(year_prices: pd.Series, year: int) -> SeasonalYearSeries:
-    """Cumulative % return from the year's first trading day (0% baseline)."""
+    """Cumulative return from the year's first trading day (0 baseline), as decimal fraction."""
     first_price = float(year_prices.iloc[0])
     if first_price == 0:
         return SeasonalYearSeries(year, [], [], 0.0)
 
-    cumulative = ((year_prices / first_price) - 1) * 100
+    cumulative = (year_prices / first_price) - 1
     days = [int(ts.dayofyear) for ts in year_prices.index]
     values = [float(v) for v in cumulative.tolist()]
     final_return = values[-1] if values else 0.0
@@ -188,10 +198,10 @@ def compute_seasonals(
 
 
 def _compute_average_seasonal(series_list: list[SeasonalYearSeries]) -> SeasonalYearSeries:
-    """Mean cumulative % return per day-of-year across selected years."""
+    """Mean cumulative return per day-of-year across selected years (decimal fractions)."""
     buckets: dict[int, list[float]] = {}
     for series in series_list:
-        for day, value in zip(series.day_of_year, series.cumulative_pct, strict=True):
+        for day, value in zip(series.day_of_year, series.cumulative):
             buckets.setdefault(day, []).append(value)
 
     days = sorted(buckets.keys())
@@ -210,7 +220,7 @@ def seasonals_to_export_rows(series_list: list[SeasonalYearSeries], prices: pd.S
         year_prices = by_year.get(series.year)
         if year_prices is None:
             continue
-        for day, pct in zip(series.day_of_year, series.cumulative_pct, strict=True):
+        for day, ret in zip(series.day_of_year, series.cumulative, strict=True):
             date_str = ""
             matches = year_prices.index[year_prices.index.dayofyear == day]
             if len(matches) > 0:
@@ -220,7 +230,99 @@ def seasonals_to_export_rows(series_list: list[SeasonalYearSeries], prices: pd.S
                     "year": series.year,
                     "day_of_year": day,
                     "date": date_str,
-                    "cumulative_pct": round(pct, 4),
+                    "cumulative_pct": round(ret * 100, 4),
                 }
             )
     return pd.DataFrame(rows)
+
+
+def compute_monthly_returns_table(prices: pd.Series) -> MonthlyReturnsTable:
+    """Build a monthly returns heatmap table from a price series.
+
+    Each cell holds the month-over-month return:
+        (last_close_of_month / last_close_of_previous_month) - 1
+
+    The annual return for each year uses the last close of December of the
+    prior year as the base, falling back to the first price of the year when
+    no prior-December close is available.
+
+    Future months (no data yet) are represented as None.
+    """
+    if prices.empty:
+        return MonthlyReturnsTable(years=[])
+
+    today = pd.Timestamp.today().normalize()
+
+    # Build a series of month-end closes indexed by (year, month) tuples.
+    # We need one extra month before the first full year to anchor Jan returns.
+    monthly_last: dict[tuple[int, int], float] = {}
+    for (yr, mo), grp in prices.groupby([prices.index.year, prices.index.month]):
+        monthly_last[(int(yr), int(mo))] = float(grp.iloc[-1])
+
+    all_years = sorted({yr for yr, _ in monthly_last})
+    if not all_years:
+        return MonthlyReturnsTable(years=[])
+
+    monthly_returns: dict[int, dict[int, float | None]] = {}
+    annual_returns: dict[int, float | None] = {}
+    rises: dict[int, int] = {m: 0 for m in range(1, 13)}
+    falls: dict[int, int] = {m: 0 for m in range(1, 13)}
+
+    for year in all_years:
+        monthly_returns[year] = {}
+        for month in range(1, 13):
+            # Determine previous month key
+            if month == 1:
+                prev_key = (year - 1, 12)
+            else:
+                prev_key = (year, month - 1)
+
+            cur_key = (year, month)
+
+            # Future month: the month hasn't started yet
+            month_start = pd.Timestamp(year, month, 1)
+            if month_start > today:
+                monthly_returns[year][month] = None
+                continue
+
+            cur_price = monthly_last.get(cur_key)
+            prev_price = monthly_last.get(prev_key)
+
+            if cur_price is None or prev_price is None or prev_price == 0:
+                monthly_returns[year][month] = None
+            else:
+                ret = (cur_price / prev_price) - 1
+                monthly_returns[year][month] = ret
+                # Only count fully-closed months in rises/falls tallies
+                month_end = pd.Timestamp(year, month, 1) + pd.offsets.MonthEnd(0)
+                if month_end < today:
+                    if ret > 0:
+                        rises[month] += 1
+                    elif ret < 0:
+                        falls[month] += 1
+
+        # Annual return: base is last close of prior December, else first price of year.
+        # For the inception year, mark as None when the first trade is after Jan 31
+        # (a partial year produces a misleading "annual" figure).
+        prior_dec = monthly_last.get((year - 1, 12))
+        year_prices = prices[prices.index.year == year]
+        if year_prices.empty:
+            annual_returns[year] = None
+        elif year == all_years[0] and year_prices.index[0] > pd.Timestamp(year, 1, 31):
+            annual_returns[year] = None
+        else:
+            last_price = float(year_prices.iloc[-1])
+            base_price = prior_dec if prior_dec is not None else float(year_prices.iloc[0])
+            if base_price == 0:
+                annual_returns[year] = None
+            else:
+                annual_returns[year] = (last_price / base_price) - 1
+
+    years_desc = sorted(all_years, reverse=True)
+    return MonthlyReturnsTable(
+        years=years_desc,
+        monthly=monthly_returns,
+        annual=annual_returns,
+        rises=rises,
+        falls=falls,
+    )

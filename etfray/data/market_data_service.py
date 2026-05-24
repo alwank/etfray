@@ -7,15 +7,13 @@ import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 
+from etfray.data._cache_utils import cache_is_fresh, retry_fetch  # noqa: F401
 from etfray.db.database import cache_etf_profile, get_cached_etf_profile
 
 PROFILE_CACHE_TTL_DAYS = 7
 SOURCE = "yahoo"
 _FETCH_RETRIES = 3
 _FETCH_RETRY_DELAY_SEC = 0.75
-
-_last_profile_error: str = ""
-
 
 @dataclass
 class ETFProfile:
@@ -39,21 +37,6 @@ class ETFProfile:
     legal_type: str = ""
     source: str = SOURCE
     fetched_at: str = ""
-
-
-def get_profile_last_error() -> str:
-    """Human-readable reason the most recent profile fetch failed."""
-    return _last_profile_error
-
-
-def _set_profile_error(message: str) -> None:
-    global _last_profile_error
-    _last_profile_error = message
-
-
-def _clear_profile_error() -> None:
-    global _last_profile_error
-    _last_profile_error = ""
 
 
 def _safe_float(value) -> float | None:
@@ -80,33 +63,51 @@ def _normalize_expense_ratio(value) -> float | None:
     v = _safe_float(value)
     if v is None:
         return None
-    # Yahoo returns either 0.0003 (decimal) or 0.06 (meaning 0.06%).
-    if v >= 0.005:
+    # Yahoo almost always returns a decimal fraction (0.0075 = 0.75%).
+    # Only divide by 100 when the value is clearly a whole-percent number (>= 1),
+    # e.g. Yahoo returns 75 meaning 0.75% — needs /100.
+    if v >= 1:
         return v / 100
     return v
 
 
 def _normalize_yield(dividend_yield, yield_value) -> float | None:
-    """Normalize dividend yield to decimal fraction."""
+    """Normalize dividend yield to decimal fraction.
+
+    Yahoo's ``yield`` (key ``"yield"``) and ``dividendYield`` are both returned
+    as decimal fractions (e.g. 0.0045 = 0.45%).  No division is needed.  We
+    prefer ``yield_value`` (the ``"yield"`` key) and fall back to
+    ``dividend_yield`` (the ``"dividendYield"`` key).
+    """
     y = _safe_float(yield_value)
     if y is not None:
-        return y / 100 if y >= 0.5 else y
+        return y
 
     d = _safe_float(dividend_yield)
-    if d is None:
-        return None
-    return d / 100 if d >= 0.5 else d
+    return d  # None or already a decimal fraction
 
 
-def _normalize_return(value) -> float | None:
-    """Normalize return fields to decimal fraction."""
+def _normalize_return_whole_pct(value) -> float | None:
+    """Convert a whole-percent return value to a decimal fraction.
+
+    Use for Yahoo's ``ytdReturn`` field, which is returned as a whole-percent
+    number (e.g. 9.09 means +9.09%) and must be divided by 100.
+    """
     v = _safe_float(value)
     if v is None:
         return None
-    # ytdReturn is often whole-percent (9.09); multi-year returns are often decimal (0.17).
-    if abs(v) > 1:
-        return v / 100
-    return v
+    return v / 100
+
+
+def _normalize_return_decimal(value) -> float | None:
+    """Pass through a return value that is already a decimal fraction.
+
+    Use for Yahoo's ``threeYearAverageReturn`` and ``fiveYearAverageReturn``
+    fields, which are returned as decimal fractions (e.g. 0.17 = +17%).
+    Dividing by 100 would silently destroy legitimate values such as 1.05
+    (+105% over 5 years).
+    """
+    return _safe_float(value)
 
 
 def _has_profile_fields(info: dict) -> bool:
@@ -160,13 +161,12 @@ def _merge_funds_data(ticker: str, info: dict, funds_data) -> dict:
     return merged
 
 
-def _fetch_yahoo_info(ticker: str) -> dict:
+def _fetch_yahoo_info(ticker: str) -> tuple[dict, str]:
     """Fetch Yahoo quote info with retries and funds_data fallback."""
     try:
         import yfinance as yf
     except ImportError:
-        _set_profile_error("yfinance is not installed (run: pip install -e '.')")
-        return {}
+        return {}, "yfinance is not installed (run: pip install -e '.')"
 
     ticker = ticker.upper()
     last_info: dict = {}
@@ -197,7 +197,7 @@ def _fetch_yahoo_info(ticker: str) -> dict:
             merged = _merge_funds_data(ticker, {**info, **{k: v for k, v in merged.items() if v}}, funds_data)
 
             if _has_profile_fields(merged):
-                return merged
+                return merged, ""
             last_info = merged
             last_error = last_error or "Yahoo returned no fund profile fields"
         except Exception as exc:
@@ -205,9 +205,7 @@ def _fetch_yahoo_info(ticker: str) -> dict:
         if attempt < _FETCH_RETRIES - 1:
             time.sleep(_FETCH_RETRY_DELAY_SEC * (attempt + 1))
 
-    if last_error:
-        _set_profile_error(last_error)
-    return last_info
+    return last_info, last_error
 
 
 def _parse_yahoo_info(ticker: str, info: dict, fetched_at: str) -> ETFProfile | None:
@@ -236,9 +234,9 @@ def _parse_yahoo_info(ticker: str, info: dict, fetched_at: str) -> ETFProfile | 
         expense_ratio=expense,
         dividend_yield=_normalize_yield(info.get("dividendYield"), info.get("yield")),
         beta=_safe_float(info.get("beta3Year")),
-        ytd_return=_normalize_return(info.get("ytdReturn")),
-        return_3y=_normalize_return(info.get("threeYearAverageReturn")),
-        return_5y=_normalize_return(info.get("fiveYearAverageReturn")),
+        ytd_return=_normalize_return_whole_pct(info.get("ytdReturn")),
+        return_3y=_normalize_return_decimal(info.get("threeYearAverageReturn")),
+        return_5y=_normalize_return_decimal(info.get("fiveYearAverageReturn")),
         total_assets=_safe_float(info.get("totalAssets")),
         exchange=exchange,
         avg_volume=_safe_float(info.get("averageVolume")),
@@ -249,54 +247,57 @@ def _parse_yahoo_info(ticker: str, info: dict, fetched_at: str) -> ETFProfile | 
     )
 
 
+def _sanitize_cached_profile(profile: ETFProfile) -> ETFProfile:
+    """Fix ytd_return values that were cached as raw whole-percent numbers.
+
+    Yahoo's ``ytdReturn`` field is a whole-percent (e.g. 5.69 = +5.69%).
+    Earlier versions of this code cached the raw value without dividing by 100.
+    No real ETF has a YTD return greater than ±500%, so any |ytd_return| > 5
+    is a clear sign the value was stored un-normalized.
+    """
+    ytd = profile.ytd_return
+    if ytd is not None and abs(ytd) > 5:
+        profile = ETFProfile(**{**profile.__dict__, "ytd_return": ytd / 100})
+    return profile
+
+
 def _profile_from_cache(cached: dict) -> ETFProfile | None:
     try:
         data = json.loads(cached["profile_json"])
-        return ETFProfile(**data)
+        profile = ETFProfile(**data)
+        return _sanitize_cached_profile(profile)
     except (json.JSONDecodeError, TypeError, KeyError):
         return None
 
 
-def _cache_is_fresh(fetched_at: str, *, now: datetime | None = None) -> bool:
+def _fetch_from_yahoo(ticker: str) -> tuple[ETFProfile | None, str]:
     try:
-        fetched = datetime.fromisoformat(fetched_at)
-    except (ValueError, TypeError):
-        return False
-    current = now or datetime.now()
-    return current - fetched < timedelta(days=PROFILE_CACHE_TTL_DAYS)
-
-
-def _fetch_from_yahoo(ticker: str) -> ETFProfile | None:
-    try:
-        info = _fetch_yahoo_info(ticker)
+        info, fetch_error = _fetch_yahoo_info(ticker)
         fetched_at = datetime.now().isoformat()
         profile = _parse_yahoo_info(ticker, info, fetched_at)
         if profile:
-            _clear_profile_error()
             cache_etf_profile(ticker, json.dumps(asdict(profile)), fetched_at)
-            return profile
-        if not _last_profile_error:
-            _set_profile_error("Yahoo returned no fund profile fields")
-        return None
+            return profile, ""
+        return None, fetch_error or "Yahoo returned no fund profile fields"
     except ImportError:
-        _set_profile_error("yfinance is not installed (run: pip install -e '.')")
-        return None
+        return None, "yfinance is not installed (run: pip install -e '.')"
     except Exception as exc:
-        _set_profile_error(str(exc))
-        return None
+        return None, str(exc)
 
 
-def get_etf_profile(ticker: str, *, force_refresh: bool = False) -> ETFProfile | None:
-    """Get ETF profile from cache or Yahoo Finance."""
+def get_etf_profile(ticker: str, *, force_refresh: bool = False) -> tuple[ETFProfile | None, str]:
+    """Get ETF profile from cache or Yahoo Finance.
+
+    Returns a ``(profile, error)`` tuple.  On success the error string is empty.
+    """
     ticker = ticker.upper()
 
     if not force_refresh:
         cached = get_cached_etf_profile(ticker)
-        if cached and _cache_is_fresh(cached["fetched_at"]):
+        if cached and cache_is_fresh(cached["fetched_at"], ttl=timedelta(days=PROFILE_CACHE_TTL_DAYS)):
             profile = _profile_from_cache(cached)
             if profile:
-                _clear_profile_error()
-                return profile
+                return profile, ""
 
     return _fetch_from_yahoo(ticker)
 

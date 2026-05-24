@@ -55,7 +55,7 @@ def _fetch_and_parse(ticker: str) -> pd.DataFrame | None:
         except ValueError:
             shares = 0.0
         try:
-            week52 = float(week52_str)
+            week52 = float(week52_str) / 100
         except ValueError:
             week52 = 0.0
 

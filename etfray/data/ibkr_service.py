@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import datetime
+
+_log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -83,7 +86,7 @@ class IBKRService:
             try:
                 self._ib.disconnect()
             except Exception:
-                pass
+                pass  # best-effort cleanup
         self._connected = False
         self._ib = None
 
@@ -132,15 +135,15 @@ class IBKRService:
                 elif tag == "AvailableFunds":
                     s.available_funds = v
             self._account_summary = s
-        except Exception:
-            pass
+        except Exception as exc:
+            _log.warning("IBKR account summary refresh failed: %s", exc)
 
         # Positions from portfolio() - includes market price and PnL
         try:
-            self._positions = []
+            new_positions: list[Position] = []
             for p in self._ib.portfolio():
                 contract = p.contract
-                self._positions.append(
+                new_positions.append(
                     Position(
                         symbol=contract.symbol,
                         name=getattr(contract, "localSymbol", contract.symbol),
@@ -152,10 +155,11 @@ class IBKRService:
                         unrealized_pnl=p.unrealizedPNL,
                         currency=contract.currency,
                         account=p.account,
-                    )
                 )
-        except Exception:
-            pass
+            )
+            self._positions = new_positions
+        except Exception as exc:
+            _log.warning("IBKR positions refresh failed: %s", exc)
 
 
 # Singleton instance

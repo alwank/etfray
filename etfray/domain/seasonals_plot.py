@@ -8,7 +8,9 @@ import io
 
 from etfray.domain.seasonals_analytics import SeasonalYearSeries
 
-# Approximate day-of-year for the 1st of each month (non-leap year).
+# Day-of-year for the 1st of each month in a non-leap year.
+# In leap years, March–December ticks are off by 1 day (~0.5 day average across years).
+# This is acceptable for a multi-year seasonals chart where years are overlaid.
 MONTH_TICKS = [1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335]
 MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
@@ -132,12 +134,12 @@ def seasonal_ylim(
     series_list: list[SeasonalYearSeries],
     average: SeasonalYearSeries | None,
 ) -> tuple[float, float]:
-    """Y-axis limits with padding for seasonals cumulative %."""
+    """Y-axis limits with padding for seasonals cumulative % (values in percent for display)."""
     values: list[float] = []
     for series in series_list:
-        values.extend(series.cumulative_pct)
+        values.extend(v * 100 for v in series.cumulative)
     if average is not None:
-        values.extend(average.cumulative_pct)
+        values.extend(v * 100 for v in average.cumulative)
     if not values:
         return (-5.0, 5.0)
     ymin, ymax = min(values), max(values)
@@ -183,7 +185,7 @@ def render_seasonals_figure(
             continue
         ax.plot(
             series.day_of_year,
-            series.cumulative_pct,
+            [v * 100 for v in series.cumulative],
             color=color_for_series_index(i),
             linewidth=1.8,
             solid_capstyle="round",
@@ -192,7 +194,7 @@ def render_seasonals_figure(
     if average is not None and average.day_of_year:
         ax.plot(
             average.day_of_year,
-            average.cumulative_pct,
+            [v * 100 for v in average.cumulative],
             color=AVERAGE_COLOR,
             linewidth=2.0,
             linestyle="--",
@@ -241,10 +243,10 @@ def render_seasonals_chart(
     for series in series_list:
         if not series.day_of_year:
             continue
-        plt.plot(series.day_of_year, series.cumulative_pct)
+        plt.plot(series.day_of_year, [v * 100 for v in series.cumulative])
 
     if average is not None and average.day_of_year:
-        plt.plot(average.day_of_year, average.cumulative_pct, style="dashed")
+        plt.plot(average.day_of_year, [v * 100 for v in average.cumulative], style="dashed")
 
     plt.xticks(MONTH_TICKS, MONTH_LABELS)
     plt.xlim(1, 366)

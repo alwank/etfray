@@ -7,7 +7,7 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.timer import Timer
-from textual.widgets import Button, DataTable, Select, Static
+from textual.widgets import Button, DataTable, Select, Static, TabbedContent, TabPane
 
 from etfray.domain.seasonals_plot import (
     chart_deps_status,
@@ -34,7 +34,8 @@ _LEGEND_SEPARATOR = "    ·    "
 
 
 def _fmt_seasonal_pct(value: float) -> str:
-    return f"{value:+.2f}%"
+    from etfray.domain.overview_format import fmt_pct
+    return fmt_pct(value, signed=True)
 
 
 class SeasonalsView(Vertical):
@@ -58,48 +59,73 @@ class SeasonalsView(Vertical):
         height: 1fr;
         min-height: 1fr;
         padding: 1 1;
+    }
+    SeasonalsView #perf-empty Button {
+        margin-top: 1;
+    }
+    SeasonalsView #perf-body {
+        display: none;
+        height: 1fr;
         layout: grid;
-        grid-size: 1 4;
+        grid-size: 1 3;
         grid-gutter: 0 1;
-        grid-rows: auto auto 1fr auto;
+        grid-rows: auto auto 1fr;
     }
     SeasonalsView #perf-header {
         height: auto;
-        min-height: 3;
+        min-height: 1;
         width: 100%;
-        row-span: 1;
     }
     SeasonalsView #perf-controls {
         height: auto;
-        min-height: 3;
+        min-height: 5;
         width: 100%;
-        row-span: 1;
+        margin-bottom: 1;
     }
     SeasonalsView #perf-year-start,
     SeasonalsView #perf-year-end {
-        width: 14;
-        min-width: 14;
+        width: 18;
+        min-width: 18;
         margin-right: 1;
     }
     SeasonalsView #perf-header Button,
     SeasonalsView #perf-controls Button {
         min-width: 8;
         max-width: 12;
-        height: 3;
         margin: 0 0 0 1;
     }
+    SeasonalsView TabbedContent {
+        height: 1fr;
+        width: 100%;
+    }
+    SeasonalsView TabbedContent > Vertical {
+        height: 1fr;
+    }
+    SeasonalsView TabbedContent ContentSwitcher {
+        height: 1fr;
+        min-height: 0;
+    }
+    SeasonalsView TabPane {
+        height: 1fr;
+        min-height: 0;
+        padding: 0;
+    }
+    SeasonalsView #tab-chart {
+        layout: grid;
+        grid-size: 1 2;
+        grid-rows: 1fr auto;
+        height: 1fr;
+    }
     SeasonalsView #perf-chart-area {
-        height: 100%;
+        height: 1fr;
         min-height: 0;
         width: 100%;
-        row-span: 1;
     }
     SeasonalsView #perf-footer {
         height: auto;
         min-height: 8;
         width: 100%;
         background: $background;
-        row-span: 1;
     }
     SeasonalsView #perf-chart-container {
         height: 1fr;
@@ -118,7 +144,6 @@ class SeasonalsView(Vertical):
         height: auto;
         max-height: 100%;
     }
-
     SeasonalsView #perf-legend {
         width: 100%;
         height: auto;
@@ -138,6 +163,13 @@ class SeasonalsView(Vertical):
         height: auto;
         min-height: 2;
         color: $text-muted;
+    }
+    SeasonalsView #tab-table {
+        height: 1fr;
+    }
+    SeasonalsView #perf-monthly-table {
+        height: 1fr;
+        width: 100%;
     }
     SeasonalsView .hidden {
         display: none;
@@ -160,6 +192,7 @@ class SeasonalsView(Vertical):
     _last_render_cells: tuple[int, int] = (0, 0)
     _needs_layout_rerender: bool = False
     _chart_render_cache: tuple[list, object | None, str] | None = None
+    _monthly_table = None
 
     def _chart_image_widget(self):
         """Return the image chart widget if it was composed, else None."""
@@ -171,43 +204,55 @@ class SeasonalsView(Vertical):
         """Block app-level nav shortcuts while this view is focused."""
 
     def compose(self) -> ComposeResult:
-        with Horizontal(id="perf-header"):
-            yield Static("Seasonals — Select an ETF first", id="perf-title")
-            yield Button("Export", id="perf-export")
-        with Horizontal(id="perf-controls"):
-            yield Select(
-                _PLACEHOLDER_YEAR_OPTS,
-                prompt="Start year",
-                id="perf-year-start",
-                allow_blank=True,
-            )
-            yield Select(
-                _PLACEHOLDER_YEAR_OPTS,
-                prompt="End year",
-                id="perf-year-end",
-                allow_blank=True,
-            )
-            yield Button("Average", id="perf-average-btn")
-        with Vertical(id="perf-chart-area"):
-            with Horizontal(id="perf-chart-container"):
-                self._has_chart_image_widget = _TERMINAL_IMAGE_CLASS is not None
-                if _TERMINAL_IMAGE_CLASS is not None:
-                    yield _TERMINAL_IMAGE_CLASS(id="perf-chart-image")
-                yield Static(
-                    "Select an ETF to view seasonals chart.",
-                    id="perf-chart-fallback",
-                    markup=False,
+        with Vertical(id="perf-empty"):
+            yield Static("Seasonals — Select an ETF first")
+            yield Button("Open Search to select an ETF →", id="perf-open-search", variant="primary")
+        with Vertical(id="perf-body"):
+            with Horizontal(id="perf-header"):
+                yield Static("", id="perf-title")
+                yield Button("Export", id="perf-export")
+            with Horizontal(id="perf-controls"):
+                yield Select(
+                    _PLACEHOLDER_YEAR_OPTS,
+                    prompt="Start year",
+                    id="perf-year-start",
+                    allow_blank=True,
                 )
-        with Vertical(id="perf-footer"):
-            yield Static("", id="perf-legend")
-            yield DataTable(id="perf-table")
-            yield Static("", id="perf-summary")
+                yield Select(
+                    _PLACEHOLDER_YEAR_OPTS,
+                    prompt="End year",
+                    id="perf-year-end",
+                    allow_blank=True,
+                )
+                yield Button("Average", id="perf-average-btn")
+            with TabbedContent(id="perf-tabs"):
+                with TabPane("Chart", id="tab-chart"):
+                    with Vertical(id="perf-chart-area"):
+                        with Horizontal(id="perf-chart-container"):
+                            self._has_chart_image_widget = _TERMINAL_IMAGE_CLASS is not None
+                            if _TERMINAL_IMAGE_CLASS is not None:
+                                yield _TERMINAL_IMAGE_CLASS(id="perf-chart-image")
+                            yield Static(
+                                "Select an ETF to view seasonals chart.",
+                                id="perf-chart-fallback",
+                                markup=False,
+                            )
+                    with Vertical(id="perf-footer"):
+                        yield Static("", id="perf-legend")
+                        yield DataTable(id="perf-table")
+                        yield Static("", id="perf-summary")
+                with TabPane("Table", id="tab-table"):
+                    yield DataTable(id="perf-monthly-table")
 
     def on_mount(self) -> None:
         table = self.query_one("#perf-table", DataTable)
         table.cursor_type = "none"
         table.show_horizontal_scrollbar = False
         table.show_vertical_scrollbar = False
+        monthly_dt = self.query_one("#perf-monthly-table", DataTable)
+        monthly_dt.cursor_type = "none"
+        monthly_dt.show_horizontal_scrollbar = True
+        monthly_dt.show_vertical_scrollbar = True
         self._update_average_button()
         if charts_available() and not self._has_chart_image_widget:
             self.app.notify(
@@ -232,13 +277,19 @@ class SeasonalsView(Vertical):
             self._render_chart()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "perf-export":
+        if event.button.id == "perf-open-search":
+            self.app.navigate_to("research-search")
+        elif event.button.id == "perf-export":
             self._export()
         elif event.button.id == "perf-average-btn":
             self._show_average = not self._show_average
             self._update_average_button()
             if self._prices is not None:
                 self._render_chart()
+
+    def on_tabbed_content_tab_activated(self, event: TabbedContent.TabActivated) -> None:
+        if event.tab.id == "--content-tab-tab-table" and self._monthly_table is not None:
+            self._populate_monthly_table()
 
     def on_select_changed(self, event: Select.Changed) -> None:
         if self._syncing_year_selects:
@@ -275,6 +326,8 @@ class SeasonalsView(Vertical):
 
     def load_etf(self, ticker: str) -> None:
         self._ticker = ticker.upper()
+        self.query_one("#perf-empty").display = False
+        self.query_one("#perf-body").display = True
         self.query_one("#perf-title", Static).update(f"{self._ticker} — Seasonals")
         self.loading = True
         self.run_worker(self._load(self._ticker), exclusive=True)
@@ -311,7 +364,19 @@ class SeasonalsView(Vertical):
         return max(40, view_w - 4)
 
     def _chart_container_height(self) -> int:
-        """Chart container height in terminal rows (where the image is placed)."""
+        """Chart area height in terminal rows.
+
+        #perf-chart-container collapses to the pinned image widget height
+        (circular dependency), so we use #perf-chart-area as the primary
+        source and fall back to the container only when the area reports zero.
+        """
+        try:
+            area = self.query_one("#perf-chart-area")
+            h = area.size.height if area.size.height > 0 else area.region.height
+            if h > 0:
+                return h
+        except Exception:
+            pass
         try:
             container = self.query_one("#perf-chart-container")
             height = container.size.height if container.size.height > 0 else container.region.height
@@ -333,17 +398,23 @@ class SeasonalsView(Vertical):
         return 9
 
     def _max_image_rows(self) -> int:
-        """Cap sixel to chart container height (footer is in a separate grid row)."""
-        container_h = self._chart_container_height()
-        if container_h > 0:
-            return max(_MIN_CHART_ROWS, container_h - 1)
+        """Cap sixel to chart area height.
+
+        #perf-chart-container collapses to the image widget's pinned height
+        (circular dependency), so we use #perf-chart-area as the authoritative
+        source of available rows and fall back to the container only when the
+        area reports zero.
+        """
         try:
             area = self.query_one("#perf-chart-area")
             area_h = area.size.height if area.size.height > 0 else area.region.height
             if area_h > 0:
-                return max(_MIN_CHART_ROWS, area_h - 2)
+                return max(_MIN_CHART_ROWS, area_h - 1)
         except Exception:
             pass
+        container_h = self._chart_container_height()
+        if container_h > 0:
+            return max(_MIN_CHART_ROWS, container_h - 1)
         return _MIN_CHART_ROWS
 
     def _chart_available_rows(self) -> int:
@@ -373,13 +444,11 @@ class SeasonalsView(Vertical):
             container = self.query_one("#perf-chart-container")
             if container.size.width > 0:
                 cols = min(cols, container.size.width)
-            container_h = container.size.height if container.size.height > 0 else container.region.height
-            if container_h > 0:
-                rows = min(rows, container_h)
         except Exception:
-            container_h = self._chart_container_height()
-            if container_h > 0:
-                rows = min(rows, max(_MIN_CHART_ROWS, container_h - 1))
+            pass
+        container_h = self._chart_container_height()
+        if container_h > 0:
+            rows = min(rows, container_h)
         widget.styles.width = cols
         widget.styles.height = max(_MIN_CHART_ROWS, rows)
 
@@ -442,22 +511,22 @@ class SeasonalsView(Vertical):
     async def _load(self, ticker: str) -> None:
         from asyncio import to_thread
 
-        from etfray.data.price_history_service import get_price_history, get_price_history_last_error
+        from etfray.data.price_history_service import get_price_history
         from etfray.domain.overview_format import fmt_pct
         from etfray.domain.seasonals_analytics import (
-            _adj_close_series,
+            adj_close_series,
             available_years,
             compute_period_returns,
             compute_summary,
         )
 
-        df = await to_thread(get_price_history, ticker, "max")
+        df, fetch_err = await to_thread(get_price_history, ticker, "max")
         summary = self.query_one("#perf-summary", Static)
 
         self.loading = False
 
         if df is None or df.empty:
-            err = get_price_history_last_error() or "No price history available"
+            err = fetch_err or "No price history available"
             self.app.notify(err, severity="warning")
             self._populate_returns_table()
             summary.update(f"Error: {err}")
@@ -470,11 +539,19 @@ class SeasonalsView(Vertical):
             return
 
         self._history_df = df
-        self._prices = _adj_close_series(df)
+        self._prices = adj_close_series(df)
         self._period_rows = compute_period_returns(df)
+
+        # YTD is computed from adjusted price history (total return incl. dividends)
+        # anchored to the prior Dec 31 close. Yahoo's ytdReturn field is unreliable
+        # (it can reflect stale reference dates or unadjusted prices), so we rely
+        # solely on the price-based calculation from compute_period_returns.
         self._available_years = available_years(self._prices)
         self._populate_year_selects()
         perf_summary = compute_summary(df)
+
+        from etfray.domain.seasonals_analytics import compute_monthly_returns_table
+        self._monthly_table = compute_monthly_returns_table(self._prices)
 
         self._populate_returns_table()
 
@@ -534,9 +611,9 @@ class SeasonalsView(Vertical):
         for s in sorted(series_list, key=lambda s: s.year, reverse=True):
             idx = next(i for i, x in enumerate(sorted_asc) if x.year == s.year)
             hex_color = color_for_series_index(idx)
-            parts.append(f"[{hex_color}]■[/] {s.year} {_fmt_seasonal_pct(s.final_return_pct)}")
+            parts.append(f"[{hex_color}]■[/] {s.year} {_fmt_seasonal_pct(s.final_return)}")
         if average is not None and average.day_of_year:
-            parts.append(f"[bold white]--[/] Avg {_fmt_seasonal_pct(average.final_return_pct)}")
+            parts.append(f"[bold white]--[/] Avg {_fmt_seasonal_pct(average.final_return)}")
         self.query_one("#perf-legend", Static).update(_LEGEND_SEPARATOR.join(parts) if parts else "")
 
     def _render_chart_fallback(self, series_list, average) -> None:
@@ -640,6 +717,60 @@ class SeasonalsView(Vertical):
             )
         else:
             self._render_chart_fallback(series_list, average)
+
+    _MONTH_ABBR = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+    def _populate_monthly_table(self) -> None:
+        """Render the monthly returns heatmap into #perf-monthly-table."""
+        tbl = self._monthly_table
+        dt = self.query_one("#perf-monthly-table", DataTable)
+        dt.clear(columns=True)
+
+        if tbl is None or not tbl.years:
+            dt.add_column("Status", width=40)
+            dt.add_row("No monthly data available.")
+            return
+
+        col_width = 9
+
+        dt.add_column("Date", width=6)
+        for abbr in self._MONTH_ABBR:
+            dt.add_column(abbr, width=col_width)
+        dt.add_column("Year", width=col_width)
+
+        def _fmt(val: float | None) -> str:
+            if val is None:
+                return "—"
+            sign = "+" if val >= 0 else ""
+            return f"{sign}{val * 100:.2f}%"
+
+        def _cell(val: float | None) -> str:
+            text = _fmt(val)
+            if val is None:
+                return text
+            if val > 0:
+                return f"[bold bright_green]{text}[/]"
+            if val < 0:
+                return f"[bold bright_red]{text}[/]"
+            return text
+
+        for year in tbl.years:
+            months = tbl.monthly.get(year, {})
+            row = [str(year)]
+            for m in range(1, 13):
+                row.append(_cell(months.get(m)))
+            row.append(_cell(tbl.annual.get(year)))
+            dt.add_row(*row)
+
+        # Rises and falls footer row
+        footer = ["[dim]Rises/falls[/]"]
+        for m in range(1, 13):
+            r = tbl.rises.get(m, 0)
+            f = tbl.falls.get(m, 0)
+            footer.append(f"[bright_green]▲{r}[/] [bright_red]▼{f}[/]")
+        footer.append("")
+        dt.add_row(*footer)
 
     def _update_average_button(self) -> None:
         btn = self.query_one("#perf-average-btn", Button)

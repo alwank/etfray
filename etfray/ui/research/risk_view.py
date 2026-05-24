@@ -1,8 +1,8 @@
 """ETF Risk view - derived risk metrics + prospectus risk disclosures."""
 
 from textual.app import ComposeResult
-from textual.containers import VerticalScroll
-from textual.widgets import Static
+from textual.containers import Vertical, VerticalScroll
+from textual.widgets import Button, Static
 
 
 class RiskView(VerticalScroll):
@@ -12,13 +12,28 @@ class RiskView(VerticalScroll):
         min-height: 1fr;
         padding: 1 2;
     }
+    RiskView #risk-body {
+        display: none;
+    }
+    RiskView #risk-empty Button {
+        margin-top: 1;
+    }
     """
 
     def compose(self) -> ComposeResult:
-        yield Static("Risk — Select an ETF first", id="risk-content")
+        with Vertical(id="risk-empty"):
+            yield Static("Risk — Select an ETF first")
+            yield Button("Open Search to select an ETF →", id="risk-open-search", variant="primary")
+        with Vertical(id="risk-body"):
+            yield Static("", id="risk-content")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "risk-open-search":
+            self.app.navigate_to("research-search")
 
     def load_etf(self, ticker: str) -> None:
-        self.query_one("#risk-content", Static).update("")
+        self.query_one("#risk-empty").display = False
+        self.query_one("#risk-body").display = True
         self.loading = True
         self.run_worker(self._load(ticker), exclusive=True)
 
@@ -46,7 +61,10 @@ class RiskView(VerticalScroll):
 
         country_risk = "Unknown"
         if "investment_country" in df.columns:
-            top_country_pct = float(df.groupby("investment_country")["pct_value"].sum().max())
+            value_col = "pct_value" if "pct_value" in df.columns else "value_usd"
+            grouped = df.groupby("investment_country")[value_col].sum()
+            total_val = grouped.sum()
+            top_country_pct = float(grouped.max() / total_val * 100) if total_val > 0 else 0.0
             country_risk = "High" if top_country_pct > 80 else "Medium" if top_country_pct > 50 else "Low"
 
         currency_risk = "Unknown"

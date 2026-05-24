@@ -142,11 +142,13 @@ class TestAggregationKey:
         df_a = _make_web_df(
             [
                 {"ticker": "AAPL", "name": "Apple Inc", "pct_value": 10.0},
+                {"ticker": "MSFT", "name": "Microsoft", "pct_value": 90.0},
             ]
         )
         df_b = _make_web_df(
             [
                 {"ticker": "AAPL", "name": "Apple Inc.", "pct_value": 5.0},
+                {"ticker": "GOOG", "name": "Alphabet", "pct_value": 95.0},
             ]
         )
         positions = [

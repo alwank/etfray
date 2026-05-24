@@ -1,7 +1,7 @@
 """ETF Documents view - list SEC filings with user-friendly labels."""
 
 from textual.app import ComposeResult
-from textual.containers import Horizontal, VerticalScroll
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Button, DataTable, Static
 
 FORM_LABELS = {
@@ -26,7 +26,13 @@ class DocumentsView(VerticalScroll):
         min-height: 1fr;
         padding: 1 2;
     }
-    DocumentsView Horizontal {
+    DocumentsView #docs-body {
+        display: none;
+    }
+    DocumentsView #docs-empty Button {
+        margin-top: 1;
+    }
+    DocumentsView #docs-body Horizontal {
         height: auto;
     }
     DocumentsView DataTable {
@@ -38,10 +44,14 @@ class DocumentsView(VerticalScroll):
     _filings: list[dict] = []
 
     def compose(self) -> ComposeResult:
-        with Horizontal():
-            yield Static("Documents — Select an ETF first", id="docs-title")
-            yield Button("Export", id="export-docs")
-        yield DataTable(id="docs-table")
+        with Vertical(id="docs-empty"):
+            yield Static("Documents — Select an ETF first")
+            yield Button("Open Search to select an ETF →", id="docs-open-search", variant="primary")
+        with Vertical(id="docs-body"):
+            with Horizontal():
+                yield Static("", id="docs-title")
+                yield Button("Export", id="export-docs")
+            yield DataTable(id="docs-table")
 
     def on_mount(self) -> None:
         table = self.query_one("#docs-table", DataTable)
@@ -50,11 +60,15 @@ class DocumentsView(VerticalScroll):
 
     def load_etf(self, ticker: str) -> None:
         self._ticker = ticker
+        self.query_one("#docs-empty").display = False
+        self.query_one("#docs-body").display = True
         self.loading = True
         self.run_worker(self._load(ticker), exclusive=True)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "export-docs":
+        if event.button.id == "docs-open-search":
+            self.app.navigate_to("research-search")
+        elif event.button.id == "export-docs":
             self._export()
 
     async def _load(self, ticker: str) -> None:

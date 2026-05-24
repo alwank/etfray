@@ -2,7 +2,7 @@
 
 from textual.app import ComposeResult
 from textual.containers import VerticalScroll
-from textual.widgets import Static
+from textual.widgets import Button, Static
 
 
 class OverviewView(VerticalScroll):
@@ -21,15 +21,27 @@ class OverviewView(VerticalScroll):
         border: solid $primary-background;
         padding: 1;
     }
+    OverviewView #overview-open-search {
+        margin-top: 1;
+    }
     """
 
     def compose(self) -> ComposeResult:
         yield Static("Select an ETF from Search to view overview.", id="overview-content")
+        yield Button("Open Search to select an ETF →", id="overview-open-search", variant="primary")
 
     def load_etf(self, ticker: str) -> None:
+        try:
+            self.query_one("#overview-open-search", Button).display = False
+        except Exception:
+            pass
         self.query_one("#overview-content", Static).update("")
         self.loading = True
         self.run_worker(self._load(ticker), exclusive=True)
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "overview-open-search":
+            self.app.navigate_to("research-search")
 
     async def _load(self, ticker: str) -> None:
         import asyncio
@@ -45,11 +57,12 @@ class OverviewView(VerticalScroll):
         content = self.query_one("#overview-content", Static)
         settings = load_settings()
 
-        report, profile, df = await asyncio.gather(
+        report, profile_result, df = await asyncio.gather(
             to_thread(get_etf_report, ticker),
             to_thread(get_etf_profile, ticker),
             to_thread(get_holdings_df, ticker),
         )
+        profile, profile_error = profile_result
 
         concentration = None
         top_sector = None
@@ -68,6 +81,7 @@ class OverviewView(VerticalScroll):
             concentration,
             top_sector,
             freshness_badge,
+            profile_error=profile_error,
             fresh_days=settings.freshness_days_fresh,
             acceptable_days=settings.freshness_days_acceptable,
         )

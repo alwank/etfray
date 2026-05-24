@@ -60,7 +60,7 @@ class PortfolioRiskView(VerticalScroll):
         # Lookthrough-based risks
         equity_pct = 0.0
         top10_pct = 0.0
-        data_freshness = "Unknown"
+        data_coverage = "Unknown"
 
         if svc.positions:
             total_value = sum(abs(p.market_value) for p in svc.positions)
@@ -88,14 +88,14 @@ class PortfolioRiskView(VerticalScroll):
                 # Concentration
                 top10_pct = sum(h.total_weight for h in lookthrough[:10])
 
-                # Data freshness
+                # Data coverage: how many positions have resolved holdings
                 total_pos = len(positions)
                 if resolved_count == total_pos:
-                    data_freshness = "Fresh"
+                    data_coverage = "Full"
                 elif resolved_count > total_pos * 0.5:
-                    data_freshness = "Mixed"
+                    data_coverage = "Partial"
                 else:
-                    data_freshness = "Stale"
+                    data_coverage = "Low"
 
         # Concentration risk
         if top10_pct > 30:
@@ -112,7 +112,7 @@ class PortfolioRiskView(VerticalScroll):
             f"  Margin Risk:           {margin_risk} (cushion: {cushion_pct:.1f}%)",
             f"  Equity Exposure:       {equity_pct:.1f}%",
             f"  Concentration Risk:    {conc_risk} (top 10: {top10_pct:.2f}%)",
-            f"  Data Freshness:        {data_freshness}",
+            f"  Data Coverage:         {data_coverage}",
             "",
             "── Risk Drivers ──",
         ]
@@ -123,7 +123,7 @@ class PortfolioRiskView(VerticalScroll):
             lines.append(f"  • Cushion at {cushion_pct:.1f}% — limited buffer")
         if equity_pct > 80:
             lines.append(f"  • High equity concentration ({equity_pct:.0f}%)")
-        if data_freshness == "Stale":
+        if data_coverage == "Low":
             lines.append("  • Holdings data may be outdated")
         if not any(r != "Low" for r in [leverage_risk, margin_risk]):
             lines.append("  • No significant risk drivers detected")

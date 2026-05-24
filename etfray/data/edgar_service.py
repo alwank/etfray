@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -15,6 +16,8 @@ from etfray.db.database import (
     get_cached_holdings,
     load_settings,
 )
+
+_log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -47,7 +50,10 @@ def _ensure_identity() -> None:
     if s.edgar_identity:
         set_identity(s.edgar_identity)
     else:
-        set_identity("etfray@research.local")
+        raise RuntimeError(
+            "EDGAR identity not configured. Open Settings and enter a valid "
+            "contact email (required by SEC fair-access policy)."
+        )
 
 
 def search_etf(query: str) -> list[ETFSearchResult]:
@@ -79,8 +85,8 @@ def search_etf(query: str) -> list[ETFSearchResult]:
                                 fund_name = gi.series_name or fund_name
                                 issuer = getattr(gi, "name", issuer) or issuer
                                 break
-                except Exception:
-                    pass
+                except Exception as exc:
+                    _log.debug("EDGAR filings scan for %s: %s", query, exc)
 
                 results.append(
                     ETFSearchResult(
@@ -101,8 +107,8 @@ def search_etf(query: str) -> list[ETFSearchResult]:
                     )
                 )
                 return results
-        except Exception:
-            pass
+        except Exception as exc:
+            _log.debug("EDGAR direct ticker lookup failed for %s: %s", query, exc)
 
     # Search local cache (fast, works for name/issuer)
     cached = search_cached_etfs(query)
@@ -141,8 +147,8 @@ def search_etf(query: str) -> list[ETFSearchResult]:
                         last_updated=datetime.now().isoformat(),
                     )
                 )
-    except Exception:
-        pass
+    except Exception as exc:
+        _log.warning("SEC CSV ticker search failed: %s", exc)
 
     return results
 
@@ -158,12 +164,12 @@ def _load_series_class_csv() -> list[dict] | None:
     cache_dir = Path.home() / ".etfray" / "cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
     csv_path = cache_dir / "sec_series_class.csv"
-    headers = {"User-Agent": "etfray@research.local"}
+    headers = {"User-Agent": load_settings().edgar_identity or "etfray-app/1.0"}
 
     if not csv_path.exists() or (time.time() - csv_path.stat().st_mtime) > 7 * 86400:
         try:
             r = httpx.get(
-                "https://www.sec.gov/files/investment/data/other/investment-company-series-class-information/investment-company-series-class-2025.csv",
+                f"https://www.sec.gov/files/investment/data/other/investment-company-series-class-information/investment-company-series-class-{str(datetime.now().year)}.csv",
                 headers=headers,
                 timeout=30,
                 follow_redirects=True,
@@ -176,6 +182,10 @@ def _load_series_class_csv() -> list[dict] | None:
         except Exception:
             if not csv_path.exists():
                 return None
+            _log.warning(
+                "_load_series_class_csv: GET failed; falling back to stale cached file at %s",
+                csv_path,
+            )
 
     try:
         rows = []
@@ -199,6 +209,130 @@ def _load_series_class_csv() -> list[dict] | None:
         return rows
     except Exception:
         return None
+
+
+@dataclass
+class ETFUniverseEntry:
+    ticker: str
+    fund_name: str
+    issuer: str
+    cik: str
+    asset_class: str
+    category: str
+    geography: str
+
+
+_universe_cache: list[ETFUniverseEntry] | None = None
+
+
+def invalidate_universe_cache() -> None:
+    """Clear the in-memory ETF universe cache so the next call re-parses from disk."""
+    global _universe_cache
+    _universe_cache = None
+
+
+def _classify_etf(series_name: str, registrant: str) -> tuple[str, str, str]:
+    """Infer (asset_class, category, geography) from fund name keywords.
+
+    Returns best-effort labels; falls back to 'Equity', 'Broad Market', 'US'.
+    """
+    name = (series_name + " " + registrant).lower()
+
+    # Asset class
+    if any(k in name for k in ("bond", "treasury", "fixed income", "tips", "credit", "note", "debt", "municipal", "muni", "yield", "income fund", "aggregate")):
+        asset_class = "Fixed Income"
+    elif any(k in name for k in ("gold", "silver", "oil", "commodity", "commodities", "metal", "copper", "natural gas", "energy fund", "agriculture")):
+        asset_class = "Commodity"
+    elif any(k in name for k in ("multi-asset", "allocation", "balanced", "managed futures", "real return", "inflation")):
+        asset_class = "Multi-Asset"
+    elif any(k in name for k in ("real estate", "reit", "property", "mortgage")):
+        asset_class = "Real Estate"
+    else:
+        asset_class = "Equity"
+
+    # Category
+    _sector_keywords = ("technology", "tech", "health", "healthcare", "energy", "financials", "financial", "utilities", "industrial", "consumer", "materials", "communication", "semiconductor", "biotech", "bank", "insurance", "retail", "aerospace", "defense", "clean energy", "solar", "cyber", "cloud", "ai ", "artificial intelligence")
+    _factor_keywords = ("dividend", "growth", "value", "quality", "momentum", "low volatility", "min vol", "multifactor", "factor", "esg", "sustainable", "responsible")
+
+    if asset_class == "Fixed Income":
+        category = "Fixed Income"
+    elif asset_class == "Commodity":
+        category = "Commodity"
+    elif asset_class == "Real Estate":
+        category = "Real Estate"
+    elif asset_class == "Multi-Asset":
+        category = "Multi-Asset"
+    elif any(k in name for k in _sector_keywords):
+        category = "Sector / Thematic"
+    elif any(k in name for k in _factor_keywords):
+        category = "Factor / Smart Beta"
+    elif any(k in name for k in ("s&p 500", "total market", "total stock", "broad market", "all cap", "large cap", "mid cap", "small cap", "extended market", "russell", "nasdaq", "dow")):
+        category = "Broad Market"
+    elif any(k in name for k in ("leveraged", "2x", "3x", "ultra", "inverse", "short ")):
+        category = "Leveraged / Inverse"
+    elif any(k in name for k in ("currency", "forex", "fx ")):
+        category = "Currency"
+    else:
+        category = "Broad Market"
+
+    # Geography
+    _intl_keywords = ("international", "world", "global", "developed markets", "msci eafe", "eafe", "europe", "pacific", "acwi", "acwx")
+    _em_keywords = ("emerging", "emerging markets", "em ", "bric", "latin america", "asia", "china", "india", "brazil", "korea", "taiwan", "mexico", "africa", "frontier")
+    _single_country = ("germany", "japan", "uk ", "united kingdom", "australia", "canada", "france", "switzerland", "israel", "indonesia", "vietnam", "poland", "hungary", "turkey", "greece")
+
+    if any(k in name for k in _em_keywords):
+        geography = "Emerging Markets"
+    elif any(k in name for k in _single_country):
+        geography = "Single Country"
+    elif any(k in name for k in _intl_keywords):
+        geography = "International"
+    else:
+        geography = "US"
+
+    return asset_class, category, geography
+
+
+def get_etf_universe(*, force_refresh: bool = False) -> list[ETFUniverseEntry]:
+    """Return the full ETF universe from the cached SEC Series & Class CSV.
+
+    Results are classified by asset class, category, and geography using
+    keyword heuristics on the fund name. The parsed list is cached in memory
+    for the lifetime of the process.
+
+    Pass ``force_refresh=True`` to discard the in-memory cache and re-parse
+    from disk (or re-download from SEC) before returning.
+    """
+    global _universe_cache
+    if _universe_cache is not None and not force_refresh:
+        return _universe_cache
+
+    data = _load_series_class_csv()
+    if not data:
+        _universe_cache = []
+        return _universe_cache
+
+    seen: set[str] = set()
+    entries: list[ETFUniverseEntry] = []
+    for row in data:
+        ticker = row["ticker"]
+        if not ticker or ticker in seen:
+            continue
+        seen.add(ticker)
+        asset_class, category, geography = _classify_etf(row["series_name"], row["registrant"])
+        entries.append(
+            ETFUniverseEntry(
+                ticker=ticker,
+                fund_name=row["series_name"] or f"Fund ({row['series_id']})",
+                issuer=row["registrant"],
+                cik=row["cik"],
+                asset_class=asset_class,
+                category=category,
+                geography=geography,
+            )
+        )
+
+    _universe_cache = entries
+    return _universe_cache
 
 
 def _search_sec_tickers(query: str) -> list[tuple[str, str, str, str]]:
@@ -259,6 +393,10 @@ def _find_nport_for_ticker(ticker: str):
             return f, r
 
     # Fallback: return first filing
+    _log.warning(
+        "_find_nport_for_ticker: no filing matched ticker %s in head(150); falling back to first filing",
+        ticker,
+    )
     return first_filing, report
 
 
@@ -310,6 +448,7 @@ def get_etf_report(ticker: str) -> ETFReport | None:
                 last_updated=datetime.now().isoformat(),
             )
         )
+        invalidate_universe_cache()
 
         return ETFReport(
             ticker=ticker.upper(),
@@ -337,8 +476,8 @@ def get_holdings_df(ticker: str) -> pd.DataFrame | None:
     if cached and cached.get("holdings_json"):
         try:
             return pd.read_json(io.StringIO(cached["holdings_json"]))
-        except Exception:
-            pass
+        except Exception as exc:
+            _log.debug("Holdings cache read failed for %s: %s", ticker, exc)
 
     # 2. Fetch from N-PORT via EDGAR
 
@@ -354,6 +493,7 @@ def get_holdings_df(ticker: str) -> pd.DataFrame | None:
         as_of = str(getattr(report, "reporting_period", ""))
         filed = str(getattr(filing, "filing_date", ""))
         cache_holdings(ticker, df.to_json(), as_of, filed, source="nport")
+        invalidate_universe_cache()
         return df
     except Exception:
         return None
@@ -493,5 +633,6 @@ def get_risk_disclosures(ticker: str) -> list[RiskDisclosure]:
             )
 
         return risks
-    except Exception:
+    except Exception as exc:
+        _log.warning("Risk disclosures fetch failed for %s: %s", ticker, exc)
         return []
