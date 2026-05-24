@@ -148,7 +148,7 @@ class SnapshotView(VerticalScroll):
         margin-left: 1;
     }
     SnapshotView #snap-middle {
-        height: 20;
+        height: 22;
         margin-bottom: 1;
     }
     SnapshotView #snap-watchlist-pane {
