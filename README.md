@@ -38,11 +38,11 @@ etfray converts SEC fund filings and IBKR portfolio data into holdings, exposure
     <td align="center"><img src="assets/Seasonals.png" width="400"><br><sub><b>Seasonals Chart</b></sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="assets/Holdings.png" width="400"><br><sub><b>ETF Holdings</b></sub></td>
+    <td align="center"><img src="assets/holdings.png" width="400"><br><sub><b>ETF Holdings</b></sub></td>
     <td align="center"><img src="assets/Watchlist.png" width="400"><br><sub><b>Watchlist</b></sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="assets/Compare.png" width="400"><br><sub><b>Side-by-side Compare</b></sub></td>
+    <td align="center"><img src="assets/compare.png" width="400"><br><sub><b>Side-by-side Compare</b></sub></td>
     <td align="center"><img src="assets/Portfolio_Lookthrough.png" width="400"><br><sub><b>Portfolio ETF Lookthrough</b></sub></td>
   </tr>
 </table>
