@@ -497,10 +497,18 @@ class SnapshotView(VerticalScroll):
             if total == 0:
                 continue
             win_rate = rises / total
-            pct = int(round(win_rate * 100))
-            direction = "rises" if win_rate > 0.5 else ("falls" if win_rate < 0.5 else "neutral")
             color = "green" if win_rate > 0.5 else ("red" if win_rate < 0.5 else "dim")
-            parts.append(f"[bold]{ticker}[/bold] [{color}]{direction} {pct}%[/{color}]")
+            # Historical frequency label: "↑6/15" instead of ambiguous "falls 40%"
+            freq_label = f"[{color}]↑{rises}/{total} yrs[/{color}]"
+            # Current MTD return for this month (may be partial if month in progress)
+            cur_ret = table.monthly.get(datetime.now().year, {}).get(current_month)
+            if cur_ret is not None:
+                mtd_sign = "+" if cur_ret >= 0 else ""
+                mtd_color = "green" if cur_ret > 0 else ("red" if cur_ret < 0 else "dim")
+                mtd_label = f" [{mtd_color}]{mtd_sign}{cur_ret * 100:.1f}% MTD[/{mtd_color}]"
+            else:
+                mtd_label = ""
+            parts.append(f"[bold]{ticker}[/bold] {freq_label}{mtd_label}")
 
         strip = self.query_one("#snap-seasonal-strip", Static)
         if parts:
