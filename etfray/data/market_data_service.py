@@ -266,10 +266,25 @@ def _parse_yahoo_info(ticker: str, info: dict, fetched_at: str) -> ETFProfile | 
     )
 
 
+def _sanitize_cached_profile(profile: ETFProfile) -> ETFProfile:
+    """Fix ytd_return values that were cached as raw whole-percent numbers.
+
+    Yahoo's ``ytdReturn`` field is a whole-percent (e.g. 5.69 = +5.69%).
+    Earlier versions of this code cached the raw value without dividing by 100.
+    No real ETF has a YTD return greater than ±500%, so any |ytd_return| > 5
+    is a clear sign the value was stored un-normalized.
+    """
+    ytd = profile.ytd_return
+    if ytd is not None and abs(ytd) > 5:
+        profile = ETFProfile(**{**profile.__dict__, "ytd_return": ytd / 100})
+    return profile
+
+
 def _profile_from_cache(cached: dict) -> ETFProfile | None:
     try:
         data = json.loads(cached["profile_json"])
-        return ETFProfile(**data)
+        profile = ETFProfile(**data)
+        return _sanitize_cached_profile(profile)
     except (json.JSONDecodeError, TypeError, KeyError):
         return None
 

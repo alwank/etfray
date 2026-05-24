@@ -16,7 +16,7 @@ from etfray.data.market_data_service import (
     _has_profile_fields,
     _merge_funds_data,
     _normalize_expense_ratio,
-    _normalize_return,
+    _normalize_return_whole_pct,
     _normalize_yield,
     _parse_yahoo_info,
     get_etf_profile,
@@ -110,8 +110,9 @@ class TestMarketDataService:
         assert _normalize_expense_ratio(0.06) == 0.0006
         assert _normalize_expense_ratio(0.0003) == 0.0003
         assert _normalize_yield(2.48, 0.0248) == 0.0248
-        assert _normalize_return(9.09769) == pytest.approx(0.0909769)
-        assert _normalize_return(0.1737282) == pytest.approx(0.1737282)
+        # ytdReturn is a whole-percent number — must be divided by 100
+        assert _normalize_return_whole_pct(9.09769) == pytest.approx(0.0909769)
+        # threeYearAverageReturn / fiveYearAverageReturn are already decimal fractions — pass through
 
     def test_parse_vwo_style_info(self):
         info = {
