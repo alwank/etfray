@@ -2,6 +2,9 @@
 name = "etfray"
 version = "1.0.0"
 description = "ETF research and portfolio analytics terminal"
+authors = [
+    { name = "Alwan", email = "alwan.alkautsar@gmail.com" }
+]
 requires-python = ">=3.11"
 license = "MIT"
 readme = "README.md"
@@ -15,7 +18,7 @@ classifiers = [
     "Topic :: Office/Business :: Financial :: Investment",
 ]
 dependencies = [
-    "textual==1.0.0",
+    "textual>=8.1.0",
     "edgartools>=5.31.0",
     "ib_async>=2.0.0",
     "pandas>=2.0.0",

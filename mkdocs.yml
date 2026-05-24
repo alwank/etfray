@@ -30,6 +30,7 @@ nav:
       - Installation: getting-started/installation.md
       - Quick Start: getting-started/quickstart.md
   - User Guide:
+      - Home Dashboard: user-guide/home-dashboard.md
       - ETF Research: user-guide/etf-research.md
       - Seasonals: user-guide/seasonals.md
       - Watchlist: user-guide/watchlist.md
