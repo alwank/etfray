@@ -148,13 +148,12 @@ class SnapshotView(VerticalScroll):
         margin-left: 1;
     }
     SnapshotView #snap-middle {
-        height: auto;
+        height: 20;
         margin-bottom: 1;
     }
     SnapshotView #snap-watchlist-pane {
         width: 2fr;
-        height: auto;
-        min-height: 10;
+        height: 1fr;
         border: solid $primary-background;
         padding: 1;
     }
@@ -163,9 +162,8 @@ class SnapshotView(VerticalScroll):
         margin-bottom: 1;
     }
     SnapshotView #snap-watchlist-table {
-        height: auto;
+        height: 1fr;
         min-height: 6;
-        max-height: 14;
     }
     SnapshotView #snap-watchlist-footer {
         height: 3;
@@ -176,24 +174,27 @@ class SnapshotView(VerticalScroll):
     }
     SnapshotView #snap-movers-pane {
         width: 1fr;
-        height: auto;
-        min-height: 10;
+        height: 1fr;
         border: solid $primary-background;
         padding: 1;
         margin-left: 1;
     }
     SnapshotView #snap-movers-table {
-        height: auto;
-        min-height: 10;
-        max-height: 14;
+        height: 1fr;
+        min-height: 6;
     }
     SnapshotView #snap-movers-header {
         height: 1;
         margin-bottom: 1;
     }
     SnapshotView #snap-movers-footer {
-        height: 3;
+        height: 4;
         margin-top: 1;
+    }
+    SnapshotView #snap-movers-status {
+        height: 1;
+        margin-bottom: 0;
+        color: $text-muted;
     }
     SnapshotView #snap-movers-footer Button {
         min-width: 11;
@@ -246,9 +247,9 @@ class SnapshotView(VerticalScroll):
             with Vertical(id="snap-movers-pane"):
                 yield Static("[bold]── ETF Movers ──[/bold]", id="snap-movers-header")
                 yield DataTable(id="snap-movers-table")
-                with Horizontal(id="snap-movers-footer"):
-                    yield Button("Refresh", id="snap-movers-refresh")
+                with Vertical(id="snap-movers-footer"):
                     yield Static("", id="snap-movers-status")
+                    yield Button("Refresh", id="snap-movers-refresh")
 
         yield Static("", id="snap-seasonal-strip")
 
