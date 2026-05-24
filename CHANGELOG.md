@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.0.0] - 2026-05-24
+
+### Added
+
+- **Home Dashboard** — Completely redesigned startup landing screen (`SnapshotView`) with four live panels:
+  - **Benchmark Marquee** — Horizontally scrolling ticker showing YTD returns for SPY, QQQ, AGG, and GLD. Pauses on hover; Refresh button force-fetches fresh data.
+  - **Watchlist Snapshot** — Compact table showing every watchlist ticker with Fund Name, YTD return, Top-10 Weight, Effective N, HHI, and Top Sector. Double-click any row to open that ETF's research view.
+  - **ETF Movers Panel** — Top-5 daily gainers and losers sourced from Yahoo Finance screener (`most_actives`, `gainers`, `losers`). Includes a staleness indicator (shows "Last session · date" when market data is >24 hours old), a Refresh button, and double-click to open. Falls back to a seed-universe of 40+ well-known ETFs via `yf.download` when the screener returns too few results (e.g., outside market hours).
+  - **Seasonal Spotlight Strip** — For each watchlist ticker, shows the current month's historical win rate (e.g., `↑9/15 yrs`) and MTD return in green/red, giving an at-a-glance seasonal context without opening the Seasonals view.
+- **Recent / Quick-Jump** — Row of pill buttons on the Home screen for up to 5 last-visited ETF tickers, plus a "Search →" shortcut pill. Automatically updated as you navigate ETFs.
+- **Screener service** (`etfray/data/screener_service.py`) — New data service powering the ETF Movers panel. Queries Yahoo Finance screener for `most_actives`, `gainers`, and `losers`, filters to ETF `quoteType` only, de-duplicates, and stores results in a new `screener_cache` SQLite table with a 1-hour TTL. Accepts a `force_refresh` flag. If fewer than 10 ETFs are returned by the screener (Tier-1), automatically falls back to a Tier-2 seed-universe batch download of 40+ well-known ETFs (broad equity, fixed income, commodities, international, sector, and leveraged). Exposes `get_etf_movers()` and `get_screener_last_error()`.
+- **Stress Scenarios (Margin view)** — New section in the Portfolio Margin view simulates portfolio cushion after −10% and −20% shocks to gross position value. Shows the projected cushion percentage and whether each shock would breach the configured warning threshold.
+- **Quick Keys footer on Home** — Inline keybinding reference shown directly on the Home screen listing all single-key shortcuts (`/`, `p`, `t`, `h`, `x`, `c`, `m`, `r`, `d`, `w`, `s`, `^I`, `q`).
+
+### Changed
+
+- **Portfolio Risk view** — Now includes two additional metrics: **Equity Exposure %** (percentage of lookthrough holdings classified as asset type `EC` or `Equity`) and **Data Coverage** rating (`Full` when all positions are resolved, `Partial` when most are, `Low` when fewer than half resolve). Risk Drivers list is now dynamic and only surfaces active issues.
+- **Portfolio Concentration view** — Ticker normalization strips spaces and slashes before pairwise overlap comparison (e.g., `BRK B` and `BRK/B` both normalize to `BRKB`). Jaccard overlap between ETF pairs is now scored as **High** / **Medium** / **Low** based on the average pairwise overlap ratio across all position pairs.
+- **Compare view** — Added **weight-adjusted overlap** column showing overlap percentage vs the first ticker for each additional ETF. Added **average 52-week return** column computed as the weighted average of the `week52_return` field from web-source holdings.
+- **Settings view** — All configurable settings are now exposed in the in-app Settings UI. New fields added: `ibkr_host`, `ibkr_client_id`, `freshness_days_acceptable`, `cache_dir`, and `export_dir`. The `data_source` field now validates the entered value before saving.
+- **Market data service** — Added `_sanitize_cached_profile()` that auto-corrects previously cached whole-percent YTD values on read (Yahoo Finance previously returned `9.09` for +9.09%; any cached `|ytd| > 5` is divided by 100 on load).
+- **Database** — Added `screener_cache` table for the new screener service. Migrated `holdings_cache` from a single `ticker` primary key to a composite `(ticker, source)` primary key (non-destructive migration: old table is renamed, recreated, and data is re-imported). Renamed the `'zacks'` data source to `'web'` across all cached rows and settings.
+- **Cache utilities** (`_cache_utils.py`) — Added shared helper functions supporting the new screener cache table.
+- **Version** — Bumped from `0.2.1` to `1.0.0`. PyPI classifier updated from `3 - Alpha` to `5 - Production/Stable`.
+
 ## [0.2.1] - 2026-05-22
 
 ### Added

@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -8,8 +9,12 @@ from textual.widgets import ContentSwitcher, Footer, Header, Static, Tree
 
 try:
     import textual_image  # noqa: F401 — register terminal graphics before App.run
+    from textual_image.widget import Image as TermImage
+    _HAS_IMAGE = True
 except ImportError:
-    pass
+    _HAS_IMAGE = False
+
+_LOGO_PATH = Path(__file__).parent / "assets" / "logo.png"
 
 from etfray.ui.commands import ETFCommands
 from etfray.ui.portfolio.concentration_view import PortfolioConcentrationView
@@ -30,7 +35,7 @@ from etfray.ui.research.overview_view import OverviewView
 from etfray.ui.research.risk_view import RiskView
 from etfray.ui.research.seasonals_view import SeasonalsView
 from etfray.ui.snapshot_view import SnapshotView
-from etfray.ui.splash_screen import SplashScreen
+from etfray.ui.splash_screen import LOGO_SMALL, SplashScreen
 from etfray.ui.workspace.exports_view import ExportsView
 from etfray.ui.workspace.settings_view import SettingsView
 from etfray.ui.workspace.watchlist_view import WatchlistView
@@ -44,14 +49,22 @@ class Sidebar(Widget):
         border-right: solid $primary-background;
         padding: 1;
     }
+    Sidebar #sidebar-logo {
+        height: 5;
+        width: 26;
+        padding-bottom: 1;
+    }
     Sidebar .sidebar-title {
-        text-style: bold;
+        color: rgb(100, 180, 255);
         padding-bottom: 1;
     }
     """
 
     def compose(self) -> ComposeResult:
-        yield Static("ETFray", classes="sidebar-title")
+        if _HAS_IMAGE and _LOGO_PATH.exists():
+            yield TermImage(_LOGO_PATH, id="sidebar-logo")
+        else:
+            yield Static(LOGO_SMALL, classes="sidebar-title")
         tree: Tree[str] = Tree("", id="nav-tree")
         tree.show_root = False
         tree.root.expand()
@@ -320,7 +333,12 @@ class ETFTerminalApp(App):
 
     def _refresh_home_after_splash(self) -> None:
         self.screen.refresh(layout=True)
-        self.query_one(".sidebar-title", Static).refresh()
+        for sel in ("#sidebar-logo", ".sidebar-title"):
+            try:
+                self.query_one(sel).refresh()
+                break
+            except Exception:
+                pass
         if self._ibkr_connected:
             self.query_one(StatusBar).refresh()
             self.query_one("#portfolio-overview", PortfolioOverviewView)._refresh()

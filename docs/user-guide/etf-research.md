@@ -116,11 +116,36 @@ Browse SEC filings (N-PORT, N-CSR, etc.) for the selected ETF. Useful for verify
 
 Side-by-side comparison of multiple ETFs across key metrics. Use this to evaluate alternatives before making allocation decisions.
 
+**How to use:** Enter 2–5 space-separated tickers in the input field (e.g., `VTI ITOT SCHB`) and press Enter. Data for all tickers is fetched concurrently.
+
+**Comparison rows:**
+
+| Row | Description |
+|-----|-------------|
+| Fund Name | Full fund name |
+| Category | Yahoo Finance fund category (e.g., "Large Blend") |
+| Expense Ratio | Net expense ratio from Yahoo Finance |
+| Dividend Yield | Trailing dividend yield |
+| YTD Return | Year-to-date return |
+| Beta (3Y) | 3-year beta vs S&P 500 |
+| Holdings Count | Number of holdings in the most recent filing |
+| Total Assets | Fund total assets from N-PORT |
+| Top-10 Weight | Cumulative weight of the 10 largest holdings |
+| Effective N | 1 / HHI — equivalent number of equal-weight holdings |
+| HHI | Herfindahl-Hirschman Index |
+| Verdict | Concentration verdict (Broadly diversified / Moderately concentrated / Highly concentrated) |
+| Filing Period | As-of date of the holdings data |
+| **Overlap vs [first ticker]** | Weight-adjusted overlap percentage between this ETF and the first ticker in the comparison. Computed from the intersection of shared holdings weighted by the smaller position. Only shown for the 2nd–5th ETFs. |
+| **Avg 52-Week Return** | Weighted average 52-week return across holdings sourced from the web data provider. Reflects the average of the underlying holdings' own trailing returns, not the ETF's own return. |
+
 **Tips for effective comparison:**
 
 - Compare funds in the same category (e.g., VTI vs ITOT vs SCHB for US total market)
 - Look at concentration differences — two "similar" funds can have very different top-10 weights
-- Check overlap percentage (calculated relative to the first ETF in the comparison) — high overlap means the funds are largely redundant
+- Check the **Overlap** row — high overlap means the funds are largely redundant and combining them adds little diversification benefit
+- The **Avg 52-Week Return** column complements the ETF-level YTD row by showing what the underlying holdings returned, not just the fund
+
+**Export:** Click the Export button to save the comparison table to CSV.
 
 ## Data Sources
 

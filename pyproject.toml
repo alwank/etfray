@@ -1,13 +1,13 @@
 [project]
 name = "etfray"
-version = "0.2.1"
+version = "1.0.0"
 description = "ETF research and portfolio analytics terminal"
 requires-python = ">=3.11"
 license = "MIT"
 readme = "README.md"
 keywords = ["etf", "portfolio", "terminal", "tui", "finance", "ibkr"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.11",

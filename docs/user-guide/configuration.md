@@ -14,15 +14,17 @@ When you first install etfray, configure these settings before doing anything el
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `ibkr_host` | `127.0.0.1` | IBKR TWS/Gateway host |
+| `ibkr_host` | `127.0.0.1` | IBKR TWS/Gateway host address |
 | `ibkr_port` | `7497` | IBKR API socket port |
-| `ibkr_client_id` | `1` | Client ID for IBKR connection |
+| `ibkr_client_id` | `1` | Client ID for the IBKR API connection (must be unique per connected client) |
 | `edgar_identity` | *(empty)* | Email for SEC EDGAR API (required by SEC fair use policy) |
 | `data_source` | `auto` | Holdings source: `auto`, `edgar`, or `web` |
-| `freshness_days_fresh` | `30` | Days before cached data is no longer considered fresh |
-| `freshness_days_acceptable` | `90` | Days before cached data is considered stale and re-fetched |
+| `freshness_days_fresh` | `30` | Days before cached data is no longer considered fresh (🟢) |
+| `freshness_days_acceptable` | `90` | Days before cached data is considered stale and re-fetched (>90 days = 🔴 Stale) |
 | `margin_warning_cushion` | `0.15` | Margin cushion warning threshold (15%) |
 | `leverage_warning` | `2.0` | Leverage ratio warning threshold |
+| `cache_dir` | `~/.etfray/cache` | Directory for SEC series/class lookup cache files |
+| `export_dir` | `~/.etfray/exports` | Directory where CSV/JSON exports are saved |
 
 ## Example Configurations
 
@@ -95,9 +97,9 @@ The `data_source` setting controls where etfray gets ETF holdings. Change it by 
 
 etfray stores all data locally:
 
-- **Database**: `~/.etfray/data.db` — settings, ETF cache, holdings cache
-- **Cache**: `~/.etfray/cache/` — SEC series/class lookup data
-- **Exports**: `~/.etfray/exports/` — CSV/JSON exports
+- **Database**: `~/.etfray/data.db` — settings, ETF cache, holdings cache, price history cache, screener cache, watchlists
+- **Cache files**: `~/.etfray/cache/` — SEC series/class lookup data (configurable via `cache_dir` in Settings)
+- **Exports**: `~/.etfray/exports/` — CSV/JSON exports (configurable via `export_dir` in Settings)
 
 All data stays on your machine. Nothing is sent to external services (except EDGAR/web API requests to fetch holdings data).
 
