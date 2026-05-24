@@ -57,11 +57,12 @@ class OverviewView(VerticalScroll):
         content = self.query_one("#overview-content", Static)
         settings = load_settings()
 
-        report, profile, df = await asyncio.gather(
+        report, profile_result, df = await asyncio.gather(
             to_thread(get_etf_report, ticker),
             to_thread(get_etf_profile, ticker),
             to_thread(get_holdings_df, ticker),
         )
+        profile, profile_error = profile_result
 
         concentration = None
         top_sector = None
@@ -80,6 +81,7 @@ class OverviewView(VerticalScroll):
             concentration,
             top_sector,
             freshness_badge,
+            profile_error=profile_error,
             fresh_days=settings.freshness_days_fresh,
             acceptable_days=settings.freshness_days_acceptable,
         )

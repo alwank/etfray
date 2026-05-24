@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import io
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 
 import pandas as pd
+
+_log = logging.getLogger(__name__)
 
 from etfray.db.database import (
     CachedETF,
@@ -47,7 +50,10 @@ def _ensure_identity() -> None:
     if s.edgar_identity:
         set_identity(s.edgar_identity)
     else:
-        set_identity("etfray@research.local")
+        raise RuntimeError(
+            "EDGAR identity not configured. Open Settings and enter a valid "
+            "contact email (required by SEC fair-access policy)."
+        )
 
 
 def search_etf(query: str) -> list[ETFSearchResult]:
@@ -79,8 +85,8 @@ def search_etf(query: str) -> list[ETFSearchResult]:
                                 fund_name = gi.series_name or fund_name
                                 issuer = getattr(gi, "name", issuer) or issuer
                                 break
-                except Exception:
-                    pass
+                except Exception as exc:
+                    _log.debug("EDGAR filings scan for %s: %s", query, exc)
 
                 results.append(
                     ETFSearchResult(
@@ -101,8 +107,8 @@ def search_etf(query: str) -> list[ETFSearchResult]:
                     )
                 )
                 return results
-        except Exception:
-            pass
+        except Exception as exc:
+            _log.debug("EDGAR direct ticker lookup failed for %s: %s", query, exc)
 
     # Search local cache (fast, works for name/issuer)
     cached = search_cached_etfs(query)
@@ -141,8 +147,8 @@ def search_etf(query: str) -> list[ETFSearchResult]:
                         last_updated=datetime.now().isoformat(),
                     )
                 )
-    except Exception:
-        pass
+    except Exception as exc:
+        _log.warning("SEC CSV ticker search failed: %s", exc)
 
     return results
 
@@ -158,7 +164,7 @@ def _load_series_class_csv() -> list[dict] | None:
     cache_dir = Path.home() / ".etfray" / "cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
     csv_path = cache_dir / "sec_series_class.csv"
-    headers = {"User-Agent": "etfray@research.local"}
+    headers = {"User-Agent": load_settings().edgar_identity or "etfray-app/1.0"}
 
     if not csv_path.exists() or (time.time() - csv_path.stat().st_mtime) > 7 * 86400:
         try:
@@ -452,8 +458,8 @@ def get_holdings_df(ticker: str) -> pd.DataFrame | None:
     if cached and cached.get("holdings_json"):
         try:
             return pd.read_json(io.StringIO(cached["holdings_json"]))
-        except Exception:
-            pass
+        except Exception as exc:
+            _log.debug("Holdings cache read failed for %s: %s", ticker, exc)
 
     # 2. Fetch from N-PORT via EDGAR
 
@@ -608,5 +614,6 @@ def get_risk_disclosures(ticker: str) -> list[RiskDisclosure]:
             )
 
         return risks
-    except Exception:
+    except Exception as exc:
+        _log.warning("Risk disclosures fetch failed for %s: %s", ticker, exc)
         return []

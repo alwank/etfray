@@ -9,10 +9,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from etfray.data.edgar_service import ETFReport
+from etfray.data._cache_utils import cache_is_fresh
 from etfray.data.market_data_service import (
     PROFILE_CACHE_TTL_DAYS,
     ETFProfile,
-    _cache_is_fresh,
     _has_profile_fields,
     _merge_funds_data,
     _normalize_expense_ratio,
@@ -139,8 +139,8 @@ class TestMarketDataService:
         mock_ticker.info = SAMPLE_YAHOO_INFO
         mock_ticker_cls.return_value = mock_ticker
 
-        first = get_etf_profile("VTI")
-        second = get_etf_profile("VTI")
+        first, _ = get_etf_profile("VTI")
+        second, _ = get_etf_profile("VTI")
 
         assert first is not None
         assert second is not None
@@ -165,9 +165,9 @@ class TestMarketDataService:
             category="Large Blend",
             fetched_at=datetime.now().isoformat(),
         )
-        mock_fetch.return_value = refreshed
+        mock_fetch.return_value = (refreshed, "")
 
-        result = get_etf_profile("VTI")
+        result, _ = get_etf_profile("VTI")
         assert result is not None
         assert result.long_name == "Fresh Name"
         mock_fetch.assert_called_once_with("VTI")
@@ -180,7 +180,7 @@ class TestMarketDataService:
         mock_ticker.funds_data = MagicMock(description="", fund_overview={}, fund_operations=None)
         mock_ticker_cls.return_value = mock_ticker
 
-        profile = get_etf_profile("BAD")
+        profile, _ = get_etf_profile("BAD")
         assert profile is None
 
         from etfray.db.database import get_cached_etf_profile
@@ -198,7 +198,7 @@ class TestMarketDataService:
         mock_ticker.funds_data = funds
         mock_ticker_cls.return_value = mock_ticker
 
-        profile = get_etf_profile("SPY")
+        profile, _ = get_etf_profile("SPY")
         assert profile is not None
         assert "S&P 500" in profile.description
         assert profile.category == "Large Blend"
@@ -208,8 +208,8 @@ class TestMarketDataService:
         fresh = (now - timedelta(days=3)).isoformat()
         stale = (now - timedelta(days=PROFILE_CACHE_TTL_DAYS + 1)).isoformat()
 
-        assert _cache_is_fresh(fresh, now=now) is True
-        assert _cache_is_fresh(stale, now=now) is False
+        assert cache_is_fresh(fresh, ttl=timedelta(days=PROFILE_CACHE_TTL_DAYS), now=now) is True
+        assert cache_is_fresh(stale, ttl=timedelta(days=PROFILE_CACHE_TTL_DAYS), now=now) is False
 
 
 class TestOverviewFormat:

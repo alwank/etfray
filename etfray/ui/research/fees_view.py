@@ -47,10 +47,11 @@ class FeesView(VerticalScroll):
 
         content = self.query_one("#fees-content", Static)
 
-        report, profile = await asyncio.gather(
+        report, profile_result = await asyncio.gather(
             to_thread(get_etf_report, ticker),
             to_thread(get_etf_profile, ticker),
         )
+        profile, _ = profile_result
 
         if not report and not profile:
             self.loading = False

@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+
+_log = logging.getLogger(__name__)
 
 DB_PATH = Path.home() / ".etfray" / "data.db"
 
@@ -138,8 +141,8 @@ def _init_tables(conn: sqlite3.Connection) -> None:
                 INSERT OR IGNORE INTO holdings_cache SELECT ticker, holdings_json, as_of_date, filed_date, COALESCE(source,'nport'), cached_at FROM holdings_cache_old;
                 DROP TABLE holdings_cache_old;
             """)
-    except Exception:
-        pass
+    except Exception as exc:
+        _log.warning("DB migration failed: %s", exc)
     # Migration: rename 'zacks' source to 'web'
     conn.execute("DELETE FROM holdings_cache WHERE source = 'zacks'")
     conn.execute("UPDATE settings SET value = 'web' WHERE key = 'data_source' AND value = 'zacks'")
@@ -252,11 +255,13 @@ def get_watchlist(name: str) -> list[str]:
 
 def get_all_watchlists() -> dict[str, list[str]]:
     conn = get_db()
-    rows = conn.execute("SELECT DISTINCT name FROM watchlists ORDER BY name").fetchall()
-    result = {}
-    for r in rows:
-        result[r["name"]] = get_watchlist(r["name"])
+    rows = conn.execute(
+        "SELECT name, ticker FROM watchlists ORDER BY name, added_at"
+    ).fetchall()
     conn.close()
+    result: dict[str, list[str]] = {}
+    for r in rows:
+        result.setdefault(r["name"], []).append(r["ticker"])
     return result
 
 

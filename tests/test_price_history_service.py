@@ -7,19 +7,18 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 
+from etfray.data._cache_utils import cache_is_fresh
 from etfray.data.price_history_service import (
     PRICE_HISTORY_CACHE_TTL_HOURS,
     VALID_PERIODS,
-    _cache_is_fresh,
     _normalize_history_df,
     get_price_history,
-    get_price_history_last_error,
 )
 
 
 def _sample_history() -> pd.DataFrame:
     dates = pd.bdate_range(start="2024-01-02", periods=10)
-    return pd.DataFrame({"Adj Close": range(100, 110)}, index=dates)
+    return pd.DataFrame({"Close": range(100, 110)}, index=dates)
 
 
 class TestPriceHistoryService:
@@ -36,7 +35,7 @@ class TestPriceHistoryService:
     def test_normalize_history_df(self):
         df = _normalize_history_df(_sample_history())
         assert df is not None
-        assert "Adj Close" in df.columns
+        assert "Close" in df.columns
 
     def test_normalize_empty_returns_none(self):
         assert _normalize_history_df(pd.DataFrame()) is None
@@ -51,8 +50,8 @@ class TestPriceHistoryService:
         now = datetime(2025, 5, 21, 12, 0, 0)
         fresh = (now - timedelta(hours=12)).isoformat()
         stale = (now - timedelta(hours=PRICE_HISTORY_CACHE_TTL_HOURS + 1)).isoformat()
-        assert _cache_is_fresh(fresh, now=now) is True
-        assert _cache_is_fresh(stale, now=now) is False
+        assert cache_is_fresh(fresh, ttl=timedelta(hours=PRICE_HISTORY_CACHE_TTL_HOURS), now=now) is True
+        assert cache_is_fresh(stale, ttl=timedelta(hours=PRICE_HISTORY_CACHE_TTL_HOURS), now=now) is False
 
     @patch("yfinance.Ticker")
     def test_get_price_history_fetches_and_caches(self, mock_ticker_cls):
@@ -60,8 +59,8 @@ class TestPriceHistoryService:
         mock_ticker.history.return_value = _sample_history()
         mock_ticker_cls.return_value = mock_ticker
 
-        first = get_price_history("VTI", "1y")
-        second = get_price_history("VTI", "1y")
+        first, _ = get_price_history("VTI", "1y")
+        second, _ = get_price_history("VTI", "1y")
 
         assert first is not None
         assert second is not None
@@ -75,9 +74,9 @@ class TestPriceHistoryService:
         mock_ticker.history.return_value = pd.DataFrame()
         mock_ticker_cls.return_value = mock_ticker
 
-        result = get_price_history("BAD", "1y", force_refresh=True)
+        result, err = get_price_history("BAD", "1y", force_refresh=True)
         assert result is None
-        assert get_price_history_last_error()
+        assert err
 
     @patch("yfinance.Ticker")
     def test_invalid_period_defaults_to_max(self, mock_ticker_cls):
@@ -102,12 +101,12 @@ class TestPriceHistoryService:
         )
 
         refreshed = _sample_history()
-        refreshed["Adj Close"] = refreshed["Adj Close"] + 50
-        mock_fetch.return_value = refreshed
+        refreshed["Close"] = refreshed["Close"] + 50
+        mock_fetch.return_value = (refreshed, "")
 
-        result = get_price_history("VTI", "1y")
+        result, _ = get_price_history("VTI", "1y")
         assert result is not None
-        assert int(result["Adj Close"].iloc[0]) == 150
+        assert int(result["Close"].iloc[0]) == 150
         mock_fetch.assert_called_once_with("VTI", "1y")
 
     def test_valid_periods(self):

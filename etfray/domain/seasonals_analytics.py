@@ -202,7 +202,7 @@ def _compute_average_seasonal(series_list: list[SeasonalYearSeries]) -> Seasonal
     """Mean cumulative return per day-of-year across selected years (decimal fractions)."""
     buckets: dict[int, list[float]] = {}
     for series in series_list:
-        for day, value in zip(series.day_of_year, series.cumulative, strict=True):
+        for day, value in zip(series.day_of_year, series.cumulative):
             buckets.setdefault(day, []).append(value)
 
     days = sorted(buckets.keys())

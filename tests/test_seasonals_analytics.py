@@ -45,8 +45,8 @@ class TestSeasonalsAnalytics:
         prices = _adj_close_series(df)
         by_year = split_prices_by_year(prices)
         series = compute_seasonal_series(by_year[2024], 2024)
-        assert series.cumulative_pct[0] == pytest.approx(0.0)
-        assert series.final_return_pct == pytest.approx(series.cumulative_pct[-1])
+        assert series.cumulative[0] == pytest.approx(0.0)
+        assert series.final_return == pytest.approx(series.cumulative[-1])
 
     def test_partial_current_year(self):
         df = _make_multi_year_history()

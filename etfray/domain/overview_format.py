@@ -6,7 +6,7 @@ import textwrap
 from datetime import date, datetime
 
 from etfray.data.edgar_service import ETFReport
-from etfray.data.market_data_service import ETFProfile, get_profile_last_error, profile_fetched_date
+from etfray.data.market_data_service import ETFProfile, profile_fetched_date
 from etfray.domain.etf_analytics import ConcentrationMetrics, ExposureBreakdown
 
 
@@ -98,6 +98,7 @@ def format_overview_lines(
     top_sector: ExposureBreakdown | None,
     freshness_badge: str | None,
     *,
+    profile_error: str = "",
     fresh_days: int = 30,
     acceptable_days: int = 90,
 ) -> list[str]:
@@ -152,9 +153,8 @@ def format_overview_lines(
         lines.append("")
     elif report:
         lines.append("  Fund profile unavailable (Yahoo Finance).")
-        err = get_profile_last_error()
-        if err:
-            lines.append(f"  Reason: {err}")
+        if profile_error:
+            lines.append(f"  Reason: {profile_error}")
         else:
             lines.append("  Yahoo may be rate-limited — reopen the ETF or try again shortly.")
         lines.append("")

@@ -511,7 +511,7 @@ class SeasonalsView(Vertical):
     async def _load(self, ticker: str) -> None:
         from asyncio import to_thread
 
-        from etfray.data.price_history_service import get_price_history, get_price_history_last_error
+        from etfray.data.price_history_service import get_price_history
         from etfray.domain.overview_format import fmt_pct
         from etfray.domain.seasonals_analytics import (
             _adj_close_series,
@@ -520,13 +520,13 @@ class SeasonalsView(Vertical):
             compute_summary,
         )
 
-        df = await to_thread(get_price_history, ticker, "max")
+        df, fetch_err = await to_thread(get_price_history, ticker, "max")
         summary = self.query_one("#perf-summary", Static)
 
         self.loading = False
 
         if df is None or df.empty:
-            err = get_price_history_last_error() or "No price history available"
+            err = fetch_err or "No price history available"
             self.app.notify(err, severity="warning")
             self._populate_returns_table()
             summary.update(f"Error: {err}")

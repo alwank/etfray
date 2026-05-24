@@ -280,7 +280,7 @@ class SnapshotView(VerticalScroll):
 
         parts: list[str] = []
         for ticker in BENCHMARK_TICKERS:
-            profile = get_etf_profile(ticker)
+            profile, _ = get_etf_profile(ticker)
             if profile and profile.ytd_return is not None:
                 ytd = profile.ytd_return
                 sign = "+" if ytd >= 0 else ""
@@ -300,7 +300,7 @@ class SnapshotView(VerticalScroll):
 
         for ticker in BENCHMARK_TICKERS:
             try:
-                get_etf_profile(ticker)
+                get_etf_profile(ticker)  # result ignored; warms the cache
             except Exception:
                 pass
         self.app.call_from_thread(self._render_benchmarks)
@@ -401,7 +401,7 @@ class SnapshotView(VerticalScroll):
             if cached_etf:
                 row_data["fund_name"] = cached_etf.fund_name[:25]
 
-            profile = await to_thread(get_etf_profile, ticker)
+            profile, _ = await to_thread(get_etf_profile, ticker)
             if profile and profile.ytd_return is not None:
                 ytd = profile.ytd_return
                 sign = "+" if ytd >= 0 else ""
@@ -456,7 +456,7 @@ class SnapshotView(VerticalScroll):
         parts: list[str] = []
 
         for ticker in tickers:
-            df = await to_thread(get_price_history, ticker, "max")
+            df, _ = await to_thread(get_price_history, ticker, "max")
             if df is None:
                 continue
             from etfray.domain.seasonals_analytics import _adj_close_series
