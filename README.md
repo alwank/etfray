@@ -32,25 +32,20 @@ etfray converts SEC fund filings and IBKR portfolio data into holdings, exposure
 - **Keyboard-first** — Full TUI with command palette, tree navigation, and keybindings
 - **Local & private** — All data cached locally in SQLite; no cloud accounts required
 
-<p align="center">
-  <img src="assets/Home.png" alt="Home Dashboard" width="800">
-</p>
-
-<p align="center">
-  <img src="assets/Holdings.png" alt="Holdings view" width="800">
-</p>
-
-<p align="center">
-  <img src="assets/Seasonals.png" alt="Seasonals chart" width="800">
-</p>
-
-<p align="center">
-  <img src="assets/Watchlist.png" alt="Watchlist" width="800">
-</p>
-
-<p align="center">
-  <img src="assets/Portfolio_Lookthrough.png" alt="Portfolio ETF Lookthrough" width="800">
-</p>
+<table>
+  <tr>
+    <td align="center"><img src="assets/Home.png" width="400"><br><sub><b>Home Dashboard</b></sub></td>
+    <td align="center"><img src="assets/Seasonals.png" width="400"><br><sub><b>Seasonals Chart</b></sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="assets/Holdings.png" width="400"><br><sub><b>ETF Holdings</b></sub></td>
+    <td align="center"><img src="assets/Watchlist.png" width="400"><br><sub><b>Watchlist</b></sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="assets/Compare.png" width="400"><br><sub><b>Side-by-side Compare</b></sub></td>
+    <td align="center"><img src="assets/Portfolio_Lookthrough.png" width="400"><br><sub><b>Portfolio ETF Lookthrough</b></sub></td>
+  </tr>
+</table>
 
 ## Key Capabilities
 
