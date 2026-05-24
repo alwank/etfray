@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from rich.text import Text
 from textual.app import ComposeResult
@@ -98,6 +98,26 @@ def _age_label(ts: int | None) -> str:
         if hrs < 24:
             return f"{hrs}h ago"
         return f"{hrs // 24}d ago"
+    except Exception:
+        return ""
+
+
+def _date_label(ts: int | None) -> str:
+    """Return a short calendar date string from a Unix epoch timestamp.
+
+    Examples: "today", "Fri May 23", "May 23 2024"
+    """
+    if ts is None:
+        return ""
+    try:
+        dt = datetime.fromtimestamp(ts, tz=timezone.utc).astimezone()
+        today = datetime.now().date()
+        d = dt.date()
+        if d == today:
+            return "today"
+        if d.year == today.year:
+            return dt.strftime("%a %b %-d")  # e.g. "Fri May 23"
+        return dt.strftime("%b %-d %Y")      # e.g. "May 23 2024"
     except Exception:
         return ""
 
@@ -354,10 +374,16 @@ class SnapshotView(VerticalScroll):
         all_movers = movers.gainers + movers.losers
         ts = next((m.last_trade_ts for m in all_movers if m.last_trade_ts), None)
         age = _age_label(ts)
+        date = _date_label(ts)
         if movers.is_stale:
-            status.update(f"[yellow]Last session ({age})[/yellow]")
+            label = f"Last session · {date}" if date else f"Last session ({age})"
+            status.update(f"[yellow]{label}[/yellow]")
         else:
-            status.update(f"[dim]{age}[/dim]" if age else "")
+            if date == "today":
+                label = f"today · {age}" if age else "today"
+            else:
+                label = f"{date} · {age}" if date and age else (date or age)
+            status.update(f"[dim]{label}[/dim]" if label else "")
 
     # ── Watchlist Summary (async worker) ──────────────────────────────────
 
