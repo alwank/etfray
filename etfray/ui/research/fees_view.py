@@ -49,7 +49,7 @@ class FeesView(VerticalScroll):
 
         report, profile_result = await asyncio.gather(
             to_thread(get_etf_report, ticker),
-            to_thread(get_etf_profile, ticker),
+            get_etf_profile(ticker),
         )
         profile, _ = profile_result
 

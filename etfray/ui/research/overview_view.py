@@ -102,7 +102,7 @@ class OverviewView(VerticalScroll):
         import asyncio
         from asyncio import to_thread
 
-        from etfray.data.edgar_service import get_etf_report, get_holdings_df
+        from etfray.data.edgar_service import get_etf_report_and_holdings
         from etfray.data.market_data_service import get_etf_profile
         from etfray.data.source_resolver import get_freshness_comparison
         from etfray.db.database import load_settings
@@ -123,12 +123,47 @@ class OverviewView(VerticalScroll):
             except asyncio.TimeoutError:
                 return default
 
-        report, profile_result, df = await asyncio.gather(
-            _edgar_task(to_thread(get_etf_report, ticker), None),
-            to_thread(get_etf_profile, ticker),
-            _edgar_task(to_thread(get_holdings_df, ticker), None),
-        )
+        # ── Stage 1: await Yahoo profile only ────────────────────────────
+        profile_result = await get_etf_profile(ticker)
         profile, profile_error = profile_result
+
+        # Render partial summary immediately with Yahoo data; EDGAR fields show "…".
+        partial_lines = format_overview_lines(
+            ticker,
+            None,
+            profile,
+            None,
+            None,
+            None,
+            profile_error=profile_error,
+            fresh_days=settings.freshness_days_fresh,
+            acceptable_days=settings.freshness_days_acceptable,
+            edgar_pending=True,
+        )
+        self.loading = False
+        content.update("\n".join(partial_lines))
+
+        # Launch peers now — only needs the profile, which is available after Stage 1.
+        if profile is not None and getattr(self, "_current_ticker", None) == ticker:
+            self.run_worker(
+                self._load_peers(ticker, profile),
+                exclusive=False,
+                name="peers-loader",
+            )
+        elif profile is None:
+            self.query_one("#peers-status", Static).update(
+                f"Could not load profile: {profile_error}" if profile_error
+                else "Could not load profile for this ETF."
+            )
+
+        # ── Stage 2: await EDGAR in background ───────────────────────────
+        report, df = await _edgar_task(
+            to_thread(get_etf_report_and_holdings, ticker), (None, None)
+        )
+
+        # Abort update if the user has navigated to a different ETF.
+        if getattr(self, "_current_ticker", None) != ticker:
+            return
 
         concentration = None
         top_sector = None
@@ -151,23 +186,7 @@ class OverviewView(VerticalScroll):
             fresh_days=settings.freshness_days_fresh,
             acceptable_days=settings.freshness_days_acceptable,
         )
-
-        self.loading = False
         content.update("\n".join(lines))
-
-        # Launch peers now that the profile is already in memory — avoids a
-        # second concurrent Yahoo fetch which causes the summary gather to hang.
-        if profile is not None and getattr(self, "_current_ticker", None) == ticker:
-            self.run_worker(
-                self._load_peers(ticker, profile),
-                exclusive=False,
-                name="peers-loader",
-            )
-        elif profile is None:
-            self.query_one("#peers-status", Static).update(
-                f"Could not load profile: {profile_error}" if profile_error
-                else "Could not load profile for this ETF."
-            )
 
     # ------------------------------------------------------------------
     # Peers tab helpers
@@ -318,7 +337,7 @@ class OverviewView(VerticalScroll):
 
             status.update("Fetching peers…")
 
-            profile, _ = await to_thread(get_etf_profile, candidate.ticker)
+            profile, _ = await get_etf_profile(candidate.ticker)
             _attempt_count += 1
 
             if profile is None:

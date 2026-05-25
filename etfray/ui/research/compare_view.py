@@ -96,7 +96,7 @@ class CompareView(Vertical):
         holdings_dfs = {}
         for t in tickers:
             reports[t] = await to_thread(get_etf_report, t)
-            profiles[t], _ = await to_thread(get_etf_profile, t)
+            profiles[t], _ = await get_etf_profile(t)
             df = await to_thread(get_holdings_df, t)
             holdings_dfs[t] = df
             if df is not None and not df.empty:

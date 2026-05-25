@@ -223,12 +223,18 @@ class ETFUniverseEntry:
 
 
 _universe_cache: list[ETFUniverseEntry] | None = None
+_nport_cache: dict[str, tuple] = {}  # ticker -> (filing, report)
 
 
 def invalidate_universe_cache() -> None:
     """Clear the in-memory ETF universe cache so the next call re-parses from disk."""
     global _universe_cache
     _universe_cache = None
+
+
+def invalidate_nport_cache(ticker: str) -> None:
+    """Evict a single ticker from the in-memory N-PORT cache."""
+    _nport_cache.pop(ticker, None)
 
 
 def _classify_etf(series_name: str, registrant: str) -> tuple[str, str, str]:
@@ -495,38 +501,150 @@ def _search_sec_tickers(query: str) -> list[tuple[str, str, str, str]]:
 
 
 def _find_nport_for_ticker(ticker: str):
-    """Find the correct N-PORT filing for a ticker in a fund family trust."""
+    """Find the correct N-PORT filing for a ticker in a fund family trust.
+
+    Results are memoized in ``_nport_cache`` for the lifetime of the process so
+    that repeated calls for the same ticker (e.g. from ``get_etf_report`` and
+    ``get_holdings_df`` running concurrently) never hit the EDGAR network twice.
+    """
+    if ticker in _nport_cache:
+        return _nport_cache[ticker]
+
     from edgar import Company
 
     company = Company(ticker)
     filings = company.get_filings(form="NPORT-P")
     if not filings or len(filings) == 0:
-        return None, None
+        result = (None, None)
+        _nport_cache[ticker] = result
+        return result
 
     first_filing = filings[0]
     report = first_filing.obj()
 
     # Check if first filing matches this ticker
     if hasattr(report, "matches_ticker") and report.matches_ticker(ticker):
-        return first_filing, report
+        result = (first_filing, report)
+        _nport_cache[ticker] = result
+        return result
 
     # Single-fund trust (no ticker matching available) — use first filing
     if not hasattr(report, "matches_ticker"):
-        return first_filing, report
+        result = (first_filing, report)
+        _nport_cache[ticker] = result
+        return result
 
     # Fund family: iterate recent filings to find the matching ticker
     head = filings.head(150)
     for f in head:
         r = f.obj()
         if r.matches_ticker(ticker):
-            return f, r
+            result = (f, r)
+            _nport_cache[ticker] = result
+            return result
 
     # Fallback: return first filing
     _log.warning(
         "_find_nport_for_ticker: no filing matched ticker %s in head(150); falling back to first filing",
         ticker,
     )
-    return first_filing, report
+    result = (first_filing, report)
+    _nport_cache[ticker] = result
+    return result
+
+
+def _build_etf_report(
+    company: object,
+    filing: object,
+    report: object,
+    ticker: str,
+) -> ETFReport | None:
+    """Build an ``ETFReport`` from a resolved ``(filing, report)`` pair.
+
+    Caches the ETF metadata and invalidates the universe + N-PORT caches as a
+    side effect (matching the behaviour of the original ``get_etf_report``).
+    """
+    if not filing or not report:
+        return None
+
+    fund_name = ""
+    issuer = ""
+    series_id = ""
+    if hasattr(report, "general_info") and report.general_info:
+        fund_name = getattr(report.general_info, "series_name", "") or ""
+        issuer = getattr(report.general_info, "name", "") or ""
+        series_id = getattr(report.general_info, "series_id", "") or ""
+
+    total_assets = 0.0
+    net_assets = 0.0
+    if hasattr(report, "fund_info") and report.fund_info:
+        total_assets = getattr(report.fund_info, "total_assets", 0) or 0
+        net_assets = getattr(report.fund_info, "net_assets", 0) or 0
+
+    num_holdings = 0
+    try:
+        df = report.investment_data()
+        if df is not None and not df.empty:
+            num_holdings = len(df)
+    except Exception:
+        pass
+
+    reporting_period = getattr(report, "reporting_period", "") or ""
+    filed_date = str(getattr(filing, "filing_date", "")) if filing else ""
+
+    cache_etf(
+        CachedETF(
+            ticker=ticker,
+            cik=str(getattr(company, "cik", "")),
+            series_id=series_id,
+            fund_name=fund_name or getattr(company, "name", ticker),
+            issuer=issuer,
+            last_updated=datetime.now().isoformat(),
+        )
+    )
+    invalidate_universe_cache()
+    invalidate_nport_cache(ticker)
+
+    return ETFReport(
+        ticker=ticker,
+        fund_name=fund_name or getattr(company, "name", ticker),
+        issuer=issuer,
+        cik=str(getattr(company, "cik", "")),
+        series_id=series_id,
+        total_assets=total_assets,
+        net_assets=net_assets,
+        num_holdings=num_holdings,
+        reporting_period=str(reporting_period),
+        filed_date=filed_date,
+    )
+
+
+def _build_holdings_df(
+    filing: object,
+    report: object,
+    ticker: str,
+) -> pd.DataFrame | None:
+    """Build and cache the holdings ``DataFrame`` from a resolved ``(filing, report)`` pair.
+
+    Caches the result and invalidates the universe + N-PORT caches as a side
+    effect (matching the behaviour of the original ``get_holdings_df``).
+    """
+    if not filing or not report:
+        return None
+
+    try:
+        df = report.investment_data()
+        if df is None or df.empty:
+            return None
+
+        as_of = str(getattr(report, "reporting_period", ""))
+        filed = str(getattr(filing, "filing_date", ""))
+        cache_holdings(ticker, df.to_json(), as_of, filed, source="nport")
+        invalidate_universe_cache()
+        invalidate_nport_cache(ticker)
+        return df
+    except Exception:
+        return None
 
 
 def get_etf_report(ticker: str) -> ETFReport | None:
@@ -537,60 +655,7 @@ def get_etf_report(ticker: str) -> ETFReport | None:
     try:
         company = Company(ticker.upper())
         filing, report = _find_nport_for_ticker(ticker.upper())
-        if not filing or not report:
-            return None
-
-        fund_name = ""
-        issuer = ""
-        series_id = ""
-        if hasattr(report, "general_info") and report.general_info:
-            fund_name = getattr(report.general_info, "series_name", "") or ""
-            issuer = getattr(report.general_info, "name", "") or ""
-            series_id = getattr(report.general_info, "series_id", "") or ""
-
-        total_assets = 0.0
-        net_assets = 0.0
-        if hasattr(report, "fund_info") and report.fund_info:
-            total_assets = getattr(report.fund_info, "total_assets", 0) or 0
-            net_assets = getattr(report.fund_info, "net_assets", 0) or 0
-
-        # Count holdings
-        num_holdings = 0
-        try:
-            df = report.investment_data()
-            if df is not None and not df.empty:
-                num_holdings = len(df)
-        except Exception:
-            pass
-
-        reporting_period = getattr(report, "reporting_period", "") or ""
-        filed_date = str(getattr(filing, "filing_date", "")) if filing else ""
-
-        # Cache the ETF info
-        cache_etf(
-            CachedETF(
-                ticker=ticker.upper(),
-                cik=str(company.cik),
-                series_id=series_id,
-                fund_name=fund_name or company.name,
-                issuer=issuer,
-                last_updated=datetime.now().isoformat(),
-            )
-        )
-        invalidate_universe_cache()
-
-        return ETFReport(
-            ticker=ticker.upper(),
-            fund_name=fund_name or company.name,
-            issuer=issuer,
-            cik=str(company.cik),
-            series_id=series_id,
-            total_assets=total_assets,
-            net_assets=net_assets,
-            num_holdings=num_holdings,
-            reporting_period=str(reporting_period),
-            filed_date=filed_date,
-        )
+        return _build_etf_report(company, filing, report, ticker.upper())
     except Exception:
         return None
 
@@ -609,23 +674,33 @@ def get_holdings_df(ticker: str) -> pd.DataFrame | None:
             _log.debug("Holdings cache read failed for %s: %s", ticker, exc)
 
     # 2. Fetch from N-PORT via EDGAR
-
     try:
         filing, report = _find_nport_for_ticker(ticker)
-        if not filing or not report:
-            return None
-
-        df = report.investment_data()
-        if df is None or df.empty:
-            return None
-
-        as_of = str(getattr(report, "reporting_period", ""))
-        filed = str(getattr(filing, "filing_date", ""))
-        cache_holdings(ticker, df.to_json(), as_of, filed, source="nport")
-        invalidate_universe_cache()
-        return df
+        return _build_holdings_df(filing, report, ticker)
     except Exception:
         return None
+
+
+def get_etf_report_and_holdings(ticker: str) -> tuple[ETFReport | None, pd.DataFrame | None]:
+    """Single EDGAR round-trip returning both report metadata and holdings DataFrame.
+
+    Calls ``_find_nport_for_ticker`` exactly once, then delegates to the shared
+    private helpers ``_build_etf_report`` and ``_build_holdings_df``.  This
+    avoids the duplicate N-PORT scan that occurs when ``get_etf_report`` and
+    ``get_holdings_df`` are called separately in parallel.
+    """
+    _ensure_identity()
+    from edgar import Company
+
+    ticker = ticker.upper()
+    try:
+        company = Company(ticker)
+        filing, report = _find_nport_for_ticker(ticker)
+        etf_report = _build_etf_report(company, filing, report, ticker)
+        df = _build_holdings_df(filing, report, ticker)
+        return etf_report, df
+    except Exception:
+        return None, None
 
 
 def get_filings_list(ticker: str, form: str = "") -> list[dict]:

@@ -103,6 +103,7 @@ def format_overview_lines(
     profile_error: str = "",
     fresh_days: int = 30,
     acceptable_days: int = 90,
+    edgar_pending: bool = False,
 ) -> list[str]:
     if not report and not profile:
         return [f"No data available for {ticker}.", "Try searching for a different ETF."]
@@ -161,7 +162,12 @@ def format_overview_lines(
             lines.append("  Yahoo may be rate-limited — reopen the ETF or try again shortly.")
         lines.append("")
 
-    if report:
+    if edgar_pending:
+        lines.append("── Key Metrics (SEC N-PORT) ──")
+        lines.append("  Total Assets:    …")
+        lines.append("  Holdings:        …")
+        lines.append("")
+    elif report:
         lines.append("── Key Metrics (SEC N-PORT) ──")
         if report.total_assets:
             lines.append(f"  Total Assets:    {fmt_dollars(report.total_assets)}")
@@ -179,16 +185,21 @@ def format_overview_lines(
         lines.append("  N-PORT data unavailable.")
         lines.append("")
 
-    if concentration and concentration.num_holdings > 0:
-        lines.append("── Portfolio Shape (computed) ──")
-        lines.append(f"  Top 10 Weight:   {concentration.top10_weight:.1f}%")
-        lines.append(f"  Effective N:     {concentration.effective_n:.0f}")
-        if top_sector:
-            lines.append(f"  Largest Sector:  {top_sector.category} ({top_sector.weight:.1f}%)")
-        lines.append("")
+    if not edgar_pending:
+        if concentration and concentration.num_holdings > 0:
+            lines.append("── Portfolio Shape (computed) ──")
+            lines.append(f"  Top 10 Weight:   {concentration.top10_weight:.1f}%")
+            lines.append(f"  Effective N:     {concentration.effective_n:.0f}")
+            if top_sector:
+                lines.append(f"  Largest Sector:  {top_sector.category} ({top_sector.weight:.1f}%)")
+            lines.append("")
 
     lines.append("── Source Provenance ──")
-    if report:
+    if edgar_pending:
+        lines.append("  Holdings Source: Loading…")
+        lines.append("  Period ended:    …")
+        lines.append("  Filed:           …")
+    elif report:
         lines.append("  Holdings Source: N-PORT filing")
         lines.append(f"  Period ended:    {report.reporting_period}")
         lines.append(f"  Filed:           {report.filed_date}")
@@ -199,7 +210,7 @@ def format_overview_lines(
         fetched = profile_fetched_date(profile)
         if fetched:
             lines.append(f"  Profile Source:  Yahoo Finance (cached {fetched})")
-    if freshness_badge:
+    if not edgar_pending and freshness_badge:
         lines.append(f"  {freshness_badge}")
 
     return lines

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
-import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
@@ -176,49 +176,72 @@ def _merge_funds_data(ticker: str, info: dict, funds_data) -> dict:
     return merged
 
 
-def _fetch_yahoo_info(ticker: str) -> tuple[dict, str]:
-    """Fetch Yahoo quote info with retries and funds_data fallback."""
+def _fetch_yahoo_info_sync(ticker: str) -> tuple[dict, str]:
+    """Single-attempt Yahoo quote fetch (no retry, no sleeping).
+
+    Returns ``(info_dict, error_str)``.  Used by the async retry wrapper below.
+    """
     try:
         import yfinance as yf
     except ImportError:
         return {}, "yfinance is not installed (run: pip install -e '.')"
 
+    last_info: dict = {}
+    last_error = ""
+
+    try:
+        yt = yf.Ticker(ticker)
+
+        # funds_data is more reliable for ETF descriptions when quoteSummary throttles.
+        funds_data = None
+        try:
+            funds_data = yt.funds_data
+        except Exception as exc:
+            last_error = f"funds_data: {exc}"
+
+        merged = _merge_funds_data(ticker, {}, funds_data)
+
+        try:
+            info = yt.get_info() if hasattr(yt, "get_info") else (yt.info or {})
+        except Exception as exc:
+            info = {}
+            last_error = f"get_info: {exc}"
+
+        if not isinstance(info, dict):
+            info = {}
+
+        merged = _merge_funds_data(ticker, {**info, **{k: v for k, v in merged.items() if v}}, funds_data)
+
+        if _has_profile_fields(merged):
+            return merged, ""
+        last_info = merged
+        last_error = last_error or "Yahoo returned no fund profile fields"
+    except Exception as exc:
+        last_error = str(exc)
+
+    return last_info, last_error
+
+
+async def _fetch_yahoo_info(ticker: str) -> tuple[dict, str]:
+    """Fetch Yahoo quote info with async-friendly retries.
+
+    Each attempt runs ``_fetch_yahoo_info_sync`` in a thread via
+    ``asyncio.to_thread`` so the event loop is not blocked by network I/O.
+    Back-off between attempts uses ``asyncio.sleep`` to free the thread slot
+    rather than blocking it with ``time.sleep``.
+    """
     ticker = ticker.upper()
     last_info: dict = {}
     last_error = ""
 
     for attempt in range(_FETCH_RETRIES):
-        try:
-            yt = yf.Ticker(ticker)
-
-            # funds_data is more reliable for ETF descriptions when quoteSummary throttles.
-            funds_data = None
-            try:
-                funds_data = yt.funds_data
-            except Exception as exc:
-                last_error = f"funds_data: {exc}"
-
-            merged = _merge_funds_data(ticker, {}, funds_data)
-
-            try:
-                info = yt.get_info() if hasattr(yt, "get_info") else (yt.info or {})
-            except Exception as exc:
-                info = {}
-                last_error = f"get_info: {exc}"
-
-            if not isinstance(info, dict):
-                info = {}
-
-            merged = _merge_funds_data(ticker, {**info, **{k: v for k, v in merged.items() if v}}, funds_data)
-
-            if _has_profile_fields(merged):
-                return merged, ""
-            last_info = merged
-            last_error = last_error or "Yahoo returned no fund profile fields"
-        except Exception as exc:
-            last_error = str(exc)
+        info, error = await asyncio.to_thread(_fetch_yahoo_info_sync, ticker)
+        if not error:
+            return info, ""
+        last_info = info
+        last_error = error
         if attempt < _FETCH_RETRIES - 1:
-            time.sleep(_FETCH_RETRY_DELAY_SEC * (attempt + 1))
+            await asyncio.sleep(_FETCH_RETRY_DELAY_SEC * (attempt + 1))
 
     return last_info, last_error
 
@@ -286,9 +309,9 @@ def _profile_from_cache(cached: dict) -> ETFProfile | None:
         return None
 
 
-def _fetch_from_yahoo(ticker: str) -> tuple[ETFProfile | None, str]:
+async def _fetch_from_yahoo(ticker: str) -> tuple[ETFProfile | None, str]:
     try:
-        info, fetch_error = _fetch_yahoo_info(ticker)
+        info, fetch_error = await _fetch_yahoo_info(ticker)
         fetched_at = datetime.now().isoformat()
         profile = _parse_yahoo_info(ticker, info, fetched_at)
         if profile:
@@ -301,7 +324,7 @@ def _fetch_from_yahoo(ticker: str) -> tuple[ETFProfile | None, str]:
         return None, str(exc)
 
 
-def get_etf_profile(ticker: str, *, force_refresh: bool = False) -> tuple[ETFProfile | None, str]:
+async def get_etf_profile(ticker: str, *, force_refresh: bool = False) -> tuple[ETFProfile | None, str]:
     """Get ETF profile from cache or Yahoo Finance.
 
     Returns a ``(profile, error)`` tuple.  On success the error string is empty.
@@ -315,7 +338,7 @@ def get_etf_profile(ticker: str, *, force_refresh: bool = False) -> tuple[ETFPro
             if profile:
                 return profile, ""
 
-    return _fetch_from_yahoo(ticker)
+    return await _fetch_from_yahoo(ticker)
 
 
 def profile_fetched_date(profile: ETFProfile | None) -> str:

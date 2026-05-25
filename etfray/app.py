@@ -316,6 +316,10 @@ class ETFTerminalApp(App):
     def on_mount(self) -> None:
         self.push_screen(SplashScreen(), callback=self._on_splash_dismissed)
 
+    def on_unmount(self) -> None:
+        from etfray.db.database import close_db
+        close_db()
+
     def on_screen_resume(self) -> None:
         self.screen.refresh(layout=True)
 

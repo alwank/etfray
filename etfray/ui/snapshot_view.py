@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import threading
 import time
 from datetime import datetime, timezone
 
@@ -294,38 +293,26 @@ class SnapshotView(VerticalScroll):
     # ── Benchmark Marquee ─────────────────────────────────────────────────
 
     def _load_benchmarks(self) -> None:
-        threading.Thread(target=self._fetch_benchmarks_in_thread, daemon=True).start()
+        self.run_worker(self._fetch_and_render_benchmarks(), exclusive=True, group="snap-benchmarks", name="snap-benchmarks")
 
-    def _render_benchmarks(self) -> None:
+    async def _fetch_and_render_benchmarks(self) -> None:
+        """Fetch benchmark profiles (async, non-blocking) and update the marquee."""
         from etfray.data.market_data_service import get_etf_profile
+        from etfray.domain.overview_format import fmt_pct
 
         parts: list[str] = []
         for ticker in BENCHMARK_TICKERS:
-            profile, _ = get_etf_profile(ticker)
+            try:
+                profile, _ = await get_etf_profile(ticker)
+            except Exception:
+                profile = None
             if profile and profile.ytd_return is not None:
                 ytd = profile.ytd_return
                 color = "green" if ytd >= 0 else "red"
-                from etfray.domain.overview_format import fmt_pct
-
                 parts.append(f"{ticker} [{color}]{fmt_pct(ytd, signed=True)}[/{color}] YTD")
 
-        if parts:
-            text = "  ".join(parts)
-        else:
-            text = "SPY · QQQ · AGG · GLD — open any ETF to populate cache"
-
+        text = "  ".join(parts) if parts else "SPY · QQQ · AGG · GLD — open any ETF to populate cache"
         self.query_one("#snap-bench-text", BenchmarkTicker).set_content(text)
-
-    def _fetch_benchmarks_in_thread(self) -> None:
-        """Fetch each benchmark profile from Yahoo (blocking). Call from a worker thread."""
-        from etfray.data.market_data_service import get_etf_profile
-
-        for ticker in BENCHMARK_TICKERS:
-            try:
-                get_etf_profile(ticker)  # result ignored; warms the cache
-            except Exception:
-                pass
-        self.app.call_from_thread(self._render_benchmarks)
 
     # ── ETF Movers Panel ──────────────────────────────────────────────────
 
@@ -429,7 +416,7 @@ class SnapshotView(VerticalScroll):
             if cached_etf:
                 row_data["fund_name"] = cached_etf.fund_name[:25]
 
-            profile, _ = await to_thread(get_etf_profile, ticker)
+            profile, _ = await get_etf_profile(ticker)
             if profile and profile.ytd_return is not None:
                 ytd = profile.ytd_return
                 color = "green" if ytd >= 0 else "red"

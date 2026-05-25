@@ -107,7 +107,8 @@ class SplashScreen(Screen):
         try:
             from etfray.db.database import get_db
 
-            get_db().close()
+            # Probe singleton connection (do not call .close() — that leaves _db_conn stale)
+            get_db().execute("SELECT 1")
             self.app.call_from_thread(self._set_status, "status-db", "ok")
         except Exception as e:
             self.app.call_from_thread(self._set_status, "status-db", "fail", str(e))
