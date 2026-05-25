@@ -182,14 +182,6 @@ class CompareView(Vertical):
                 return "N/A"
             normed_w = zdf["pct_value"] / total_w  # sums to 1.0
             avg = (normed_w * zdf["week52_return"]).sum()
-            # #region agent log
-            import time, urllib.request, json as _json
-            _payload = _json.dumps({"sessionId":"76afdc","runId":"post-fix","hypothesisId":"A_D","location":"compare_view.py:184","message":"avg_52wk_before_fmt","data":{"ticker":t,"avg_decimal":avg,"fmt_result":str(avg*100)+"_pct"},"timestamp":int(time.time()*1000)}).encode()
-            try:
-                urllib.request.urlopen(urllib.request.Request("http://127.0.0.1:7769/ingest/168a6584-d560-4ca6-b866-8991a765544e",data=_payload,headers={"Content-Type":"application/json","X-Debug-Session-Id":"76afdc"},method="POST"),timeout=2)
-            except Exception:
-                pass
-            # #endregion
             return fmt_pct(avg, signed=True)
 
         avg_row = ["Avg 52wk Ret"] + [await _avg_52wk(t) for t in tickers]

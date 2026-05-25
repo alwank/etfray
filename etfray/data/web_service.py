@@ -90,18 +90,6 @@ def get_holdings_from_web(ticker: str) -> pd.DataFrame | None:
                 nonzero = df_cached["week52_return"][df_cached["week52_return"] != 0]
                 if not nonzero.empty and nonzero.abs().median() > 1.0:
                     df_cached = None  # fall through to fresh fetch
-            # #region agent log
-            if df_cached is not None:
-                import time
-                w52_sample = df_cached["week52_return"].head(3).tolist() if "week52_return" in df_cached.columns else []
-                pct_sample = df_cached["pct_value"].head(3).tolist() if "pct_value" in df_cached.columns else []
-                import urllib.request, json as _json
-                _payload = _json.dumps({"sessionId":"76afdc","runId":"post-fix","hypothesisId":"A_D","location":"web_service.py:83","message":"cache_hit_week52_sample","data":{"ticker":ticker,"week52_sample":w52_sample,"pct_value_sample":pct_sample},"timestamp":int(time.time()*1000)}).encode()
-                try:
-                    urllib.request.urlopen(urllib.request.Request("http://127.0.0.1:7769/ingest/168a6584-d560-4ca6-b866-8991a765544e",data=_payload,headers={"Content-Type":"application/json","X-Debug-Session-Id":"76afdc"},method="POST"),timeout=2)
-                except Exception:
-                    pass
-            # #endregion
             if df_cached is not None:
                 return df_cached
         except Exception:
@@ -111,17 +99,6 @@ def get_holdings_from_web(ticker: str) -> pd.DataFrame | None:
     df = _fetch_and_parse(ticker)
     if df is None or df.empty:
         return None
-
-    # #region agent log
-    import time
-    w52_sample_fresh = df["week52_return"].head(3).tolist() if "week52_return" in df.columns else []
-    import urllib.request, json as _json
-    _payload2 = _json.dumps({"sessionId":"76afdc","runId":"post-fix","hypothesisId":"A_D","location":"web_service.py:94","message":"fresh_fetch_week52_sample","data":{"ticker":ticker,"week52_sample":w52_sample_fresh},"timestamp":int(time.time()*1000)}).encode()
-    try:
-        urllib.request.urlopen(urllib.request.Request("http://127.0.0.1:7769/ingest/168a6584-d560-4ca6-b866-8991a765544e",data=_payload2,headers={"Content-Type":"application/json","X-Debug-Session-Id":"76afdc"},method="POST"),timeout=2)
-    except Exception:
-        pass
-    # #endregion
 
     from datetime import date
 
