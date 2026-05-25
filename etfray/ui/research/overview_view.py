@@ -12,6 +12,7 @@ _MIN_PEERS_BEFORE_ENRICHMENT = 15
 _MAX_LIVE_PEER_FETCHES = 10
 # Maximum total Yahoo fetch attempts per enrichment run (includes non-matching fetches).
 _MAX_LIVE_PEER_ATTEMPTS = 15
+_DOUBLE_CLICK_SECONDS = 0.45
 
 
 class OverviewView(VerticalScroll):
@@ -35,6 +36,8 @@ class OverviewView(VerticalScroll):
     }
     """
 
+    _last_peers_click: tuple[str, float] | None = None
+
     def compose(self) -> ComposeResult:
         yield Static("Select an ETF from Search to view overview.", id="overview-placeholder")
         yield Button("Open Search to select an ETF →", id="overview-open-search", variant="primary")
@@ -43,7 +46,7 @@ class OverviewView(VerticalScroll):
                 yield Static("", id="overview-content")
             with TabPane("Peers", id="tab-peers"):
                 yield Static("", id="peers-status")
-                yield DataTable(id="peers-table", show_cursor=True)
+                yield DataTable(id="peers-table", show_cursor=True, cursor_type="row")
 
     def on_mount(self) -> None:
         self.query_one("#overview-tabs", TabbedContent).display = False
@@ -62,6 +65,36 @@ class OverviewView(VerticalScroll):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "overview-open-search":
             self.app.navigate_to("research-search")
+
+    def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
+        import time
+
+        if event.data_table.id != "peers-table":
+            return
+        if not event.row_key:
+            return
+        ticker = str(event.row_key.value)
+        if ticker:
+            self._last_peers_click = (ticker, time.monotonic())
+
+    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+        import time
+
+        if event.data_table.id != "peers-table":
+            return
+        if not event.row_key:
+            return
+        ticker = str(event.row_key.value)
+        if not ticker:
+            return
+        now = time.monotonic()
+        if (
+            self._last_peers_click
+            and self._last_peers_click[0] == ticker
+            and now - self._last_peers_click[1] < _DOUBLE_CLICK_SECONDS
+        ):
+            self._last_peers_click = None
+            self.app.navigate_to_etf(ticker)
 
     async def _load(self, ticker: str) -> None:
         import asyncio
@@ -214,12 +247,12 @@ class OverviewView(VerticalScroll):
             table.clear()
             table.display = True
             for t, p in peers:
-                table.add_row(*self._peer_row(t, p, ticker))
+                table.add_row(*self._peer_row(t, p, ticker), key=t)
 
         # Launch tier-2 enrichment when we don't have enough cached peers yet.
         if len(peers) < _MIN_PEERS_BEFORE_ENRICHMENT:
             if not peers:
-                status.update("No cached peers yet — searching Yahoo for peers…")
+                status.update("Searching for peers…")
             self.run_worker(
                 self._enrich_peers(ticker, current_category, len(peers)),
                 exclusive=False,
@@ -268,9 +301,7 @@ class OverviewView(VerticalScroll):
             if getattr(self, "_current_ticker", None) != ticker:
                 return
 
-            status.update(
-                f"Fetching peers from Yahoo… ({fetched_count}/{_MAX_LIVE_PEER_FETCHES})"
-            )
+            status.update("Fetching peers…")
 
             profile, _ = await to_thread(get_etf_profile, candidate.ticker)
             _attempt_count += 1
@@ -284,11 +315,11 @@ class OverviewView(VerticalScroll):
 
             self._ensure_peers_columns(table)
             table.display = True
-            table.add_row(*self._peer_row(candidate.ticker, profile, ticker))
+            table.add_row(*self._peer_row(candidate.ticker, profile, ticker), key=candidate.ticker)
             fetched_count += 1
 
         total = existing_count + fetched_count
         if fetched_count > 0:
-            status.update(f"Showing {total} peer(s) · {fetched_count} fetched live from Yahoo")
+            status.update(f"Showing {total} peer(s)")
         else:
             status.update("" if existing_count > 0 else "No peers found in this category.")
