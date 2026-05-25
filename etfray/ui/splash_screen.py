@@ -146,9 +146,7 @@ class SplashScreen(Screen):
 
             result = fetch_latest_version()
             if result.error:
-                self.app.call_from_thread(
-                    self._set_status, "status-version", "warn", "check skipped"
-                )
+                self.app.call_from_thread(self._set_status, "status-version", "warn", "check skipped")
             elif result.update_available:
                 skipped = get_skipped_version()
                 if should_prompt_update(result.installed, result.latest, skipped):
@@ -170,13 +168,9 @@ class SplashScreen(Screen):
                         self._set_status, "status-version", "warn", f"v{result.installed} (skipped)"
                     )
                 else:
-                    self.app.call_from_thread(
-                        self._set_status, "status-version", "ok", f"v{result.installed}"
-                    )
+                    self.app.call_from_thread(self._set_status, "status-version", "ok", f"v{result.installed}")
             else:
-                self.app.call_from_thread(
-                    self._set_status, "status-version", "ok", f"v{result.installed}"
-                )
+                self.app.call_from_thread(self._set_status, "status-version", "ok", f"v{result.installed}")
         except Exception as e:
             self.app.call_from_thread(self._set_status, "status-version", "warn", str(e)[:40])
         sleep(0.1)

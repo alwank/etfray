@@ -318,6 +318,7 @@ class ETFTerminalApp(App):
 
     def on_unmount(self) -> None:
         from etfray.db.database import close_db
+
         close_db()
 
     def on_screen_resume(self) -> None:

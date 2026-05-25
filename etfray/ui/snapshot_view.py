@@ -293,7 +293,9 @@ class SnapshotView(VerticalScroll):
     # ── Benchmark Marquee ─────────────────────────────────────────────────
 
     def _load_benchmarks(self) -> None:
-        self.run_worker(self._fetch_and_render_benchmarks(), exclusive=True, group="snap-benchmarks", name="snap-benchmarks")
+        self.run_worker(
+            self._fetch_and_render_benchmarks(), exclusive=True, group="snap-benchmarks", name="snap-benchmarks"
+        )
 
     async def _fetch_and_render_benchmarks(self) -> None:
         """Fetch benchmark profiles (async, non-blocking) and update the marquee."""

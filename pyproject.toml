@@ -1,6 +1,6 @@
 [project]
 name = "etfray"
-version = "1.0.0"
+version = "1.5.0"
 description = "ETF research and portfolio analytics terminal"
 authors = [
     { name = "Alwan", email = "alwan.alkautsar@gmail.com" }

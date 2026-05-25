@@ -32,6 +32,7 @@ nav:
   - User Guide:
       - Home Dashboard: user-guide/home-dashboard.md
       - ETF Research: user-guide/etf-research.md
+      - ETF Discovery: user-guide/etf-discovery.md
       - Seasonals: user-guide/seasonals.md
       - Watchlist: user-guide/watchlist.md
       - Portfolio Analytics: user-guide/portfolio-analytics.md

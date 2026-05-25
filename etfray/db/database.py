@@ -223,9 +223,7 @@ def cache_holdings(ticker: str, holdings_json: str, as_of_date: str, filed_date:
 def get_cached_holdings(ticker: str, source: str | None = None) -> dict | None:
     conn = get_db()
     if source:
-        row = conn.execute(
-            "SELECT * FROM holdings_cache WHERE ticker = ? AND source = ?", (ticker, source)
-        ).fetchone()
+        row = conn.execute("SELECT * FROM holdings_cache WHERE ticker = ? AND source = ?", (ticker, source)).fetchone()
     else:
         row = conn.execute(
             "SELECT * FROM holdings_cache WHERE ticker = ? ORDER BY cached_at DESC", (ticker,)

@@ -5,7 +5,6 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import httpx
-import pytest
 
 from etfray.version_check import (
     VersionCheckResult,

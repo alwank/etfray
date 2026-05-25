@@ -1,10 +1,11 @@
 """Tests for Yahoo Finance market data service and overview formatting."""
 
+import asyncio
 import json
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -47,12 +48,19 @@ SAMPLE_YAHOO_INFO = {
 
 class TestMarketDataService:
     def setup_method(self):
+        from etfray.db.database import close_db
+
         self._tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
         self._tmp.close()
+        close_db()
         self._patcher = patch("etfray.db.database.DB_PATH", Path(self._tmp.name))
         self._patcher.start()
+        close_db()
 
     def teardown_method(self):
+        from etfray.db.database import close_db
+
+        close_db()
         self._patcher.stop()
         Path(self._tmp.name).unlink(missing_ok=True)
 
@@ -139,15 +147,15 @@ class TestMarketDataService:
         mock_ticker.info = SAMPLE_YAHOO_INFO
         mock_ticker_cls.return_value = mock_ticker
 
-        first, _ = get_etf_profile("VTI")
-        second, _ = get_etf_profile("VTI")
+        first, _ = asyncio.run(get_etf_profile("VTI"))
+        second, _ = asyncio.run(get_etf_profile("VTI"))
 
         assert first is not None
         assert second is not None
         assert second.description == first.description
         mock_ticker_cls.assert_called_once_with("VTI")
 
-    @patch("etfray.data.market_data_service._fetch_from_yahoo")
+    @patch("etfray.data.market_data_service._fetch_from_yahoo", new_callable=AsyncMock)
     def test_cache_expired_refetches(self, mock_fetch):
         from etfray.db.database import cache_etf_profile
 
@@ -167,7 +175,7 @@ class TestMarketDataService:
         )
         mock_fetch.return_value = (refreshed, "")
 
-        result, _ = get_etf_profile("VTI")
+        result, _ = asyncio.run(get_etf_profile("VTI"))
         assert result is not None
         assert result.long_name == "Fresh Name"
         mock_fetch.assert_called_once_with("VTI")
@@ -180,7 +188,7 @@ class TestMarketDataService:
         mock_ticker.funds_data = MagicMock(description="", fund_overview={}, fund_operations=None)
         mock_ticker_cls.return_value = mock_ticker
 
-        profile, _ = get_etf_profile("BAD")
+        profile, _ = asyncio.run(get_etf_profile("BAD"))
         assert profile is None
 
         from etfray.db.database import get_cached_etf_profile
@@ -198,7 +206,7 @@ class TestMarketDataService:
         mock_ticker.funds_data = funds
         mock_ticker_cls.return_value = mock_ticker
 
-        profile, _ = get_etf_profile("SPY")
+        profile, _ = asyncio.run(get_etf_profile("SPY"))
         assert profile is not None
         assert "S&P 500" in profile.description
         assert profile.category == "Large Blend"

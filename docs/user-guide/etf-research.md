@@ -6,6 +6,8 @@ The Research workspace lets you look up any ETF and explore its holdings, exposu
 
 Navigate to **Research → Search** or press `/`. Enter a ticker symbol (e.g., `VTI`, `QQQM`, `AVUV`) to look up an ETF.
 
+To browse ETFs by asset class, category, or geography, use **[ETF Discovery](etf-discovery.md)** under Research → Discovery.
+
 !!! tip
     Press `/` to jump straight to ETF Search — it's the fastest way to look up a fund. After searching, press `w` to add the ETF to your [Watchlist](watchlist.md).
 

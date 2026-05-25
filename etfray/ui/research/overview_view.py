@@ -152,14 +152,11 @@ class OverviewView(VerticalScroll):
             )
         elif profile is None:
             self.query_one("#peers-status", Static).update(
-                f"Could not load profile: {profile_error}" if profile_error
-                else "Could not load profile for this ETF."
+                f"Could not load profile: {profile_error}" if profile_error else "Could not load profile for this ETF."
             )
 
         # ── Stage 2: await EDGAR in background ───────────────────────────
-        report, df = await _edgar_task(
-            to_thread(get_etf_report_and_holdings, ticker), (None, None)
-        )
+        report, df = await _edgar_task(to_thread(get_etf_report_and_holdings, ticker), (None, None))
 
         # Abort update if the user has navigated to a different ETF.
         if getattr(self, "_current_ticker", None) != ticker:
@@ -265,6 +262,7 @@ class OverviewView(VerticalScroll):
         # This is fast and avoids any Yahoo fetch for the count.
         if peers:
             from etfray.db.database import get_holdings_count_bulk
+
             peer_tickers = [t for t, _ in peers]
             holdings_counts = await to_thread(get_holdings_count_bulk, peer_tickers)
             enriched = []
@@ -272,6 +270,7 @@ class OverviewView(VerticalScroll):
                 count = holdings_counts.get(t.upper())
                 if count is not None and p.num_holdings is None:
                     import dataclasses
+
                     p = dataclasses.replace(p, num_holdings=count)
                 enriched.append((t, p))
             peers = enriched
@@ -299,9 +298,7 @@ class OverviewView(VerticalScroll):
     # Tier-2: live enrichment from Yahoo
     # ------------------------------------------------------------------
 
-    async def _enrich_peers(
-        self, ticker: str, current_category: str, existing_count: int
-    ) -> None:
+    async def _enrich_peers(self, ticker: str, current_category: str, existing_count: int) -> None:
         """Fetch profiles for universe candidates not yet in the cache and add them live."""
         from asyncio import to_thread
 

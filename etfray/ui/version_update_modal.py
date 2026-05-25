@@ -54,11 +54,7 @@ class VersionUpdateModal(ModalScreen[str]):
                         yield Button("Skip until next version", id="btn-skip")
 
     def _body_text(self) -> str:
-        return (
-            f"Installed: {self._installed}\n"
-            f"Latest:    {self._latest}\n\n"
-            f"[dim]{PYPI_URL}[/dim]"
-        )
+        return f"Installed: {self._installed}\nLatest:    {self._latest}\n\n[dim]{PYPI_URL}[/dim]"
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "btn-update":

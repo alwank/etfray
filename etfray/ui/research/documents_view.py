@@ -115,6 +115,7 @@ class DocumentsView(VerticalScroll):
             return
         url = self._build_filing_url(accession_number, cik)
         import webbrowser
+
         webbrowser.open(url)
         self.app.notify(f"Opening {url}")
 

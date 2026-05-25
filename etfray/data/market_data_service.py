@@ -361,34 +361,108 @@ def profile_fetched_date(profile: ETFProfile | None) -> str:
 # category is verified after the profile is fetched.
 _COARSE_TO_YAHOO_KEYWORDS: dict[str, tuple[str, ...]] = {
     "Sector / Thematic": (
-        "sector", "technology", "tech", "health", "biotech", "energy",
-        "financial", "communication", "utilities", "consumer", "industrial",
-        "materials", "thematic", "innovation", "cyber", "clean", "defense",
-        "gaming", "water", "infrastructure", "cannabis", "esports", "cloud",
-        "robotics", "semiconductor", "internet",
+        "sector",
+        "technology",
+        "tech",
+        "health",
+        "biotech",
+        "energy",
+        "financial",
+        "communication",
+        "utilities",
+        "consumer",
+        "industrial",
+        "materials",
+        "thematic",
+        "innovation",
+        "cyber",
+        "clean",
+        "defense",
+        "gaming",
+        "water",
+        "infrastructure",
+        "cannabis",
+        "esports",
+        "cloud",
+        "robotics",
+        "semiconductor",
+        "internet",
     ),
     "Fixed Income": (
-        "bond", "treasury", "income", "fixed income", "credit", "corporate",
-        "municipal", "muni", "inflation", "tips", "yield", "duration",
-        "high yield", "floating rate", "preferred",
+        "bond",
+        "treasury",
+        "income",
+        "fixed income",
+        "credit",
+        "corporate",
+        "municipal",
+        "muni",
+        "inflation",
+        "tips",
+        "yield",
+        "duration",
+        "high yield",
+        "floating rate",
+        "preferred",
     ),
     "Broad Market": (
-        "equity", "blend", "large cap", "large-cap", "mid cap", "mid-cap",
-        "small cap", "small-cap", "total market", "s&p", "russell",
-        "growth", "value", "dividend", "market",
+        "equity",
+        "blend",
+        "large cap",
+        "large-cap",
+        "mid cap",
+        "mid-cap",
+        "small cap",
+        "small-cap",
+        "total market",
+        "s&p",
+        "russell",
+        "growth",
+        "value",
+        "dividend",
+        "market",
     ),
     "Factor / Smart Beta": (
-        "factor", "smart beta", "quality", "momentum", "low volatility",
-        "minimum volatility", "multi-factor", "dividend", "fundamental",
+        "factor",
+        "smart beta",
+        "quality",
+        "momentum",
+        "low volatility",
+        "minimum volatility",
+        "multi-factor",
+        "dividend",
+        "fundamental",
     ),
-    "Real Estate": ("real estate", "reit",),
+    "Real Estate": (
+        "real estate",
+        "reit",
+    ),
     "Commodity": (
-        "commodity", "commodities", "gold", "silver", "oil", "metal",
-        "agriculture", "natural resource",
+        "commodity",
+        "commodities",
+        "gold",
+        "silver",
+        "oil",
+        "metal",
+        "agriculture",
+        "natural resource",
     ),
-    "Multi-Asset": ("multi-asset", "balanced", "allocation", "mixed",),
-    "Leveraged / Inverse": ("leveraged", "inverse", "bear", "bull",),
-    "Currency": ("currency", "forex",),
+    "Multi-Asset": (
+        "multi-asset",
+        "balanced",
+        "allocation",
+        "mixed",
+    ),
+    "Leveraged / Inverse": (
+        "leveraged",
+        "inverse",
+        "bear",
+        "bull",
+    ),
+    "Currency": (
+        "currency",
+        "forex",
+    ),
 }
 
 
@@ -401,9 +475,29 @@ def _yahoo_category_tokens(yahoo_category: str) -> set[str]:
     import re
 
     _STOP = {
-        "the", "and", "or", "of", "in", "a", "an", "us", "etf", "etfs",
-        "fund", "funds", "index", "with", "for", "cap", "mid", "large",
-        "small", "high", "low", "total", "global",
+        "the",
+        "and",
+        "or",
+        "of",
+        "in",
+        "a",
+        "an",
+        "us",
+        "etf",
+        "etfs",
+        "fund",
+        "funds",
+        "index",
+        "with",
+        "for",
+        "cap",
+        "mid",
+        "large",
+        "small",
+        "high",
+        "low",
+        "total",
+        "global",
     }
     tokens = re.split(r"[\s,/&\-]+", yahoo_category.lower())
     return {t for t in tokens if len(t) >= 4 and t not in _STOP}
@@ -442,19 +536,12 @@ def get_peer_candidates(
         matching_coarse = set(_COARSE_TO_YAHOO_KEYWORDS.keys())
 
     # Stage 1: coarse category filter
-    stage1 = [
-        entry
-        for entry in universe
-        if entry.category in matching_coarse and entry.ticker not in cached_tickers
-    ]
+    stage1 = [entry for entry in universe if entry.category in matching_coarse and entry.ticker not in cached_tickers]
 
     # Stage 2: fund-name keyword filter — reduces false positives from broad coarse categories
     name_tokens = _yahoo_category_tokens(yahoo_category)
     if name_tokens:
-        name_filtered = [
-            entry for entry in stage1
-            if any(tok in entry.fund_name.lower() for tok in name_tokens)
-        ]
+        name_filtered = [entry for entry in stage1 if any(tok in entry.fund_name.lower() for tok in name_tokens)]
         # Fall back to stage1 if the name filter is too aggressive (< 5 results)
         if len(name_filtered) >= 5:
             stage1 = name_filtered

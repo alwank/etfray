@@ -14,12 +14,19 @@ class TestWatchlistDB:
     """Test watchlist CRUD operations."""
 
     def setup_method(self):
+        from etfray.db.database import close_db
+
         self._tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
         self._tmp.close()
+        close_db()
         self._patcher = patch("etfray.db.database.DB_PATH", Path(self._tmp.name))
         self._patcher.start()
+        close_db()
 
     def teardown_method(self):
+        from etfray.db.database import close_db
+
+        close_db()
         self._patcher.stop()
         Path(self._tmp.name).unlink(missing_ok=True)
 

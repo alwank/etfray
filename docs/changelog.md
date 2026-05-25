@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [1.5.0] - 2026-05-26
+
+### Added
+
+- **PyPI version check** — Splash screen checks PyPI for a newer release and offers an in-app upgrade prompt with “Skip until next version”
+- **ETF Discovery** — Filter ETFs by asset class, category, and geography; search by ticker or name; open linked SEC documents from the table
+
+### Changed
+
+- **Overview** — Improved peer table interactions (double-click), async Yahoo profile fetching, and holdings count display
+- **Compare / web cache** — Improved caching behavior for compare and web-sourced holdings
+- **Documents** — Simplified table (description column removed); document links from Discovery
+
+### Fixed
+
+- **Holdings** — Asset and country filtering in the holdings view
+- **README** — Screenshot filename casing for correct rendering on GitHub
+
+---
+
 ## [1.0.0] - 2026-05-24
 
 ### Added
