@@ -29,20 +29,22 @@ class OverviewView(VerticalScroll):
     """
 
     def compose(self) -> ComposeResult:
+        yield Static("Select an ETF from Search to view overview.", id="overview-placeholder")
+        yield Button("Open Search to select an ETF →", id="overview-open-search", variant="primary")
         with TabbedContent(id="overview-tabs"):
             with TabPane("Summary", id="tab-summary"):
-                yield Static("Select an ETF from Search to view overview.", id="overview-content")
-                yield Button("Open Search to select an ETF →", id="overview-open-search", variant="primary")
+                yield Static("", id="overview-content")
             with TabPane("Peers", id="tab-peers"):
                 yield Static("", id="peers-status")
                 yield DataTable(id="peers-table", show_cursor=True)
 
+    def on_mount(self) -> None:
+        self.query_one("#overview-tabs", TabbedContent).display = False
+
     def load_etf(self, ticker: str) -> None:
-        try:
-            self.query_one("#overview-open-search", Button).display = False
-        except Exception:
-            pass
-        self.query_one("#overview-content", Static).update("")
+        self.query_one("#overview-placeholder", Static).display = False
+        self.query_one("#overview-open-search", Button).display = False
+        self.query_one("#overview-tabs", TabbedContent).display = True
         self.loading = True
         self._current_ticker = ticker
         self.run_worker(self._load(ticker), exclusive=True)
