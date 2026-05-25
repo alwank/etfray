@@ -644,6 +644,7 @@ def get_filings_list(ticker: str, form: str = "") -> list[dict]:
                     "filing_date": str(getattr(f, "filing_date", "")),
                     "accession_number": getattr(f, "accession_number", "") or getattr(f, "accession_no", ""),
                     "description": getattr(f, "description", "") or "",
+                    "cik": str(getattr(company, "cik", "") or ""),
                 }
             )
         return results

@@ -474,6 +474,16 @@ def get_cached_etf_profile(ticker: str) -> dict | None:
     return None
 
 
+def get_all_cached_profiles() -> dict[str, str]:
+    """Return all cached ETF profiles as {ticker: profile_json} in one DB query."""
+    conn = get_db()
+    try:
+        rows = conn.execute("SELECT ticker, profile_json FROM etf_profile_cache").fetchall()
+    finally:
+        conn.close()
+    return {row[0]: row[1] for row in rows if row[1]}
+
+
 # Price history cache (Yahoo Finance / yfinance)
 def cache_price_history(ticker: str, period: str, history_json: str, fetched_at: str) -> None:
     conn = get_db()

@@ -4,6 +4,7 @@ or type a ticker/name and press Enter to search EDGAR directly.
 
 from __future__ import annotations
 
+import json
 import time
 
 from textual import events
@@ -115,6 +116,56 @@ class DiscoveryView(Vertical):
         text-style: bold;
     }
 
+    /* Numeric filter toggle pill */
+    DiscoveryView #filter-toggle-row {
+        height: 1;
+        padding: 0;
+        margin-top: 1;
+    }
+    DiscoveryView #filter-toggle-pill {
+        height: 1;
+        width: auto;
+        padding: 0 1;
+        background: transparent;
+        color: $text-muted;
+    }
+    DiscoveryView #filter-toggle-pill:hover {
+        background: $surface-lighten-1;
+        color: $text;
+    }
+    DiscoveryView #filter-toggle-pill.-on {
+        background: steelblue;
+        color: white;
+        text-style: bold;
+    }
+
+    /* Numeric inputs row */
+    DiscoveryView #filter-numeric-row {
+        height: auto;
+        min-height: 3;
+        padding: 0;
+        margin-top: 0;
+        display: none;
+    }
+    DiscoveryView #filter-numeric-row.-visible {
+        display: block;
+    }
+    DiscoveryView .numeric-filter-group {
+        height: 3;
+        width: 1fr;
+        margin-right: 1;
+    }
+    DiscoveryView .numeric-filter-label {
+        height: 1;
+        width: 1fr;
+        color: $text-muted;
+        padding: 0 0 0 1;
+    }
+    DiscoveryView .numeric-filter-input {
+        height: 3;
+        width: 1fr;
+    }
+
     /* Table */
     DiscoveryView #discovery-table {
         height: 1fr;
@@ -132,8 +183,15 @@ class DiscoveryView(Vertical):
     _filter_geography: reactive[str] = reactive(_ALL_LABEL)
     _filter_text: reactive[str] = reactive("")
 
+    _filter_max_er: reactive[float | None] = reactive(None)
+    _filter_min_aum: reactive[float | None] = reactive(None)
+    _filter_min_ytd: reactive[float | None] = reactive(None)
+    _filter_max_beta: reactive[float | None] = reactive(None)
+
     _last_table_click: tuple[str, float] | None = None
     _universe: list = []  # list[ETFUniverseEntry]
+    _filters_expanded: bool = False
+    _profile_map: dict = {}  # dict[str, ETFProfile]
 
     def compose(self) -> ComposeResult:
         # Row 1: search input + watch button + result count
@@ -166,6 +224,17 @@ class DiscoveryView(Vertical):
             for geo in _GEOGRAPHIES:
                 yield Static(geo, classes="filter-pill", name=f"geo:{geo}", id=_pill_id("geo", geo))
 
+        # Row 5: Numeric filter toggle pill
+        with Horizontal(id="filter-toggle-row"):
+            yield Static("Filters ▼", id="filter-toggle-pill", name="toggle:filters")
+
+        # Row 6: Numeric inputs (hidden by default)
+        with Horizontal(id="filter-numeric-row"):
+            yield Input(placeholder="Max ER% e.g. 0.20", id="filter-er", classes="numeric-filter-input")
+            yield Input(placeholder="Min AUM $B e.g. 1", id="filter-aum", classes="numeric-filter-input")
+            yield Input(placeholder="Min YTD% e.g. -5", id="filter-ytd", classes="numeric-filter-input")
+            yield Input(placeholder="Max Beta e.g. 1.2", id="filter-beta", classes="numeric-filter-input")
+
         yield DataTable(id="discovery-table")
 
     def on_mount(self) -> None:
@@ -184,6 +253,7 @@ class DiscoveryView(Vertical):
         self.loading = True
         universe = await to_thread(get_etf_universe)
         self._universe = universe
+        self._profile_map = {}
         self.loading = False
         self._repopulate_table()
 
@@ -201,6 +271,18 @@ class DiscoveryView(Vertical):
     def watch__filter_text(self, _value: str) -> None:
         self._repopulate_table()
 
+    def watch__filter_max_er(self, _value: float | None) -> None:
+        self._repopulate_table()
+
+    def watch__filter_min_aum(self, _value: float | None) -> None:
+        self._repopulate_table()
+
+    def watch__filter_min_ytd(self, _value: float | None) -> None:
+        self._repopulate_table()
+
+    def watch__filter_max_beta(self, _value: float | None) -> None:
+        self._repopulate_table()
+
     # ------------------------------------------------------------------ table population
 
     def _repopulate_table(self) -> None:
@@ -212,6 +294,17 @@ class DiscoveryView(Vertical):
 
         text = self._filter_text.lower()
         rows_added = 0
+
+        numeric_active = any(
+            v is not None
+            for v in (self._filter_max_er, self._filter_min_aum, self._filter_min_ytd, self._filter_max_beta)
+        )
+
+        # Lazy-load cached profiles from DB when any numeric filter is active
+        if numeric_active:
+            self._ensure_profile_map()
+
+        profile_matched = 0
 
         for entry in self._universe:
             if self._filter_asset != _ALL_LABEL and entry.asset_class != self._filter_asset:
@@ -225,6 +318,24 @@ class DiscoveryView(Vertical):
             ):
                 continue
 
+            if numeric_active:
+                profile = self._profile_map.get(entry.ticker)
+                if profile is None:
+                    continue
+                if self._filter_max_er is not None:
+                    if profile.expense_ratio is None or profile.expense_ratio > self._filter_max_er:
+                        continue
+                if self._filter_min_aum is not None:
+                    if profile.total_assets is None or profile.total_assets < self._filter_min_aum * 1e9:
+                        continue
+                if self._filter_min_ytd is not None:
+                    if profile.ytd_return is None or profile.ytd_return < self._filter_min_ytd / 100:
+                        continue
+                if self._filter_max_beta is not None:
+                    if profile.beta is None or profile.beta > self._filter_max_beta:
+                        continue
+                profile_matched += 1
+
             table.add_row(
                 entry.ticker,
                 entry.fund_name[:55],
@@ -235,14 +346,33 @@ class DiscoveryView(Vertical):
             )
             rows_added += 1
 
-        self._update_count(rows_added)
+        self._update_count(rows_added, profile_matched if numeric_active else None)
 
-    def _update_count(self, n: int) -> None:
+    def _update_count(self, n: int, profile_matched: int | None = None) -> None:
         active = [
             f"[{v}]" for v in (self._filter_asset, self._filter_category, self._filter_geography) if v != _ALL_LABEL
         ]
         suffix = "  " + " ".join(active) if active else ""
-        self.query_one("#discovery-count", Static).update(f"{n:,} ETFs{suffix}")
+        profile_badge = f"  ({profile_matched} matched profile)" if profile_matched is not None else ""
+        self.query_one("#discovery-count", Static).update(f"{n:,} ETFs{suffix}{profile_badge}")
+
+    def _ensure_profile_map(self) -> None:
+        """Lazy-load all cached ETF profiles from DB into _profile_map (no network calls)."""
+        from etfray.data.market_data_service import ETFProfile
+        from etfray.db.database import get_cached_etf_profile
+
+        for entry in self._universe:
+            ticker = entry.ticker
+            if ticker in self._profile_map:
+                continue
+            row = get_cached_etf_profile(ticker)
+            if row is None:
+                continue
+            try:
+                data = json.loads(row["profile_json"])
+                self._profile_map[ticker] = ETFProfile(**data)
+            except (json.JSONDecodeError, TypeError, KeyError):
+                continue
 
     # ------------------------------------------------------------------ pill filter interaction
 
@@ -270,6 +400,8 @@ class DiscoveryView(Vertical):
             new_val = _ALL_LABEL if (value != _ALL_LABEL and self._filter_geography == value) else value
             self._set_pill_group("geo", new_val)
             self._filter_geography = new_val
+        elif dim == "toggle" and value == "filters":
+            self._toggle_filters()
 
     def _set_pill_group(self, dim: str, active_value: str) -> None:
         """Update -on class for all pills in the given dimension group."""
@@ -282,6 +414,20 @@ class DiscoveryView(Vertical):
                 else:
                     widget.remove_class("-on")
 
+    def _toggle_filters(self) -> None:
+        """Show or hide the numeric filter input row."""
+        self._filters_expanded = not self._filters_expanded
+        toggle_pill = self.query_one("#filter-toggle-pill", Static)
+        numeric_row = self.query_one("#filter-numeric-row", Horizontal)
+        if self._filters_expanded:
+            toggle_pill.update("Filters ▲")
+            toggle_pill.add_class("-on")
+            numeric_row.add_class("-visible")
+        else:
+            toggle_pill.update("Filters ▼")
+            toggle_pill.remove_class("-on")
+            numeric_row.remove_class("-visible")
+
     # ------------------------------------------------------------------ Watch button
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -293,6 +439,25 @@ class DiscoveryView(Vertical):
     def on_input_changed(self, event: Input.Changed) -> None:
         if event.input.id == "discovery-filter":
             self._filter_text = event.value.strip()
+            return
+
+        def _parse_float(val: str) -> float | None:
+            stripped = val.strip()
+            if not stripped:
+                return None
+            try:
+                return float(stripped)
+            except ValueError:
+                return None
+
+        if event.input.id == "filter-er":
+            self._filter_max_er = _parse_float(event.value)
+        elif event.input.id == "filter-aum":
+            self._filter_min_aum = _parse_float(event.value)
+        elif event.input.id == "filter-ytd":
+            self._filter_min_ytd = _parse_float(event.value)
+        elif event.input.id == "filter-beta":
+            self._filter_max_beta = _parse_float(event.value)
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         """On Enter, open the top result or fall back to an EDGAR search."""
