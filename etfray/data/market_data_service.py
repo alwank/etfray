@@ -6,9 +6,13 @@ import json
 import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
 
 from etfray.data._cache_utils import cache_is_fresh, retry_fetch  # noqa: F401
 from etfray.db.database import cache_etf_profile, get_cached_etf_profile
+
+if TYPE_CHECKING:
+    from etfray.data.edgar_service import ETFUniverseEntry
 
 PROFILE_CACHE_TTL_DAYS = 7
 SOURCE = "yahoo"
@@ -311,3 +315,115 @@ def profile_fetched_date(profile: ETFProfile | None) -> str:
         return datetime.fromisoformat(profile.fetched_at).date().isoformat()
     except (ValueError, TypeError):
         return profile.fetched_at[:10] if len(profile.fetched_at) >= 10 else profile.fetched_at
+
+
+# ---------------------------------------------------------------------------
+# Peer discovery helpers
+# ---------------------------------------------------------------------------
+
+# Maps the coarse SEC-derived category (from ETFUniverseEntry) to substrings that
+# are likely to appear inside Yahoo Finance's finer-grained category strings.
+# The goal is a broad first-pass filter, not a precise match — Yahoo's actual
+# category is verified after the profile is fetched.
+_COARSE_TO_YAHOO_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "Sector / Thematic": (
+        "sector", "technology", "tech", "health", "biotech", "energy",
+        "financial", "communication", "utilities", "consumer", "industrial",
+        "materials", "thematic", "innovation", "cyber", "clean", "defense",
+        "gaming", "water", "infrastructure", "cannabis", "esports", "cloud",
+        "robotics", "semiconductor", "internet",
+    ),
+    "Fixed Income": (
+        "bond", "treasury", "income", "fixed income", "credit", "corporate",
+        "municipal", "muni", "inflation", "tips", "yield", "duration",
+        "high yield", "floating rate", "preferred",
+    ),
+    "Broad Market": (
+        "equity", "blend", "large cap", "large-cap", "mid cap", "mid-cap",
+        "small cap", "small-cap", "total market", "s&p", "russell",
+        "growth", "value", "dividend", "market",
+    ),
+    "Factor / Smart Beta": (
+        "factor", "smart beta", "quality", "momentum", "low volatility",
+        "minimum volatility", "multi-factor", "dividend", "fundamental",
+    ),
+    "Real Estate": ("real estate", "reit",),
+    "Commodity": (
+        "commodity", "commodities", "gold", "silver", "oil", "metal",
+        "agriculture", "natural resource",
+    ),
+    "Multi-Asset": ("multi-asset", "balanced", "allocation", "mixed",),
+    "Leveraged / Inverse": ("leveraged", "inverse", "bear", "bull",),
+    "Currency": ("currency", "forex",),
+}
+
+
+def _yahoo_category_tokens(yahoo_category: str) -> set[str]:
+    """Extract meaningful tokens from a Yahoo category string for fund-name pre-filtering.
+
+    Returns lower-case tokens of length >= 4, excluding generic ETF stop-words.
+    e.g. "Health & Biotechnology ETFs" → {"health", "biotechnology"}
+    """
+    import re
+
+    _STOP = {
+        "the", "and", "or", "of", "in", "a", "an", "us", "etf", "etfs",
+        "fund", "funds", "index", "with", "for", "cap", "mid", "large",
+        "small", "high", "low", "total", "global",
+    }
+    tokens = re.split(r"[\s,/&\-]+", yahoo_category.lower())
+    return {t for t in tokens if len(t) >= 4 and t not in _STOP}
+
+
+def get_peer_candidates(
+    yahoo_category: str,
+    universe: list[ETFUniverseEntry],
+    cached_tickers: set[str],
+    *,
+    max_candidates: int = 50,
+) -> list[ETFUniverseEntry]:
+    """Return universe entries that are plausible peers for *yahoo_category* but not yet cached.
+
+    Uses a two-stage filter:
+    1. Coarse category match via keyword heuristic (SEC category → Yahoo keywords).
+    2. Fund-name keyword match — requires at least one meaningful token from the
+       Yahoo category string to appear in the candidate's fund name.
+
+    Wrong matches are tolerable — callers must verify against Yahoo's actual
+    category after fetching the profile.  Results are sorted by fund name for
+    deterministic ordering and capped at *max_candidates*.
+    """
+    ycat = yahoo_category.strip().lower()
+    if not ycat:
+        return []
+
+    matching_coarse: set[str] = set()
+    for coarse, keywords in _COARSE_TO_YAHOO_KEYWORDS.items():
+        if any(kw in ycat for kw in keywords):
+            matching_coarse.add(coarse)
+
+    if not matching_coarse:
+        # No keyword matched — fall back to everything in the universe and let
+        # Yahoo confirm category on fetch.
+        matching_coarse = set(_COARSE_TO_YAHOO_KEYWORDS.keys())
+
+    # Stage 1: coarse category filter
+    stage1 = [
+        entry
+        for entry in universe
+        if entry.category in matching_coarse and entry.ticker not in cached_tickers
+    ]
+
+    # Stage 2: fund-name keyword filter — reduces false positives from broad coarse categories
+    name_tokens = _yahoo_category_tokens(yahoo_category)
+    if name_tokens:
+        name_filtered = [
+            entry for entry in stage1
+            if any(tok in entry.fund_name.lower() for tok in name_tokens)
+        ]
+        # Fall back to stage1 if the name filter is too aggressive (< 5 results)
+        if len(name_filtered) >= 5:
+            stage1 = name_filtered
+
+    stage1.sort(key=lambda e: e.fund_name)
+    return stage1[:max_candidates]
