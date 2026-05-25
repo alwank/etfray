@@ -40,6 +40,7 @@ class ETFProfile:
     avg_volume: float | None = None
     nav_price: float | None = None
     legal_type: str = ""
+    num_holdings: int | None = None
     source: str = SOURCE
     fetched_at: str = ""
 
@@ -49,6 +50,15 @@ def _safe_float(value) -> float | None:
         return None
     try:
         return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _safe_int(value) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
     except (TypeError, ValueError):
         return None
 
@@ -247,6 +257,7 @@ def _parse_yahoo_info(ticker: str, info: dict, fetched_at: str) -> ETFProfile | 
         avg_volume=_safe_float(info.get("averageVolume")),
         nav_price=_safe_float(info.get("navPrice")),
         legal_type=str(info.get("legalType") or "").strip(),
+        num_holdings=_safe_int(info.get("numberOfHoldings")),
         source=SOURCE,
         fetched_at=fetched_at,
     )

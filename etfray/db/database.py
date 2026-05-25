@@ -450,6 +450,36 @@ def get_cached_sectors_bulk(tickers: list[str], ttl_days: int = 90) -> dict[str,
     return {row["ticker"]: row["sector"] for row in rows}
 
 
+def get_holdings_count_bulk(tickers: list[str]) -> dict[str, int]:
+    """Return {ticker: holdings_count} for all tickers that have cached holdings.
+
+    Uses SQLite's json_array_length to count rows without loading the full JSON.
+    """
+    if not tickers:
+        return {}
+    conn = get_db()
+    try:
+        placeholders = ",".join("?" * len(tickers))
+        # holdings_json is stored as a pandas DataFrame to_json() dict-of-dicts:
+        # {"col_name": {"0": val, "1": val, ...}} — count the keys of any inner object.
+        # Multiple sources may exist per ticker; take the MAX count.
+        rows = conn.execute(
+            f"SELECT h.ticker, MAX(("
+            f"  SELECT COUNT(*) FROM json_each(json_extract(h.holdings_json, '$.'||("
+            f"    SELECT key FROM json_each(h.holdings_json) LIMIT 1"
+            f"  )))"
+            f")) AS cnt "
+            f"FROM holdings_cache h "
+            f"WHERE h.ticker IN ({placeholders}) "
+            f"AND h.holdings_json IS NOT NULL "
+            f"GROUP BY h.ticker",
+            [t.upper() for t in tickers],
+        ).fetchall()
+    finally:
+        conn.close()
+    return {row["ticker"]: row["cnt"] for row in rows if row["cnt"]}
+
+
 # ETF profile cache (Yahoo Finance / yfinance)
 def cache_etf_profile(ticker: str, profile_json: str, fetched_at: str) -> None:
     conn = get_db()

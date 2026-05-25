@@ -54,7 +54,9 @@ class OverviewView(VerticalScroll):
     def load_etf(self, ticker: str) -> None:
         self.query_one("#overview-placeholder", Static).display = False
         self.query_one("#overview-open-search", Button).display = False
-        self.query_one("#overview-tabs", TabbedContent).display = True
+        tabs = self.query_one("#overview-tabs", TabbedContent)
+        tabs.display = True
+        tabs.active = "tab-summary"
         self.loading = True
         self._current_ticker = ticker
         # Show a holding message on the peers tab while _load() fetches the profile.
@@ -180,9 +182,7 @@ class OverviewView(VerticalScroll):
                 "Expense Ratio",
                 "AUM",
                 "YTD%",
-                "3Y%",
                 "Beta",
-                "Holdings",
             )
 
     def _peer_row(self, ticker_key: str, p: object, current_ticker: str) -> tuple:  # type: ignore[type-arg]
@@ -194,9 +194,8 @@ class OverviewView(VerticalScroll):
         er = fmt_expense_ratio(getattr(p, "expense_ratio", None))
         aum = fmt_dollars(p.total_assets) if getattr(p, "total_assets", None) is not None else "N/A"
         ytd = fmt_pct(p.ytd_return, signed=True) if getattr(p, "ytd_return", None) is not None else "N/A"
-        ret3y = fmt_pct(p.return_3y, signed=True) if getattr(p, "return_3y", None) is not None else "N/A"
         beta = f"{p.beta:.2f}" if getattr(p, "beta", None) is not None else "N/A"
-        return (ticker_cell, fund_name, er, aum, ytd, ret3y, beta, "N/A")
+        return (ticker_cell, fund_name, er, aum, ytd, beta)
 
     # ------------------------------------------------------------------
     # Tier-1: render cached peers
@@ -232,7 +231,8 @@ class OverviewView(VerticalScroll):
             if ticker_key not in universe_tickers:
                 continue
             try:
-                profile = ETFProfile(**json.loads(profile_json))
+                data = json.loads(profile_json)
+                profile = ETFProfile(**data)
             except Exception:
                 continue
             if (profile.category or "").strip().lower() == current_category:
@@ -241,6 +241,21 @@ class OverviewView(VerticalScroll):
         # Sort by total_assets descending (None sorts last), cap at 50.
         peers.sort(key=lambda t: (t[1].total_assets is None, -(t[1].total_assets or 0)))
         peers = peers[:50]
+
+        # Enrich num_holdings from the local holdings_cache (EDGAR N-PORT data) in one DB query.
+        # This is fast and avoids any Yahoo fetch for the count.
+        if peers:
+            from etfray.db.database import get_holdings_count_bulk
+            peer_tickers = [t for t, _ in peers]
+            holdings_counts = await to_thread(get_holdings_count_bulk, peer_tickers)
+            enriched = []
+            for t, p in peers:
+                count = holdings_counts.get(t.upper())
+                if count is not None and p.num_holdings is None:
+                    import dataclasses
+                    p = dataclasses.replace(p, num_holdings=count)
+                enriched.append((t, p))
+            peers = enriched
 
         if peers:
             self._ensure_peers_columns(table)
