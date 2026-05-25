@@ -56,7 +56,7 @@ class DocumentsView(VerticalScroll):
 
     def on_mount(self) -> None:
         table = self.query_one("#docs-table", DataTable)
-        table.add_columns("Document Type", "Form", "Filed Date", "Description", "Link")
+        table.add_columns("Document Type", "Form", "Filed Date", "Link")
         table.cursor_type = "row"
 
     def load_etf(self, ticker: str) -> None:
@@ -97,7 +97,7 @@ class DocumentsView(VerticalScroll):
             acc = f.get("accession_number", "")
             cik = f.get("cik", "") or self._cik
             link = "↗ Open" if (acc and cik) else "—"
-            table.add_row(label, form, f["filing_date"], f["description"][:40], link, key=acc or None)
+            table.add_row(label, form, f["filing_date"], link, key=acc or None)
 
         title.update(f"Documents — {ticker}  [Enter] Open in EDGAR")
         self.loading = False
