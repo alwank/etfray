@@ -86,6 +86,7 @@ class SplashScreen(Screen):
                 yield Static("etfray", id="splash-subtitle")
             with Center():
                 with Vertical(id="splash-status"):
+                    yield StatusLine("Version", id="status-version")
                     yield StatusLine("Database", id="status-db")
                     yield StatusLine("Settings", id="status-settings")
                     yield StatusLine("IBKR Connection", id="status-ibkr")
@@ -99,6 +100,23 @@ class SplashScreen(Screen):
 
     def _set_status(self, widget_id: str, state: str, detail: str = "") -> None:
         self.query_one(f"#{widget_id}", StatusLine).set_state(state, detail)
+
+    def _prompt_update(self, installed: str, latest: str) -> str | None:
+        from etfray.ui.version_update_modal import VersionUpdateModal
+
+        choice_event = threading.Event()
+        holder: dict[str, str | None] = {"result": None}
+
+        def on_done(result: str | None) -> None:
+            holder["result"] = result
+            choice_event.set()
+
+        def push_modal() -> None:
+            self.app.push_screen(VersionUpdateModal(installed, latest), callback=on_done)
+
+        self.app.call_from_thread(push_modal)
+        choice_event.wait()
+        return holder["result"]
 
     def _startup_sequence(self) -> None:
         # 1. Database init
@@ -114,7 +132,56 @@ class SplashScreen(Screen):
             self.app.call_from_thread(self._set_status, "status-db", "fail", str(e))
         sleep(0.1)
 
-        # 2. Settings validation
+        # 2. Version check (PyPI)
+        self.app.call_from_thread(self._set_status, "status-version", "running")
+        sleep(0.05)
+        try:
+            from etfray.version_check import (
+                fetch_latest_version,
+                get_skipped_version,
+                run_upgrade,
+                save_skipped_version,
+                should_prompt_update,
+            )
+
+            result = fetch_latest_version()
+            if result.error:
+                self.app.call_from_thread(
+                    self._set_status, "status-version", "warn", "check skipped"
+                )
+            elif result.update_available:
+                skipped = get_skipped_version()
+                if should_prompt_update(result.installed, result.latest, skipped):
+                    self.app.call_from_thread(
+                        self._set_status,
+                        "status-version",
+                        "warn",
+                        f"v{result.installed} → v{result.latest}",
+                    )
+                    choice = self._prompt_update(result.installed, result.latest)
+                    if choice == "update":
+                        ok, msg = run_upgrade()
+                        self.app.call_from_thread(self.app.notify, msg, severity="information" if ok else "error")
+                        self.app.call_from_thread(self.app.exit, 0)
+                        return
+                    if choice == "skip" and result.latest:
+                        save_skipped_version(result.latest)
+                    self.app.call_from_thread(
+                        self._set_status, "status-version", "warn", f"v{result.installed} (skipped)"
+                    )
+                else:
+                    self.app.call_from_thread(
+                        self._set_status, "status-version", "ok", f"v{result.installed}"
+                    )
+            else:
+                self.app.call_from_thread(
+                    self._set_status, "status-version", "ok", f"v{result.installed}"
+                )
+        except Exception as e:
+            self.app.call_from_thread(self._set_status, "status-version", "warn", str(e)[:40])
+        sleep(0.1)
+
+        # 3. Settings validation
         self.app.call_from_thread(self._set_status, "status-settings", "running")
         sleep(0.1)
         settings = None
@@ -135,7 +202,7 @@ class SplashScreen(Screen):
             self.app.call_from_thread(self._set_status, "status-settings", "fail", str(e))
         sleep(0.1)
 
-        # 3. IBKR connection
+        # 4. IBKR connection
         if settings and 1 <= settings.ibkr_port <= 65535:
             endpoint = f"{settings.ibkr_host}:{settings.ibkr_port}"
             self.app.call_from_thread(self._set_status, "status-ibkr", "running", endpoint)
@@ -153,7 +220,7 @@ class SplashScreen(Screen):
         else:
             self.app.call_from_thread(self._set_status, "status-ibkr", "fail", "Invalid IBKR port in settings")
 
-        # 4. Cache warmup (watchlist count only — avoid blocking UI thread)
+        # 5. Cache warmup (watchlist count only — avoid blocking UI thread)
         self.app.call_from_thread(self._set_status, "status-cache", "running")
         cache_detail = "ready"
         try:
