@@ -139,14 +139,14 @@ class HoldingsView(VerticalScroll):
         sort_col = "pct_value" if "pct_value" in df.columns else "value_usd"
         df = df.sort_values(sort_col, ascending=False)
 
-        # Asset type filter
+        # Asset type filter (Select.NULL / BLANK = no selection after set_options)
         asset_val = self.query_one("#filter-asset", Select).value
-        if asset_val and asset_val != Select.BLANK and "asset_category" in df.columns:
+        if isinstance(asset_val, str) and asset_val and "asset_category" in df.columns:
             df = df[df["asset_category"].astype(str) == asset_val]
 
         # Country filter
         country_val = self.query_one("#filter-country", Select).value
-        if country_val and country_val != Select.BLANK and "investment_country" in df.columns:
+        if isinstance(country_val, str) and country_val and "investment_country" in df.columns:
             df = df[df["investment_country"].astype(str) == country_val]
 
         # Weight threshold
